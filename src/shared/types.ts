@@ -1,0 +1,93 @@
+// Category types for zero-based budgeting
+export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT'
+
+export interface Category {
+  id: string
+  name: string
+  type: CategoryType
+  rolloverEnabled: boolean
+  sortOrder: number
+  icon?: string
+}
+
+export interface CategoryAllocation {
+  categoryId: string
+  planned: number
+  spent: number
+  carryover: number // Amount carried from previous month
+}
+
+export interface Budget {
+  id: string
+  month: string // Format: YYYY-MM
+  incomeTotal: number
+  allocations: CategoryAllocation[]
+  isBalanced: boolean // true when income - total planned = 0
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Transaction {
+  id: string
+  budgetMonth: string // Format: YYYY-MM
+  categoryId: string
+  amount: number
+  description: string
+  date: string // ISO date string
+  createdAt: string
+}
+
+export interface AppSettings {
+  theme: 'light' | 'dark' | 'system'
+  currency: string
+  currencySymbol: string
+}
+
+export interface StoreSchema {
+  categories: Category[]
+  budgets: Budget[]
+  transactions: Transaction[]
+  settings: AppSettings
+}
+
+// Default categories following EveryDollar / zero-based budgeting principles
+export const DEFAULT_CATEGORIES: Category[] = [
+  { id: 'giving', name: 'Giving', type: 'GIVING', rolloverEnabled: false, sortOrder: 0 },
+  {
+    id: 'emergency-fund',
+    name: 'Emergency Fund',
+    type: 'SAVINGS',
+    rolloverEnabled: true,
+    sortOrder: 1
+  },
+  { id: 'savings', name: 'Savings', type: 'SAVINGS', rolloverEnabled: true, sortOrder: 2 },
+  { id: 'housing', name: 'Housing', type: 'NEEDS', rolloverEnabled: false, sortOrder: 3 },
+  { id: 'utilities', name: 'Utilities', type: 'NEEDS', rolloverEnabled: false, sortOrder: 4 },
+  { id: 'groceries', name: 'Groceries', type: 'NEEDS', rolloverEnabled: false, sortOrder: 5 },
+  {
+    id: 'transportation',
+    name: 'Transportation',
+    type: 'NEEDS',
+    rolloverEnabled: false,
+    sortOrder: 6
+  },
+  { id: 'insurance', name: 'Insurance', type: 'NEEDS', rolloverEnabled: false, sortOrder: 7 },
+  { id: 'health', name: 'Health', type: 'NEEDS', rolloverEnabled: false, sortOrder: 8 },
+  { id: 'personal', name: 'Personal/Fun', type: 'WANTS', rolloverEnabled: false, sortOrder: 9 },
+  { id: 'dining-out', name: 'Dining Out', type: 'WANTS', rolloverEnabled: false, sortOrder: 10 },
+  {
+    id: 'entertainment',
+    name: 'Entertainment',
+    type: 'WANTS',
+    rolloverEnabled: false,
+    sortOrder: 11
+  },
+  { id: 'clothing', name: 'Clothing', type: 'WANTS', rolloverEnabled: true, sortOrder: 12 },
+  { id: 'debt', name: 'Debt Payments', type: 'DEBT', rolloverEnabled: false, sortOrder: 13 }
+]
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  theme: 'system',
+  currency: 'USD',
+  currencySymbol: '$'
+}
