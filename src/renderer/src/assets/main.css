@@ -66,6 +66,29 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  
+  /* Smooth theme transitions */
+  html {
+    color-scheme: light dark;
+  }
+  
+  html.light {
+    color-scheme: light;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+  }
+  
+  /* Global smooth transitions for theme changes */
+  html, body, .bg-background, .bg-card, .bg-muted {
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  }
+  
+  /* Reduce layout shifts */
+  .transition-smooth {
+    transition: all 0.2s ease-in-out;
+  }
 }
 
 @layer utilities {
@@ -117,4 +140,35 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Collapsible animations */
+@keyframes collapse-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes collapse-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+.animate-collapse-down {
+  animation: collapse-down 0.2s ease-out;
+}
+
+.animate-collapse-up {
+  animation: collapse-up 0.2s ease-out;
 }

@@ -76,6 +76,13 @@ export function BudgetView({
   const [incomeEdit, setIncomeEdit] = useState('')
   const [savingIncome, setSavingIncome] = useState(false)
 
+  // Sync incomeEdit with budget - must be before any early returns
+  useEffect(() => {
+    if (budget) {
+      setIncomeEdit(budget.incomeTotal.toString())
+    }
+  }, [budget])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -181,12 +188,6 @@ export function BudgetView({
       </>
     )
   }
-
-  useEffect(() => {
-    if (budget) {
-      setIncomeEdit(budget.incomeTotal.toString())
-    }
-  }, [budget])
 
   // Calculate totals
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
