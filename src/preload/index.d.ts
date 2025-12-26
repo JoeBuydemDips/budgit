@@ -4,7 +4,8 @@ import type {
   AppSettings,
   Transaction,
   Budget,
-  CategoryAllocation
+  CategoryAllocation,
+  IncomeSource
 } from '../shared/types'
 
 interface BudgetAPI {
@@ -30,7 +31,11 @@ interface BudgetAPI {
   createBudget: (month: string, incomeTotal: number, copyFromMonth?: string) => Promise<Budget>
   updateBudget: (
     month: string,
-    updates: { incomeTotal?: number; allocations?: CategoryAllocation[] }
+    updates: {
+      incomeTotal?: number
+      allocations?: CategoryAllocation[]
+      incomeSources?: IncomeSource[]
+    }
   ) => Promise<Budget | null>
   deleteBudget: (month: string) => Promise<boolean>
   getPreviousMonth: (month: string) => Promise<string>

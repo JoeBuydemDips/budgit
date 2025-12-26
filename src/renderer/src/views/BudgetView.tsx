@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Copy, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Plus, Copy, Sparkles, AlertCircle, CheckCircle2, Trash2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,10 +12,19 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
-import type { Budget, Category, CategoryAllocation } from '../../../shared/types'
+import { AddTransactionDialog } from '@/components/AddTransactionDialog'
+import type { Budget, Category, CategoryAllocation, CategoryType, Transaction } from '../../../shared/types'
 
 interface BudgetViewProps {
   budget:
@@ -29,6 +38,9 @@ interface BudgetViewProps {
   onCreateBudget: (incomeTotal: number, copyFromMonth?: string) => Promise<void>
   onUpdateIncome: (incomeTotal: number) => Promise<void>
   onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
+  onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
+  onDeleteCategory: (id: string) => Promise<void>
+  onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
 const CATEGORY_TYPE_LABELS = {
@@ -48,9 +60,17 @@ export function BudgetView({
   currentMonth,
   onCreateBudget,
   onUpdateIncome,
-  onUpdateAllocation
+  onUpdateAllocation,
+  onAddCategory,
+  onDeleteCategory,
+  onAddTransaction
 }: BudgetViewProps) {
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false)
+  const [showAddTransactionDialog, setShowAddTransactionDialog] = useState(false)
+  const [selectedCategoryForTransaction, setSelectedCategoryForTransaction] = useState<string>('')
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryType, setNewCategoryType] = useState<CategoryType>('NEEDS')
   const [newIncome, setNewIncome] = useState('')
   const [creating, setCreating] = useState(false)
   const [incomeEdit, setIncomeEdit] = useState('')
@@ -289,22 +309,112 @@ export function BudgetView({
       {/* Category Groups */}
       {groupedCategories.map((group) => (
         <Card key={group.type}>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-lg">{group.label}</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-muted-foreground hover:text-primary"
+              onClick={() => {
+                setNewCategoryType(group.type as CategoryType)
+                setShowAddCategoryDialog(true)
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add {group.label}
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            {group.categories.length === 0 && (
+              <div className="text-center py-4 text-sm text-muted-foreground italic">
+                No categories yet. Click "Add {group.label}" to start.
+              </div>
+            )}
             {group.categories.map((cat, index) => (
               <div key={cat.id}>
                 {index > 0 && <Separator className="mb-4" />}
                 <CategoryRow
                   category={cat}
                   onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
+                  onDelete={() => onDeleteCategory(cat.id)}
+                  onAddTransaction={() => {
+                    setSelectedCategoryForTransaction(cat.id)
+                    setShowAddTransactionDialog(true)
+                  }}
                 />
               </div>
             ))}
           </CardContent>
         </Card>
       ))}
+
+      <AddTransactionDialog
+        open={showAddTransactionDialog}
+        onOpenChange={setShowAddTransactionDialog}
+        categories={categories}
+        currentMonth={currentMonth}
+        defaultCategoryId={selectedCategoryForTransaction}
+        onAddTransaction={onAddTransaction}
+      />
+
+      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Category</DialogTitle>
+            <DialogDescription>
+              Create a new category to track your spending.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Category Name</Label>
+              <Input
+                placeholder="e.g., Groceries, Rent, Netflix"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category Type</Label>
+              <Select
+                value={newCategoryType}
+                onValueChange={(val) => setNewCategoryType(val as CategoryType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_TYPE_ORDER.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {CATEGORY_TYPE_LABELS[type as keyof typeof CATEGORY_TYPE_LABELS]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddCategoryDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!newCategoryName}
+              onClick={async () => {
+                await onAddCategory({
+                  name: newCategoryName,
+                  type: newCategoryType,
+                  rolloverEnabled: false,
+                  sortOrder: 0
+                })
+                setShowAddCategoryDialog(false)
+                setNewCategoryName('')
+              }}
+            >
+              Add Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -319,9 +429,11 @@ interface CategoryRowProps {
     rolloverEnabled: boolean
   }
   onUpdatePlanned: (planned: number) => void
+  onDelete: () => void
+  onAddTransaction: () => void
 }
 
-function CategoryRow({ category, onUpdatePlanned }: CategoryRowProps) {
+function CategoryRow({ category, onUpdatePlanned, onDelete, onAddTransaction }: CategoryRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(category.planned.toString())
 
@@ -339,7 +451,7 @@ function CategoryRow({ category, onUpdatePlanned }: CategoryRowProps) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="group space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="font-medium">{category.name}</span>
@@ -348,34 +460,56 @@ function CategoryRow({ category, onUpdatePlanned }: CategoryRowProps) {
               (+{formatCurrency(category.carryover)} rollover)
             </span>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-right">
-            <span className={cn('text-sm', isOverBudget && 'text-red-600')}>
-              {formatCurrency(category.spent)}
-            </span>
-            <span className="text-muted-foreground"> / </span>
-            {isEditing ? (
-              <Input
-                type="number"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={handleSave}
-                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                className="inline-block w-24 h-7 text-right"
-                autoFocus
-              />
-            ) : (
-              <button
-                onClick={() => {
-                  setEditValue(category.planned.toString())
-                  setIsEditing(true)
-                }}
-                className="font-medium hover:underline"
+          <div className="text-right flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className={cn('text-sm', isOverBudget && 'text-red-600')}>
+                {formatCurrency(category.spent)}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={onAddTransaction}
+                title="Add Transaction"
               >
-                {formatCurrency(category.planned)}
-              </button>
-            )}
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+            <span className="text-muted-foreground"> / </span>
+            <div className="relative group/input">
+              {isEditing ? (
+                <Input
+                  type="number"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSave}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                  className="w-24 h-8 text-right pr-2"
+                  autoFocus
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditValue(category.planned.toString())
+                    setIsEditing(true)
+                  }}
+                  className="flex items-center justify-end gap-2 w-24 h-8 px-2 rounded hover:bg-muted transition-colors text-right font-medium"
+                >
+                  {formatCurrency(category.planned)}
+                  <Pencil className="h-3 w-3 opacity-0 group-hover/input:opacity-50" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

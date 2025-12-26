@@ -8,7 +8,8 @@ import {
   AppSettings,
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
-  CategoryAllocation
+  CategoryAllocation,
+  IncomeSource
 } from '../shared/types'
 
 // Create the store with schema defaults
@@ -143,6 +144,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     id: uuidv4(),
     month,
     incomeTotal,
+    incomeSources: [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }],
     allocations,
     isBalanced: incomeTotal === totalPlanned,
     createdAt: new Date().toISOString(),
@@ -155,7 +157,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
 
 export function updateBudget(
   month: string,
-  updates: Partial<Pick<Budget, 'incomeTotal' | 'allocations'>>
+  updates: Partial<Pick<Budget, 'incomeTotal' | 'allocations' | 'incomeSources'>>
 ): Budget | null {
   const budgets = store.get('budgets')
   const index = budgets.findIndex((b) => b.month === month)
@@ -163,12 +165,14 @@ export function updateBudget(
 
   const current = budgets[index]
   const newAllocations = updates.allocations || current.allocations
+  const newIncomeSources = updates.incomeSources || current.incomeSources || []
   const newIncome = updates.incomeTotal !== undefined ? updates.incomeTotal : current.incomeTotal
   const totalPlanned = newAllocations.reduce((sum, a) => sum + a.planned, 0)
 
   const updated: Budget = {
     ...current,
     incomeTotal: newIncome,
+    incomeSources: newIncomeSources,
     allocations: newAllocations,
     isBalanced: newIncome === totalPlanned,
     updatedAt: new Date().toISOString()

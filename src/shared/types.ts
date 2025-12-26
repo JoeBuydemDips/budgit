@@ -1,6 +1,15 @@
 // Category types for zero-based budgeting
 export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT'
 
+// Color mappings for category types
+export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
+  GIVING: '#10B981', // Emerald/Green
+  SAVINGS: '#3B82F6', // Blue
+  NEEDS: '#8B5CF6', // Purple
+  WANTS: '#F59E0B', // Amber
+  DEBT: '#EF4444' // Red
+}
+
 export interface Category {
   id: string
   name: string
@@ -17,10 +26,19 @@ export interface CategoryAllocation {
   carryover: number // Amount carried from previous month
 }
 
+// Income source for multiple income tracking
+export interface IncomeSource {
+  id: string
+  name: string
+  planned: number
+  received: number
+}
+
 export interface Budget {
   id: string
   month: string // Format: YYYY-MM
   incomeTotal: number
+  incomeSources: IncomeSource[] // Multiple income sources
   allocations: CategoryAllocation[]
   isBalanced: boolean // true when income - total planned = 0
   createdAt: string

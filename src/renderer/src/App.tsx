@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Header } from '@/components/Header'
 import { Navigation, ViewType } from '@/components/Navigation'
 import { Dashboard } from '@/views/Dashboard'
-import { BudgetView } from '@/views/BudgetView'
+import { BudgetView } from '@/views/BudgetViewNew'
 import { TransactionsView } from '@/views/TransactionsView'
+import { InsightsView } from '@/views/InsightsView'
 import { SettingsView } from '@/views/SettingsView'
 import {
   useCurrentMonth,
@@ -20,7 +21,7 @@ function App(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
-  const { categories, refresh: refreshCategories } = useCategories()
+  const { categories, refresh: refreshCategories, addCategory, deleteCategory } = useCategories()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
@@ -28,7 +29,8 @@ function App(): React.JSX.Element {
     refresh: refreshBudget,
     createBudget,
     updateIncome,
-    updateAllocation
+    updateAllocation,
+    updateIncomeSources
   } = useBudget(currentMonth)
   const {
     transactions,
@@ -121,11 +123,17 @@ function App(): React.JSX.Element {
                 <BudgetView
                   budget={budget}
                   categories={categories}
+                  transactions={transactions}
                   loading={budgetLoading}
                   currentMonth={currentMonth}
                   onCreateBudget={createBudget}
                   onUpdateIncome={updateIncome}
                   onUpdateAllocation={updateAllocation}
+                  onUpdateIncomeSources={updateIncomeSources}
+                  onAddCategory={addCategory}
+                  onDeleteCategory={deleteCategory}
+                  onAddTransaction={handleAddTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
                 />
               )}
               {currentView === 'transactions' && (
@@ -137,6 +145,9 @@ function App(): React.JSX.Element {
                   onUpdateTransaction={handleUpdateTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
                 />
+              )}
+              {currentView === 'insights' && (
+                <InsightsView budgets={budgets} categories={categories} />
               )}
               {currentView === 'settings' && (
                 <SettingsView categories={categories} onRefreshCategories={refreshCategories} />

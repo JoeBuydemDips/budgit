@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +24,7 @@ interface AddTransactionDialogProps {
   onOpenChange: (open: boolean) => void
   categories: Category[]
   currentMonth: string
+  defaultCategoryId?: string
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
@@ -32,13 +33,23 @@ export function AddTransactionDialog({
   onOpenChange,
   categories,
   currentMonth,
+  defaultCategoryId,
   onAddTransaction
 }: AddTransactionDialogProps) {
   const [amount, setAmount] = useState('')
-  const [categoryId, setCategoryId] = useState('')
+  const [categoryId, setCategoryId] = useState(defaultCategoryId || '')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setCategoryId(defaultCategoryId || '')
+      setAmount('')
+      setDescription('')
+      setDate(new Date().toISOString().split('T')[0])
+    }
+  }, [open, defaultCategoryId])
 
   const handleSave = async () => {
     if (!amount || !categoryId) return

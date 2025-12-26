@@ -1,9 +1,9 @@
-import { LayoutDashboard, PiggyBank, Receipt, Settings, PanelLeftOpen, PanelLeftClose, Wallet } from 'lucide-react'
+import { LayoutDashboard, PiggyBank, Receipt, Settings, PanelLeftOpen, PanelLeftClose, Wallet, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-export type ViewType = 'dashboard' | 'budget' | 'transactions' | 'settings'
+export type ViewType = 'dashboard' | 'budget' | 'transactions' | 'insights' | 'settings'
 
 interface NavigationProps {
   currentView: ViewType
@@ -21,6 +21,7 @@ const navItems: {
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'budget', label: 'Budget', icon: PiggyBank },
   { id: 'transactions', label: 'Transactions', icon: Receipt },
+  { id: 'insights', label: 'Insights', icon: TrendingUp },
   { id: 'settings', label: 'Settings', icon: Settings }
 ]
 

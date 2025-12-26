@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Budget, Category, Transaction, CategoryAllocation } from '../../../shared/types'
+import type {
+  Budget,
+  Category,
+  Transaction,
+  CategoryAllocation,
+  IncomeSource
+} from '../../../shared/types'
 
 export function useBudgetIndex() {
   const [budgets, setBudgets] = useState<Budget[]>([])
@@ -63,7 +69,23 @@ export function useCategories() {
     refresh()
   }, [refresh])
 
-  return { categories, loading, refresh }
+  const addCategory = useCallback(
+    async (category: Omit<Category, 'id'>) => {
+      await window.api.addCategory(category)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  const deleteCategory = useCallback(
+    async (id: string) => {
+      await window.api.deleteCategory(id)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  return { categories, loading, refresh, addCategory, deleteCategory }
 }
 
 // Hook to manage budget for a specific month
@@ -123,6 +145,15 @@ export function useBudget(month: string) {
     [month, refresh]
   )
 
+  const updateIncomeSources = useCallback(
+    async (incomeSources: IncomeSource[]) => {
+      const newTotal = incomeSources.reduce((sum, s) => sum + s.planned, 0)
+      await window.api.updateBudget(month, { incomeSources, incomeTotal: newTotal })
+      await refresh()
+    },
+    [month, refresh]
+  )
+
   return {
     budget,
     loading,
@@ -130,7 +161,8 @@ export function useBudget(month: string) {
     createBudget,
     updateIncome,
     updateAllocation,
-    updateAllocations
+    updateAllocations,
+    updateIncomeSources
   }
 }
 
