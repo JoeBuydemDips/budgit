@@ -447,6 +447,9 @@ export function BudgetView({
                         category={cat}
                         isSelected={selectedCategory === cat.id}
                         onSelect={() => setSelectedCategory(cat.id)}
+                        onUpdateName={async (name) => {
+                          await window.api.updateCategory(cat.id, { name })
+                        }}
                         onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
                         onDelete={() => onDeleteCategory(cat.id)}
                       />
@@ -826,6 +829,7 @@ interface CategoryRowProps {
   }
   isSelected: boolean
   onSelect: () => void
+  onUpdateName: (name: string) => void
   onUpdatePlanned: (planned: number) => void
   onDelete: () => void
 }
@@ -834,11 +838,24 @@ function CategoryRow({
   category,
   isSelected,
   onSelect,
+  onUpdateName,
   onUpdatePlanned,
   onDelete
 }: CategoryRowProps): React.JSX.Element {
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(category.name)
   const [editingPlanned, setEditingPlanned] = useState(false)
   const [plannedValue, setPlannedValue] = useState(category.planned.toString())
+
+  const handleSaveName = (): void => {
+    const trimmed = nameValue.trim()
+    if (trimmed && trimmed !== category.name) {
+      onUpdateName(trimmed)
+    } else {
+      setNameValue(category.name)
+    }
+    setEditingName(false)
+  }
 
   const handleSavePlanned = (): void => {
     const value = parseFloat(plannedValue) || 0
@@ -857,7 +874,36 @@ function CategoryRow({
       onClick={onSelect}
     >
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <span className="font-medium truncate">{category.name}</span>
+        {editingName ? (
+          <Input
+            type="text"
+            value={nameValue}
+            onChange={(e) => setNameValue(e.target.value)}
+            onBlur={handleSaveName}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') handleSaveName()
+              if (e.key === 'Escape') {
+                setNameValue(category.name)
+                setEditingName(false)
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="h-8 max-w-[200px]"
+            autoFocus
+          />
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setNameValue(category.name)
+              setEditingName(true)
+            }}
+            className="font-medium truncate hover:bg-muted px-2 py-1 rounded transition-colors text-left"
+          >
+            {category.name}
+          </button>
+        )}
         {category.carryover > 0 && (
           <Badge variant="outline" className="text-xs">
             +{formatCurrency(category.carryover)}
