@@ -106,8 +106,25 @@ function App(): React.JSX.Element {
             onOpenBudgets={() => setShowBudgetManager(true)}
           />
 
-          <main className="flex-1 overflow-y-auto scroll-smooth">
-            <div className="container mx-auto max-w-7xl p-4 md:p-8 pb-24 md:pb-8 space-y-8">
+          <main className="flex-1 overflow-hidden">
+            {currentView === 'budget' ? (
+              <BudgetView
+                budget={budget}
+                categories={categories}
+                transactions={transactions}
+                loading={budgetLoading}
+                currentMonth={currentMonth}
+                onCreateBudget={createBudget}
+                onUpdateIncome={updateIncome}
+                onUpdateAllocation={updateAllocation}
+                onUpdateIncomeSources={updateIncomeSources}
+                onAddCategory={addCategory}
+                onDeleteCategory={deleteCategory}
+                onAddTransaction={handleAddTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
+              />
+            ) : (
+            <div className="container mx-auto max-w-7xl p-4 md:p-8 pb-24 md:pb-8 space-y-8 overflow-y-auto h-full">
               {currentView === 'dashboard' && (
                 <Dashboard
                   budget={budget}
@@ -117,23 +134,6 @@ function App(): React.JSX.Element {
                   currentMonth={currentMonth}
                   onCreateBudget={createBudget}
                   onAddTransaction={handleAddTransaction}
-                />
-              )}
-              {currentView === 'budget' && (
-                <BudgetView
-                  budget={budget}
-                  categories={categories}
-                  transactions={transactions}
-                  loading={budgetLoading}
-                  currentMonth={currentMonth}
-                  onCreateBudget={createBudget}
-                  onUpdateIncome={updateIncome}
-                  onUpdateAllocation={updateAllocation}
-                  onUpdateIncomeSources={updateIncomeSources}
-                  onAddCategory={addCategory}
-                  onDeleteCategory={deleteCategory}
-                  onAddTransaction={handleAddTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
                 />
               )}
               {currentView === 'transactions' && (
@@ -153,6 +153,7 @@ function App(): React.JSX.Element {
                 <SettingsView categories={categories} onRefreshCategories={refreshCategories} />
               )}
             </div>
+            )}
           </main>
         </div>
       </div>

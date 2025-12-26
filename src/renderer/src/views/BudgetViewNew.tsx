@@ -298,33 +298,43 @@ export function BudgetView({
   }
 
   return (
-    <div className="flex gap-0 h-full -m-4 md:-m-8">
+    <div className="flex gap-0 h-full">
       {/* Left Column - Budget Editor */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
-        {/* Header with Left to Budget */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{formatMonth(parseMonthKey(currentMonth))}</h1>
-            <p
-              className={cn(
-                'text-lg font-semibold',
-                leftToBudget === 0 && 'text-green-600',
-                leftToBudget > 0 && 'text-amber-600',
-                leftToBudget < 0 && 'text-red-600'
-              )}
-            >
-              {formatCurrency(Math.abs(leftToBudget))}{' '}
-              {leftToBudget === 0
-                ? '- Fully Budgeted!'
-                : leftToBudget > 0
-                  ? 'left to budget'
-                  : 'over budget'}
-            </p>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Sticky Header with Left to Budget */}
+        <div className="sticky top-0 z-10 bg-background border-b px-4 md:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">{formatMonth(parseMonthKey(currentMonth))}</h1>
+              <p
+                className={cn(
+                  'text-lg font-semibold',
+                  leftToBudget === 0 && 'text-green-600',
+                  leftToBudget > 0 && 'text-amber-600',
+                  leftToBudget < 0 && 'text-red-600'
+                )}
+              >
+                {formatCurrency(Math.abs(leftToBudget))}{' '}
+                {leftToBudget === 0
+                  ? '- Fully Budgeted!'
+                  : leftToBudget > 0
+                    ? 'left to budget'
+                    : 'over budget'}
+              </p>
+            </div>
+            {/* Column Headers */}
+            <div className="flex items-center text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="w-28 text-right pr-2">Planned</div>
+              <div className="w-28 text-right">Spent</div>
+              <div className="w-12" />
+            </div>
           </div>
         </div>
 
-        {/* Income Section */}
-        <Card>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-4 space-y-6">
+          {/* Income Section */}
+          <Card>
           <Collapsible open={expandedGroups['INCOME']} onOpenChange={() => toggleGroup('INCOME')}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
@@ -342,13 +352,11 @@ export function BudgetView({
                       </CardTitle>
                     </div>
                   </div>
-                  <div className="flex items-center text-sm">
-                    <div className="w-28 text-right">
-                      <p className="text-muted-foreground text-xs uppercase tracking-wide">Planned</p>
+                  <div className="flex items-center">
+                    <div className="w-28 text-right pr-2">
                       <p className="font-semibold">{formatCurrency(budget.incomeTotal)}</p>
                     </div>
                     <div className="w-28 text-right">
-                      <p className="text-muted-foreground text-xs uppercase tracking-wide">Received</p>
                       <p className="font-semibold">{formatCurrency(totalReceived)}</p>
                     </div>
                     <div className="w-12" />
@@ -407,13 +415,11 @@ export function BudgetView({
                         </CardTitle>
                       </div>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <div className="w-28 text-right">
-                        <p className="text-muted-foreground text-xs uppercase tracking-wide">Planned</p>
+                    <div className="flex items-center">
+                      <div className="w-28 text-right pr-2">
                         <p className="font-semibold">{formatCurrency(group.planned)}</p>
                       </div>
                       <div className="w-28 text-right">
-                        <p className="text-muted-foreground text-xs uppercase tracking-wide">Spent</p>
                         <p
                           className={cn(
                             'font-semibold',
@@ -463,6 +469,7 @@ export function BudgetView({
             </Collapsible>
           </Card>
         ))}
+        </div>
       </div>
 
       {/* Right Column - Detail Panel or Summary */}
@@ -753,7 +760,7 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
         )}
       </div>
       <div className="flex items-center">
-        <div className="w-28 text-right">
+        <div className="w-28 text-right pr-2">
           {editingPlanned ? (
             <Input
               type="number"
@@ -858,7 +865,7 @@ function CategoryRow({
         )}
       </div>
       <div className="flex items-center">
-        <div className="w-28 text-right">
+        <div className="w-28 text-right pr-2">
           {editingPlanned ? (
             <Input
               type="number"
