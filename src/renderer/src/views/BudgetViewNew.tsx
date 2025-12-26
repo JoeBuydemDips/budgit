@@ -435,7 +435,7 @@ export function BudgetView({
                 </CardHeader>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <CardContent className="pt-0 space-y-1">
+                <CardContent className="pt-0 pb-3 px-0 space-y-0">
                   {group.categories.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-4 text-center italic">
                       No categories yet
@@ -455,7 +455,7 @@ export function BudgetView({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-primary hover:text-primary/80"
+                    className="text-primary hover:text-primary/80 ml-6 mt-2"
                     onClick={() => {
                       setNewCategoryType(group.type)
                       setShowAddCategoryDialog(true)
@@ -851,8 +851,8 @@ function CategoryRow({
   return (
     <div
       className={cn(
-        'group flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors border-b border-border/50 last:border-b-0 cursor-pointer',
-        isSelected ? 'bg-primary/10 border-primary/20' : 'hover:bg-muted/50'
+        'group flex items-center justify-between py-3 px-6 transition-colors border-b border-border/30 last:border-b-0 cursor-pointer',
+        isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'
       )}
       onClick={onSelect}
     >
