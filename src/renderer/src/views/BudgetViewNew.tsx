@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronUp, Trash2, Sparkles, Copy } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, Trash2, Sparkles, Copy, RefreshCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -451,6 +451,9 @@ export function BudgetView({
                           await window.api.updateCategory(cat.id, { name })
                         }}
                         onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
+                        onToggleRollover={async (enabled) => {
+                          await window.api.updateCategory(cat.id, { rolloverEnabled: enabled })
+                        }}
                         onDelete={() => onDeleteCategory(cat.id)}
                       />
                     ))
@@ -726,10 +729,22 @@ interface IncomeRowProps {
 }
 
 function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(source.name)
   const [editingPlanned, setEditingPlanned] = useState(false)
   const [editingReceived, setEditingReceived] = useState(false)
   const [plannedValue, setPlannedValue] = useState(source.planned.toString())
   const [receivedValue, setReceivedValue] = useState(source.received.toString())
+
+  const handleSaveName = () => {
+    const trimmed = nameValue.trim()
+    if (trimmed && trimmed !== source.name) {
+      onUpdate({ name: trimmed })
+    } else {
+      setNameValue(source.name)
+    }
+    setEditingName(false)
+  }
 
   const handleSavePlanned = () => {
     const value = parseFloat(plannedValue) || 0
@@ -750,7 +765,33 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
   return (
     <div className="group flex items-center justify-between py-2.5 px-3 hover:bg-muted/50 rounded-lg transition-colors border-b border-border/50 last:border-b-0">
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <span className="font-medium truncate">{source.name}</span>
+        {editingName ? (
+          <Input
+            type="text"
+            value={nameValue}
+            onChange={(e) => setNameValue(e.target.value)}
+            onBlur={handleSaveName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveName()
+              if (e.key === 'Escape') {
+                setNameValue(source.name)
+                setEditingName(false)
+              }
+            }}
+            className="h-8 max-w-[200px]"
+            autoFocus
+          />
+        ) : (
+          <button
+            onClick={() => {
+              setNameValue(source.name)
+              setEditingName(true)
+            }}
+            className="font-medium truncate hover:bg-muted px-2 py-1 rounded transition-colors text-left"
+          >
+            {source.name}
+          </button>
+        )}
         {canDelete && (
           <Button
             variant="ghost"
@@ -831,6 +872,7 @@ interface CategoryRowProps {
   onSelect: () => void
   onUpdateName: (name: string) => void
   onUpdatePlanned: (planned: number) => void
+  onToggleRollover: (enabled: boolean) => void
   onDelete: () => void
 }
 
@@ -840,6 +882,7 @@ function CategoryRow({
   onSelect,
   onUpdateName,
   onUpdatePlanned,
+  onToggleRollover,
   onDelete
 }: CategoryRowProps): React.JSX.Element {
   const [editingName, setEditingName] = useState(false)
@@ -909,6 +952,21 @@ function CategoryRow({
             +{formatCurrency(category.carryover)}
           </Badge>
         )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleRollover(!category.rolloverEnabled)
+          }}
+          className={cn(
+            'p-1 rounded transition-colors',
+            category.rolloverEnabled
+              ? 'text-primary hover:text-primary/80'
+              : 'text-muted-foreground/40 hover:text-muted-foreground'
+          )}
+          title={category.rolloverEnabled ? 'Rollover enabled - click to disable' : 'Click to enable rollover'}
+        >
+          <RefreshCcw className="h-3.5 w-3.5" />
+        </button>
       </div>
       <div className="flex items-center">
         <div className="w-28 text-right pr-2">
