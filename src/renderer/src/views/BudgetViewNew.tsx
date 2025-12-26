@@ -322,8 +322,8 @@ export function BudgetView({
                     : 'over budget'}
               </p>
             </div>
-            {/* Column Headers */}
-            <div className="flex items-center text-xs text-muted-foreground uppercase tracking-wide">
+            {/* Column Headers - offset to align with card content */}
+            <div className="flex items-center text-xs text-muted-foreground uppercase tracking-wide pr-7">
               <div className="w-28 text-right pr-2">Planned</div>
               <div className="w-28 text-right">Spent</div>
               <div className="w-12" />

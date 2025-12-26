@@ -26,6 +26,7 @@ const budgetApi = {
   // Budgets
   getBudget: (month: string): Promise<Budget | null> => ipcRenderer.invoke('budget:get', month),
   getBudgets: (): Promise<Budget[]> => ipcRenderer.invoke('budget:list'),
+  getBudgetsWithSpent: (): Promise<Budget[]> => ipcRenderer.invoke('budget:listWithSpent'),
   getBudgetWithSpent: (
     month: string
   ): Promise<

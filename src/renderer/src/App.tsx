@@ -43,6 +43,7 @@ function App(): React.JSX.Element {
   const handleAddTransaction = async (transaction: Parameters<typeof addTransaction>[0]) => {
     await addTransaction(transaction)
     await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
   }
 
   const handleUpdateTransaction = async (
@@ -51,11 +52,13 @@ function App(): React.JSX.Element {
   ) => {
     await updateTransaction(id, updates)
     await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
   }
 
   const handleDeleteTransaction = async (id: string) => {
     await deleteTransaction(id)
     await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
   }
 
   const handleSelectMonth = (month: string) => {
@@ -74,10 +77,10 @@ function App(): React.JSX.Element {
 
   const handleDeleteBudget = async (month: string) => {
     await window.api.deleteBudget(month)
-    const next = await window.api.getBudgets()
     await refreshBudgets()
 
     if (month === currentMonth) {
+      const next = await window.api.getBudgets()
       const fallback = next.sort((a, b) => b.month.localeCompare(a.month))[0]
       if (fallback) {
         setCurrentMonth(fallback.month)
@@ -85,6 +88,8 @@ function App(): React.JSX.Element {
         setCurrentMonth(getCurrentMonthKey())
       }
     }
+    // Refresh current budget view in case deleted budget was affecting it
+    await refreshBudget()
   }
 
   return (

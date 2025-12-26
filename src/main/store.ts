@@ -316,6 +316,28 @@ export function getBudgetWithSpent(month: string):
   }
 }
 
+// Get all budgets with computed spent values from transactions
+export function getBudgetsWithSpent(): Budget[] {
+  const budgets = getBudgets()
+  const transactions = store.get('transactions')
+
+  return budgets.map((budget) => {
+    const monthTransactions = transactions.filter((t) => t.budgetMonth === budget.month)
+    const spentByCategory: Record<string, number> = {}
+    monthTransactions.forEach((t) => {
+      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
+    })
+
+    return {
+      ...budget,
+      allocations: budget.allocations.map((a) => ({
+        ...a,
+        spent: spentByCategory[a.categoryId] || 0
+      }))
+    }
+  })
+}
+
 export function getPreviousMonth(month: string): string {
   const [year, monthNum] = month.split('-').map(Number)
   const date = new Date(year, monthNum - 2, 1)

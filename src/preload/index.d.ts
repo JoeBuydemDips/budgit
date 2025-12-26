@@ -22,6 +22,7 @@ interface BudgetAPI {
   // Budgets
   getBudget: (month: string) => Promise<Budget | null>
   getBudgets: () => Promise<Budget[]>
+  getBudgetsWithSpent: () => Promise<Budget[]>
   getBudgetWithSpent: (month: string) => Promise<
     | (Budget & {
         computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }

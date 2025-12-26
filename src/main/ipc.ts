@@ -11,6 +11,7 @@ import {
   updateBudget,
   deleteBudget,
   getBudgets,
+  getBudgetsWithSpent,
   getTransactionsByMonth,
   addTransaction,
   updateTransaction,
@@ -55,6 +56,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('budget:list', () => {
     return getBudgets()
+  })
+
+  ipcMain.handle('budget:listWithSpent', () => {
+    return getBudgetsWithSpent()
   })
 
   ipcMain.handle('budget:getWithSpent', (_, month: string) => {

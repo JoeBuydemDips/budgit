@@ -13,7 +13,8 @@ export function useBudgetIndex() {
 
   const refresh = useCallback(async () => {
     setLoading(true)
-    const list = await window.api.getBudgets()
+    // Use getBudgetsWithSpent to get computed spent values from transactions
+    const list = await window.api.getBudgetsWithSpent()
     setBudgets(list.sort((a, b) => b.month.localeCompare(a.month)))
     setLoading(false)
   }, [])

@@ -11,6 +11,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import type { Budget } from '../../../shared/types'
 
@@ -61,7 +68,9 @@ export function BudgetManagerDialog({
   const handleCreate = async () => {
     if (!monthInput || !incomeInput) return
     setCreating(true)
-    await onCreate(monthInput, parseFloat(incomeInput), copyFrom || undefined)
+    // "scratch" means no copy, empty string also means no copy
+    const copyFromMonth = copyFrom && copyFrom !== 'scratch' ? copyFrom : undefined
+    await onCreate(monthInput, parseFloat(incomeInput), copyFromMonth)
     setCreating(false)
     setCopyFrom('')
     onOpenChange(false)
@@ -85,7 +94,10 @@ export function BudgetManagerDialog({
                 <p className="text-sm text-muted-foreground">Active Month</p>
                 <p className="text-xl font-semibold">{formatMonth(parseMonthKey(currentMonth))}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => onSelectMonth(currentMonth)}>
+              <Button variant="outline" size="sm" onClick={() => {
+                onSelectMonth(currentMonth)
+                onOpenChange(false)
+              }}>
                 Open
               </Button>
             </div>
@@ -112,30 +124,34 @@ export function BudgetManagerDialog({
                     </span>
                     <Input
                       id="income"
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="0.00"
                       className="pl-7"
                       value={incomeInput}
-                      onChange={(e) => setIncomeInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '')
+                        setIncomeInput(val)
+                      }}
                     />
                   </div>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="copy-from">Copy from</Label>
-                <select
-                  id="copy-from"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={copyFrom}
-                  onChange={(e) => setCopyFrom(e.target.value)}
-                >
-                  <option value="">Start from scratch</option>
-                  {sortedBudgets.map((b) => (
-                    <option key={b.id} value={b.month}>
-                      {formatMonth(parseMonthKey(b.month))}
-                    </option>
-                  ))}
-                </select>
+                <Label>Copy from</Label>
+                <Select value={copyFrom} onValueChange={setCopyFrom}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets.map((b) => (
+                      <SelectItem key={b.id} value={b.month}>
+                        {formatMonth(parseMonthKey(b.month))}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button
                 className="w-full"
