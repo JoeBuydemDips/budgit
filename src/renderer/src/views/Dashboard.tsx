@@ -43,42 +43,66 @@ export function Dashboard({
   // No budget - show welcome screen
   if (!budget) {
     return (
-      <div className="max-w-md mx-auto space-y-6 text-center">
-        <div className="space-y-2">
-          <Wallet className="h-16 w-16 mx-auto text-primary" />
-          <h1 className="text-3xl font-bold">Welcome to Budgit</h1>
-          <p className="text-muted-foreground">
-            Take control of your family's finances with zero-based budgeting
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="relative">
+          <div className="absolute -inset-4 bg-primary/20 rounded-full blur-xl animate-pulse" />
+          <div className="relative bg-background p-6 rounded-full border shadow-sm">
+            <Wallet className="h-12 w-12 text-primary" />
+          </div>
+        </div>
+        
+        <div className="text-center space-y-3 max-w-lg">
+          <h1 className="text-4xl font-bold tracking-tight">Welcome to Budgit</h1>
+          <p className="text-lg text-muted-foreground">
+            Take control of your finances with zero-based budgeting. 
+            Give every dollar a job and watch your savings grow.
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Get Started</CardTitle>
+        <Card className="w-full max-w-md border-muted/60 shadow-lg">
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="text-xl">Start Your Journey</CardTitle>
             <CardDescription>
-              Create your first budget for {formatMonth(parseMonthKey(currentMonth))}
+              Create a budget for <span className="font-medium text-foreground">{formatMonth(parseMonthKey(currentMonth))}</span>
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <Button
               size="lg"
-              className="w-full"
+              className="w-full text-base h-12 shadow-md hover:shadow-lg transition-all"
               onClick={async () => {
                 // Quick start with placeholder income
                 await onCreateBudget(0)
               }}
             >
-              Create Budget
+              Create My First Budget
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </CardContent>
         </Card>
 
-        <div className="text-sm text-muted-foreground space-y-2">
-          <p>
-            <strong>Zero-Based Budgeting:</strong>
-          </p>
-          <p>Give every dollar a job. Your income minus expenses should equal zero.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center max-w-3xl w-full pt-8">
+          <div className="space-y-2">
+            <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-primary" />
+            </div>
+            <h3 className="font-semibold">Track Income</h3>
+            <p className="text-sm text-muted-foreground">Log all your income sources in one place.</p>
+          </div>
+          <div className="space-y-2">
+            <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <TrendingDown className="h-5 w-5 text-primary" />
+            </div>
+            <h3 className="font-semibold">Manage Expenses</h3>
+            <p className="text-sm text-muted-foreground">Categorize and track every penny you spend.</p>
+          </div>
+          <div className="space-y-2">
+            <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Wallet className="h-5 w-5 text-primary" />
+            </div>
+            <h3 className="font-semibold">Zero-Based</h3>
+            <p className="text-sm text-muted-foreground">Assign every dollar a specific purpose.</p>
+          </div>
         </div>
       </div>
     )

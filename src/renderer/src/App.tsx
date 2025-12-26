@@ -86,7 +86,7 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 text-foreground">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <div className="flex h-screen overflow-hidden">
         <Navigation
           currentView={currentView}
@@ -96,7 +96,7 @@ function App(): React.JSX.Element {
           onOpenBudgets={() => setShowBudgetManager(true)}
         />
 
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col relative">
           <Header
             currentMonth={currentMonth}
             onPreviousMonth={goToPreviousMonth}
@@ -104,8 +104,8 @@ function App(): React.JSX.Element {
             onOpenBudgets={() => setShowBudgetManager(true)}
           />
 
-          <main className="flex-1 overflow-y-auto px-4 pb-24 pt-20 md:px-8 md:pb-8 md:pt-6">
-            <div className="mx-auto max-w-6xl space-y-6">
+          <main className="flex-1 overflow-y-auto scroll-smooth">
+            <div className="container mx-auto max-w-7xl p-4 md:p-8 pb-24 md:pb-8 space-y-8">
               {currentView === 'dashboard' && (
                 <Dashboard
                   budget={budget}

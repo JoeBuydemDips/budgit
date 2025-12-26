@@ -44,9 +44,6 @@ export function Header({ currentMonth, onPreviousMonth, onNextMonth, onOpenBudge
 
           {/* Right side actions */}
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="hidden md:inline-flex" onClick={onOpenBudgets}>
-              Manage budgets
-            </Button>
             <ThemeToggle />
           </div>
         </div>
