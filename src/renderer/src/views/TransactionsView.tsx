@@ -342,12 +342,15 @@ function TransactionDialog({
               </span>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 className="pl-7"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9.]/g, '')
+                  setAmount(val)
+                }}
               />
             </div>
           </div>

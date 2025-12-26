@@ -182,11 +182,15 @@ export function BudgetView({
                   </span>
                   <Input
                     id="income"
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0.00"
                     className="pl-7 h-12 text-lg"
                     value={newIncome}
-                    onChange={(e) => setNewIncome(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.]/g, '')
+                      setNewIncome(val)
+                    }}
                   />
                 </div>
               </div>
@@ -365,7 +369,7 @@ export function BudgetView({
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0 space-y-3">
+              <CardContent className="pt-0 pb-3 px-0 space-y-0">
                 {incomeSources.map((source) => (
                   <IncomeRow
                     key={source.id}
@@ -378,7 +382,7 @@ export function BudgetView({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-primary hover:text-primary/80"
+                  className="text-primary hover:text-primary/80 ml-6 mt-2"
                   onClick={() => setShowAddIncomeDialog(true)}
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -593,11 +597,15 @@ export function BudgetView({
                   $
                 </span>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   className="pl-7"
                   value={newIncome}
-                  onChange={(e) => setNewIncome(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9.]/g, '')
+                    setNewIncome(val)
+                  }}
                 />
               </div>
             </div>
@@ -632,9 +640,13 @@ export function BudgetView({
                   $
                 </span>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={quickAddAmount}
-                  onChange={(e) => setQuickAddAmount(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9.]/g, '')
+                    setQuickAddAmount(val)
+                  }}
                   placeholder="0.00"
                   className="text-center text-4xl font-bold h-16 pl-8 pr-4 w-48 border-primary/50 focus:border-primary"
                   autoFocus
@@ -763,7 +775,7 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
   }
 
   return (
-    <div className="group flex items-center justify-between py-2.5 px-3 hover:bg-muted/50 rounded-lg transition-colors border-b border-border/50 last:border-b-0">
+    <div className="group flex items-center justify-between py-3 px-6 hover:bg-muted/50 transition-colors border-b border-border/30 last:border-b-0">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {editingName ? (
           <Input
@@ -807,9 +819,13 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
         <div className="w-28 text-right pr-2">
           {editingPlanned ? (
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={plannedValue}
-              onChange={(e) => setPlannedValue(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.]/g, '')
+                setPlannedValue(val)
+              }}
               onBlur={handleSavePlanned}
               onKeyDown={(e) => e.key === 'Enter' && handleSavePlanned()}
               className="h-8 text-right"
@@ -830,9 +846,13 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
         <div className="w-28 text-right">
           {editingReceived ? (
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={receivedValue}
-              onChange={(e) => setReceivedValue(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.]/g, '')
+                setReceivedValue(val)
+              }}
               onBlur={handleSaveReceived}
               onKeyDown={(e) => e.key === 'Enter' && handleSaveReceived()}
               className="h-8 text-right"
@@ -972,9 +992,13 @@ function CategoryRow({
         <div className="w-28 text-right pr-2">
           {editingPlanned ? (
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={plannedValue}
-              onChange={(e) => setPlannedValue(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.]/g, '')
+                setPlannedValue(val)
+              }}
               onBlur={handleSavePlanned}
               onKeyDown={(e) => {
                 e.stopPropagation()

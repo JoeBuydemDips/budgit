@@ -210,9 +210,13 @@ export function CategoryDetailPanel({
                   $
                 </span>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9.]/g, '')
+                    setAmount(val)
+                  }}
                   placeholder="0.00"
                   className="text-center text-4xl font-bold h-16 pl-8 pr-4 w-48 border-primary/50 focus:border-primary"
                   autoFocus
