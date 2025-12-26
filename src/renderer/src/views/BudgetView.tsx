@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Copy, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,6 +53,8 @@ export function BudgetView({
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
   const [newIncome, setNewIncome] = useState('')
   const [creating, setCreating] = useState(false)
+  const [incomeEdit, setIncomeEdit] = useState('')
+  const [savingIncome, setSavingIncome] = useState(false)
 
   if (loading) {
     return (
@@ -160,6 +162,12 @@ export function BudgetView({
     )
   }
 
+  useEffect(() => {
+    if (budget) {
+      setIncomeEdit(budget.incomeTotal.toString())
+    }
+  }, [budget])
+
   // Calculate totals
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
   const leftToBudget = budget.incomeTotal - totalPlanned
@@ -182,20 +190,48 @@ export function BudgetView({
   })).filter((g) => g.categories.length > 0)
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Income and Left to Budget Summary */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
+          <div className="grid gap-6 md:grid-cols-[1.2fr_1fr_1fr]">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Income</p>
-              <p className="text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</p>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    $
+                  </span>
+                  <Input
+                    value={incomeEdit}
+                    onChange={(e) => setIncomeEdit(e.target.value)}
+                    className="pl-7"
+                    type="number"
+                    step="0.01"
+                  />
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (!incomeEdit) return
+                    setSavingIncome(true)
+                    await onUpdateIncome(parseFloat(incomeEdit))
+                    setSavingIncome(false)
+                  }}
+                  disabled={!incomeEdit || savingIncome}
+                >
+                  {savingIncome ? 'Saving…' : 'Update income'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Keep your monthly income up to date to balance the budget.
+              </p>
             </div>
-            <div>
+
+            <div className="text-center">
               <p className="text-sm text-muted-foreground">Planned</p>
               <p className="text-2xl font-bold">{formatCurrency(totalPlanned)}</p>
             </div>
-            <div>
+            <div className="text-center">
               <p className="text-sm text-muted-foreground">Left to Budget</p>
               <p
                 className={cn(

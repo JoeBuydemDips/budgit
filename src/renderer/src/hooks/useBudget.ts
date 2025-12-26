@@ -1,6 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Budget, Category, Transaction, CategoryAllocation } from '../../../shared/types'
 
+export function useBudgetIndex() {
+  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const list = await window.api.getBudgets()
+    setBudgets(list.sort((a, b) => b.month.localeCompare(a.month)))
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return { budgets, loading, refresh }
+}
+
 // Get current month key
 export function getCurrentMonthKey(): string {
   const now = new Date()

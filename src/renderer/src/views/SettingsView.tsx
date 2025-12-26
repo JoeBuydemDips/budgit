@@ -43,7 +43,7 @@ export function SettingsView({ categories, onRefreshCategories }: SettingsViewPr
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Customize your budget experience</p>

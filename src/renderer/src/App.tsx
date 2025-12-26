@@ -5,12 +5,23 @@ import { Dashboard } from '@/views/Dashboard'
 import { BudgetView } from '@/views/BudgetView'
 import { TransactionsView } from '@/views/TransactionsView'
 import { SettingsView } from '@/views/SettingsView'
-import { useCurrentMonth, useCategories, useBudget, useTransactions } from '@/hooks/useBudget'
+import {
+  useCurrentMonth,
+  useCategories,
+  useBudget,
+  useTransactions,
+  useBudgetIndex,
+  getCurrentMonthKey
+} from '@/hooks/useBudget'
+import { BudgetManagerDialog } from '@/components/BudgetManagerDialog'
 
 function App(): React.JSX.Element {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard')
-  const { currentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showBudgetManager, setShowBudgetManager] = useState(false)
+  const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
   const { categories, refresh: refreshCategories } = useCategories()
+  const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
     loading: budgetLoading,
@@ -21,7 +32,6 @@ function App(): React.JSX.Element {
   } = useBudget(currentMonth)
   const {
     transactions,
-    refresh: refreshTransactions,
     addTransaction,
     updateTransaction,
     deleteTransaction
@@ -46,54 +56,106 @@ function App(): React.JSX.Element {
     await refreshBudget()
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header
-        currentMonth={currentMonth}
-        onPreviousMonth={goToPreviousMonth}
-        onNextMonth={goToNextMonth}
-      />
-      <Navigation currentView={currentView} onViewChange={setCurrentView} />
+  const handleSelectMonth = (month: string) => {
+    setCurrentMonth(month)
+  }
 
-      <main className="pt-14 pb-20 md:pt-28 md:pb-4">
-        <div className="container mx-auto px-4 py-6">
-          {currentView === 'dashboard' && (
-            <Dashboard
-              budget={budget}
-              categories={categories}
-              transactions={transactions}
-              loading={budgetLoading}
-              currentMonth={currentMonth}
-              onCreateBudget={createBudget}
-              onAddTransaction={handleAddTransaction}
-            />
-          )}
-          {currentView === 'budget' && (
-            <BudgetView
-              budget={budget}
-              categories={categories}
-              loading={budgetLoading}
-              currentMonth={currentMonth}
-              onCreateBudget={createBudget}
-              onUpdateIncome={updateIncome}
-              onUpdateAllocation={updateAllocation}
-            />
-          )}
-          {currentView === 'transactions' && (
-            <TransactionsView
-              transactions={transactions}
-              categories={categories}
-              currentMonth={currentMonth}
-              onAddTransaction={handleAddTransaction}
-              onUpdateTransaction={handleUpdateTransaction}
-              onDeleteTransaction={handleDeleteTransaction}
-            />
-          )}
-          {currentView === 'settings' && (
-            <SettingsView categories={categories} onRefreshCategories={refreshCategories} />
-          )}
+  const handleCreateBudgetForMonth = async (
+    month: string,
+    incomeTotal: number,
+    copyFromMonth?: string
+  ) => {
+    await window.api.createBudget(month, incomeTotal, copyFromMonth)
+    await refreshBudgets()
+    setCurrentMonth(month)
+  }
+
+  const handleDeleteBudget = async (month: string) => {
+    await window.api.deleteBudget(month)
+    const next = await window.api.getBudgets()
+    await refreshBudgets()
+
+    if (month === currentMonth) {
+      const fallback = next.sort((a, b) => b.month.localeCompare(a.month))[0]
+      if (fallback) {
+        setCurrentMonth(fallback.month)
+      } else {
+        setCurrentMonth(getCurrentMonthKey())
+      }
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 text-foreground">
+      <div className="flex h-screen overflow-hidden">
+        <Navigation
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          onOpenBudgets={() => setShowBudgetManager(true)}
+        />
+
+        <div className="flex flex-1 flex-col">
+          <Header
+            currentMonth={currentMonth}
+            onPreviousMonth={goToPreviousMonth}
+            onNextMonth={goToNextMonth}
+            onOpenBudgets={() => setShowBudgetManager(true)}
+          />
+
+          <main className="flex-1 overflow-y-auto px-4 pb-24 pt-20 md:px-8 md:pb-8 md:pt-6">
+            <div className="mx-auto max-w-6xl space-y-6">
+              {currentView === 'dashboard' && (
+                <Dashboard
+                  budget={budget}
+                  categories={categories}
+                  transactions={transactions}
+                  loading={budgetLoading}
+                  currentMonth={currentMonth}
+                  onCreateBudget={createBudget}
+                  onAddTransaction={handleAddTransaction}
+                />
+              )}
+              {currentView === 'budget' && (
+                <BudgetView
+                  budget={budget}
+                  categories={categories}
+                  loading={budgetLoading}
+                  currentMonth={currentMonth}
+                  onCreateBudget={createBudget}
+                  onUpdateIncome={updateIncome}
+                  onUpdateAllocation={updateAllocation}
+                />
+              )}
+              {currentView === 'transactions' && (
+                <TransactionsView
+                  transactions={transactions}
+                  categories={categories}
+                  currentMonth={currentMonth}
+                  onAddTransaction={handleAddTransaction}
+                  onUpdateTransaction={handleUpdateTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+              )}
+              {currentView === 'settings' && (
+                <SettingsView categories={categories} onRefreshCategories={refreshCategories} />
+              )}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
+
+      <BudgetManagerDialog
+        open={showBudgetManager}
+        onOpenChange={setShowBudgetManager}
+        budgets={budgets}
+        loading={budgetsLoading}
+        currentMonth={currentMonth}
+        onSelectMonth={handleSelectMonth}
+        onCreate={handleCreateBudgetForMonth}
+        onDelete={handleDeleteBudget}
+      />
     </div>
   )
 }
