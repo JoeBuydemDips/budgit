@@ -137,9 +137,20 @@ export function useBudget(month: string) {
   const updateAllocation = useCallback(
     async (categoryId: string, planned: number) => {
       if (!budget) return
-      const newAllocations = budget.allocations.map((a) =>
-        a.categoryId === categoryId ? { ...a, planned } : a
-      )
+      const existingAllocation = budget.allocations.find((a) => a.categoryId === categoryId)
+      let newAllocations
+      if (existingAllocation) {
+        // Update existing allocation
+        newAllocations = budget.allocations.map((a) =>
+          a.categoryId === categoryId ? { ...a, planned } : a
+        )
+      } else {
+        // Create new allocation for this category
+        newAllocations = [
+          ...budget.allocations,
+          { categoryId, planned, spent: 0, carryover: 0 }
+        ]
+      }
       await window.api.updateBudget(month, { allocations: newAllocations })
       await refresh()
     },
