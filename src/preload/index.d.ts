@@ -65,6 +65,12 @@ interface BudgetAPI {
     error?: string
     canceled?: boolean
   }>
+  exportCategoriesCSV: () => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }>
   importBudgetsCSV: (options?: { targetMonth?: string }) => Promise<{
     success: boolean
     imported: number
@@ -76,6 +82,13 @@ interface BudgetAPI {
     success: boolean
     imported: number
     skipped: number
+    errors: string[]
+    canceled?: boolean
+  }>
+  importCategoriesCSV: (options?: { mode?: 'merge' | 'replace' }) => Promise<{
+    success: boolean
+    imported: number
+    updated: number
     errors: string[]
     canceled?: boolean
   }>

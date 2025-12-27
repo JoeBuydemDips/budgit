@@ -79,6 +79,12 @@ const budgetApi = {
     error?: string
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:exportTransactions', options),
+  exportCategoriesCSV: (): Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:exportCategories'),
   importBudgetsCSV: (options?: {
     targetMonth?: string
   }): Promise<{
@@ -96,7 +102,16 @@ const budgetApi = {
     skipped: number
     errors: string[]
     canceled?: boolean
-  }> => ipcRenderer.invoke('csv:importTransactions', options)
+  }> => ipcRenderer.invoke('csv:importTransactions', options),
+  importCategoriesCSV: (options?: {
+    mode?: 'merge' | 'replace'
+  }): Promise<{
+    success: boolean
+    imported: number
+    updated: number
+    errors: string[]
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:importCategories', options)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

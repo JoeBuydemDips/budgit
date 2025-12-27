@@ -1,4 +1,4 @@
-import { Budget, Transaction, Category } from '../shared/types'
+import { Budget, Transaction, Category, CategoryType } from '../shared/types'
 
 // CSV column headers for exports
 export const BUDGET_CSV_HEADERS = [
@@ -20,6 +20,14 @@ export const TRANSACTION_CSV_HEADERS = [
   'description',
   'date',
   'createdAt'
+]
+
+export const CATEGORY_CSV_HEADERS = [
+  'id',
+  'name',
+  'type',
+  'rolloverEnabled',
+  'sortOrder'
 ]
 
 // Escape CSV field values
@@ -84,6 +92,24 @@ export function generateBudgetsCSV(budgets: Budget[], categories: Category[]): s
       ]
       lines.push(row.map(escapeCSVField).join(','))
     }
+  }
+
+  return lines.join('\n')
+}
+
+// Generate CSV content for categories
+export function generateCategoriesCSV(categories: Category[]): string {
+  const lines: string[] = [CATEGORY_CSV_HEADERS.join(',')]
+
+  for (const cat of categories) {
+    const row = [
+      cat.id,
+      cat.name,
+      cat.type,
+      cat.rolloverEnabled ? 'true' : 'false',
+      cat.sortOrder
+    ]
+    lines.push(row.map(escapeCSVField).join(','))
   }
 
   return lines.join('\n')
@@ -308,4 +334,100 @@ export function parseTransactionsCSV(csvContent: string): ParseTransactionsResul
   }
 
   return { transactions, errors }
+}
+
+// Parsed category from CSV
+export interface ParsedCategory {
+  id: string
+  name: string
+  type: CategoryType
+  rolloverEnabled: boolean
+  sortOrder: number
+}
+
+export interface ParseCategoriesResult {
+  categories: ParsedCategory[]
+  errors: ParseError[]
+}
+
+const VALID_CATEGORY_TYPES: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'WANTS', 'DEBT']
+
+// Parse CSV content for categories
+export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
+  const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
+  const errors: ParseError[] = []
+  const categories: ParsedCategory[] = []
+
+  if (lines.length === 0) {
+    return { categories: [], errors: [{ row: 0, field: '', message: 'Empty CSV file' }] }
+  }
+
+  // Parse header
+  const headers = parseCSVLine(lines[0])
+  const idIdx = headers.findIndex((h) => h.toLowerCase() === 'id')
+  const nameIdx = headers.findIndex((h) => h.toLowerCase() === 'name')
+  const typeIdx = headers.findIndex((h) => h.toLowerCase() === 'type')
+  const rolloverIdx = headers.findIndex((h) => h.toLowerCase() === 'rolloverenabled')
+  const sortOrderIdx = headers.findIndex((h) => h.toLowerCase() === 'sortorder')
+
+  // Validate required headers
+  if (idIdx === -1) {
+    errors.push({ row: 1, field: 'id', message: 'Missing required column: id' })
+  }
+  if (nameIdx === -1) {
+    errors.push({ row: 1, field: 'name', message: 'Missing required column: name' })
+  }
+  if (typeIdx === -1) {
+    errors.push({ row: 1, field: 'type', message: 'Missing required column: type' })
+  }
+
+  if (errors.length > 0) {
+    return { categories: [], errors }
+  }
+
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i])
+    const rowNum = i + 1
+
+    const id = values[idIdx]
+    if (!id) {
+      errors.push({ row: rowNum, field: 'id', message: 'Missing id' })
+      continue
+    }
+
+    const name = values[nameIdx]
+    if (!name) {
+      errors.push({ row: rowNum, field: 'name', message: 'Missing name' })
+      continue
+    }
+
+    const typeValue = values[typeIdx]?.toUpperCase() as CategoryType
+    if (!VALID_CATEGORY_TYPES.includes(typeValue)) {
+      errors.push({
+        row: rowNum,
+        field: 'type',
+        message: `Invalid type: ${typeValue}. Must be one of: ${VALID_CATEGORY_TYPES.join(', ')}`
+      })
+      continue
+    }
+
+    const rolloverEnabled = rolloverIdx !== -1
+      ? values[rolloverIdx]?.toLowerCase() === 'true'
+      : false
+
+    const sortOrder = sortOrderIdx !== -1
+      ? parseInt(values[sortOrderIdx], 10)
+      : i - 1
+
+    categories.push({
+      id,
+      name,
+      type: typeValue,
+      rolloverEnabled,
+      sortOrder: isNaN(sortOrder) ? i - 1 : sortOrder
+    })
+  }
+
+  return { categories, errors }
 }

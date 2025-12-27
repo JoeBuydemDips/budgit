@@ -26,13 +26,17 @@ import {
   getNextMonth,
   importBudgets,
   importTransactions,
-  ImportResult
+  importCategories,
+  ImportResult,
+  ImportCategoriesResult
 } from './store'
 import {
   generateBudgetsCSV,
   generateTransactionsCSV,
+  generateCategoriesCSV,
   parseBudgetsCSV,
-  parseTransactionsCSV
+  parseTransactionsCSV,
+  parseCategoriesCSV
 } from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
 
@@ -273,6 +277,71 @@ export function registerIpcHandlers(): void {
         return importTransactions(parsed.transactions, options?.targetMonth)
       } catch (error) {
         return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+      }
+    }
+  )
+
+  // Export categories
+  ipcMain.handle('csv:exportCategories', async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (!window) return { success: false, error: 'No active window' }
+
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export Categories',
+      defaultPath: 'budgit-categories.csv',
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+
+    try {
+      const categories = getCategories()
+      const csvContent = generateCategoriesCSV(categories)
+      await writeFile(result.filePath, csvContent, 'utf-8')
+      return { success: true, filePath: result.filePath }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  // Import categories
+  ipcMain.handle(
+    'csv:importCategories',
+    async (
+      _,
+      options?: { mode?: 'merge' | 'replace' }
+    ): Promise<ImportCategoriesResult & { canceled?: boolean }> => {
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, imported: 0, updated: 0, errors: ['No active window'] }
+
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Import Categories',
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+        properties: ['openFile']
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, imported: 0, updated: 0, errors: [], canceled: true }
+      }
+
+      try {
+        const csvContent = await readFile(result.filePaths[0], 'utf-8')
+        const parsed = parseCategoriesCSV(csvContent)
+
+        if (parsed.errors.length > 0) {
+          return {
+            success: false,
+            imported: 0,
+            updated: 0,
+            errors: parsed.errors.map((e) => `Row ${e.row}: ${e.message}`)
+          }
+        }
+
+        return importCategories(parsed.categories, options?.mode || 'merge')
+      } catch (error) {
+        return { success: false, imported: 0, updated: 0, errors: [String(error)] }
       }
     }
   )

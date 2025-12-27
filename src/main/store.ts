@@ -80,6 +80,82 @@ export function reorderCategories(categoryIds: string[]): void {
   store.set('categories', updated)
 }
 
+export interface ImportCategoriesResult {
+  success: boolean
+  imported: number
+  updated: number
+  errors: string[]
+}
+
+export interface ImportCategoryData {
+  id: string
+  name: string
+  type: Category['type']
+  rolloverEnabled: boolean
+  sortOrder: number
+}
+
+export function importCategories(
+  categoriesToImport: ImportCategoryData[],
+  mode: 'merge' | 'replace' = 'merge'
+): ImportCategoriesResult {
+  const existingCategories = store.get('categories')
+  const existingIds = new Set(existingCategories.map((c) => c.id))
+  
+  const errors: string[] = []
+  let imported = 0
+  let updated = 0
+
+  if (mode === 'replace') {
+    // Replace all categories
+    const newCategories: Category[] = categoriesToImport.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      rolloverEnabled: c.rolloverEnabled,
+      sortOrder: c.sortOrder
+    }))
+    store.set('categories', newCategories)
+    imported = newCategories.length
+  } else {
+    // Merge - update existing, add new
+    const categoryMap = new Map(existingCategories.map((c) => [c.id, c]))
+    
+    for (const cat of categoriesToImport) {
+      if (existingIds.has(cat.id)) {
+        // Update existing
+        categoryMap.set(cat.id, {
+          id: cat.id,
+          name: cat.name,
+          type: cat.type,
+          rolloverEnabled: cat.rolloverEnabled,
+          sortOrder: cat.sortOrder
+        })
+        updated++
+      } else {
+        // Add new
+        categoryMap.set(cat.id, {
+          id: cat.id,
+          name: cat.name,
+          type: cat.type,
+          rolloverEnabled: cat.rolloverEnabled,
+          sortOrder: cat.sortOrder
+        })
+        imported++
+      }
+    }
+    
+    store.set('categories', Array.from(categoryMap.values()))
+  }
+
+  return {
+    success: errors.length === 0,
+    imported,
+    updated,
+    errors
+  }
+}
+
 // ============== Budgets ==============
 export function getBudgets(): Budget[] {
   return store.get('budgets')

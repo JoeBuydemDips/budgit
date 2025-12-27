@@ -240,6 +240,42 @@ export function SettingsView({
                 <Download className="h-4 w-4 mr-2" />
                 Export Transactions
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                disabled={isProcessing}
+                onClick={async () => {
+                  setIsProcessing(true)
+                  setImportExportFeedback(null)
+                  try {
+                    const result = await window.api.exportCategoriesCSV()
+                    if (result.canceled) {
+                      // User canceled, no feedback needed
+                    } else if (result.success) {
+                      setImportExportFeedback({
+                        type: 'success',
+                        message: 'Categories exported successfully!'
+                      })
+                    } else {
+                      setImportExportFeedback({
+                        type: 'error',
+                        message: result.error || 'Export failed'
+                      })
+                    }
+                  } catch (error) {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message: String(error)
+                    })
+                  } finally {
+                    setIsProcessing(false)
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Categories
+              </Button>
             </div>
           </div>
 
@@ -249,7 +285,7 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Import Data</Label>
             <p className="text-sm text-muted-foreground">
-              Import budgets or transactions from CSV files. Duplicate transactions will be skipped.
+              Import budgets, transactions, or categories from CSV files. Duplicate transactions will be skipped.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
@@ -277,6 +313,43 @@ export function SettingsView({
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Import Transactions
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                disabled={isProcessing}
+                onClick={async () => {
+                  setIsProcessing(true)
+                  setImportExportFeedback(null)
+                  try {
+                    const result = await window.api.importCategoriesCSV({ mode: 'merge' })
+                    if (result.canceled) {
+                      // User canceled, no feedback needed
+                    } else if (result.success) {
+                      await onRefreshCategories()
+                      setImportExportFeedback({
+                        type: 'success',
+                        message: `Categories imported: ${result.imported} new, ${result.updated} updated`
+                      })
+                    } else {
+                      setImportExportFeedback({
+                        type: 'error',
+                        message: result.errors.join(', ') || 'Import failed'
+                      })
+                    }
+                  } catch (error) {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message: String(error)
+                    })
+                  } finally {
+                    setIsProcessing(false)
+                  }
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Categories
               </Button>
             </div>
           </div>
