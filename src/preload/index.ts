@@ -22,6 +22,8 @@ const budgetApi = {
   updateCategory: (id: string, updates: Partial<Category>): Promise<Category | null> =>
     ipcRenderer.invoke('categories:update', id, updates),
   deleteCategory: (id: string): Promise<boolean> => ipcRenderer.invoke('categories:delete', id),
+  reorderCategories: (categoryIds: string[]): Promise<void> =>
+    ipcRenderer.invoke('categories:reorder', categoryIds),
 
   // Budgets
   getBudget: (month: string): Promise<Budget | null> => ipcRenderer.invoke('budget:get', month),
@@ -56,7 +58,60 @@ const budgetApi = {
     id: string,
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ): Promise<Transaction | null> => ipcRenderer.invoke('transactions:update', id, updates),
-  deleteTransaction: (id: string): Promise<boolean> => ipcRenderer.invoke('transactions:delete', id)
+  deleteTransaction: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('transactions:delete', id),
+
+  // CSV Import/Export
+  exportBudgetsCSV: (options?: {
+    months?: string[]
+  }): Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:exportBudgets', options),
+  exportTransactionsCSV: (options?: {
+    startDate?: string
+    endDate?: string
+  }): Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:exportTransactions', options),
+  exportCategoriesCSV: (): Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:exportCategories'),
+  importBudgetsCSV: (options?: {
+    targetMonth?: string
+  }): Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:importBudgets', options),
+  importTransactionsCSV: (options?: {
+    targetMonth?: string
+  }): Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:importTransactions', options),
+  importCategoriesCSV: (options?: {
+    mode?: 'merge' | 'replace'
+  }): Promise<{
+    success: boolean
+    imported: number
+    updated: number
+    errors: string[]
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:importCategories', options)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

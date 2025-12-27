@@ -21,7 +21,7 @@ function App(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
-  const { categories, refresh: refreshCategories, addCategory, deleteCategory } = useCategories()
+  const { categories, refresh: refreshCategories, addCategory, deleteCategory, reorderCategories } = useCategories()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
@@ -58,6 +58,17 @@ function App(): React.JSX.Element {
   const handleDeleteTransaction = async (id: string) => {
     await deleteTransaction(id)
     await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
+  }
+
+  // Wrap budget update functions to also refresh the budgets index for Insights
+  const handleUpdateIncomeSources = async (incomeSources: Parameters<typeof updateIncomeSources>[0]) => {
+    await updateIncomeSources(incomeSources)
+    await refreshBudgets() // Keep insights in sync
+  }
+
+  const handleUpdateAllocation = async (categoryId: string, planned: number) => {
+    await updateAllocation(categoryId, planned)
     await refreshBudgets() // Keep insights in sync
   }
 
@@ -109,6 +120,7 @@ function App(): React.JSX.Element {
             onPreviousMonth={goToPreviousMonth}
             onNextMonth={goToNextMonth}
             onOpenBudgets={() => setShowBudgetManager(true)}
+            showMonthNav={currentView !== 'insights' && currentView !== 'settings'}
           />
 
           <main className="flex-1 overflow-hidden">
@@ -121,10 +133,11 @@ function App(): React.JSX.Element {
                 currentMonth={currentMonth}
                 onCreateBudget={createBudget}
                 onUpdateIncome={updateIncome}
-                onUpdateAllocation={updateAllocation}
-                onUpdateIncomeSources={updateIncomeSources}
+                onUpdateAllocation={handleUpdateAllocation}
+                onUpdateIncomeSources={handleUpdateIncomeSources}
                 onAddCategory={addCategory}
                 onDeleteCategory={deleteCategory}
+                onReorderCategories={reorderCategories}
                 onAddTransaction={handleAddTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
               />

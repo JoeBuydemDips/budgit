@@ -71,11 +71,21 @@ export function Dashboard({
     if (!transactions.length) return []
 
     const spendingByDay: Record<string, number> = {}
+    
+    // Parse the currentMonth to get the correct month/year
+    const monthDate = parseMonthKey(currentMonth)
+    const year = monthDate.getFullYear()
+    const month = monthDate.getMonth()
+    
     const today = new Date()
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const startOfMonth = new Date(year, month, 1)
+    
+    // Determine the end date: either today (if viewing current month) or end of the selected month
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
+    const endOfMonth = isCurrentMonth ? today : new Date(year, month + 1, 0) // Last day of selected month
 
-    // Initialize all days of the month up to today
-    for (let d = new Date(startOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
+    // Initialize all days of the month up to the end date
+    for (let d = new Date(startOfMonth); d <= endOfMonth; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().split('T')[0]
       spendingByDay[key] = 0
     }
@@ -94,7 +104,7 @@ export function Dashboard({
         date: new Date(date).getDate().toString(),
         amount
       }))
-  }, [transactions])
+  }, [transactions, currentMonth])
 
   // Calculate category breakdown for pie chart
   const categoryBreakdown = useMemo(() => {
@@ -133,11 +143,16 @@ export function Dashboard({
     return categories
       .map((cat) => {
         const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
+        const spent = allocation?.spent || 0
+        const planned = allocation?.planned || 0
+        // If no budget set but there's spending, show as 100% (over budget)
+        // If budget is set, calculate actual percentage
+        const percentage = planned > 0 ? (spent / planned) * 100 : (spent > 0 ? 100 : 0)
         return {
           ...cat,
-          planned: allocation?.planned || 0,
-          spent: allocation?.spent || 0,
-          percentage: allocation?.planned ? (allocation.spent / allocation.planned) * 100 : 0
+          planned,
+          spent,
+          percentage
         }
       })
       .filter((c) => c.spent > 0)
@@ -236,8 +251,6 @@ export function Dashboard({
   // Budget health indicators
   const isOverBudget = totalSpent > totalPlanned
   const isBalanced = leftToBudget === 0
-  const savingsAmount = categoryBreakdown.find((c) => c.type === 'SAVINGS')?.planned || 0
-  const savingsPercentage = budget.incomeTotal > 0 ? (savingsAmount / budget.incomeTotal) * 100 : 0
 
   // Recent transactions
   const recentTransactions = [...transactions]
@@ -254,7 +267,7 @@ export function Dashboard({
   return (
     <div className="space-y-6">
       {/* Hero Stats Section */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {/* Income Card */}
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -267,10 +280,31 @@ export function Dashboard({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</div>
+            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</div>
             <div className="flex items-center gap-1 mt-1">
               <ArrowUpRight className="h-3 w-3 text-green-600" />
-              <span className="text-xs text-muted-foreground">Monthly budget</span>
+              <span className="text-xs text-muted-foreground">Monthly income</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Budgeted Card */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Budgeted
+            </CardTitle>
+            <div className="p-2 bg-blue-500/10 rounded-full">
+              <PiggyBank className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-xs text-muted-foreground">
+                {Math.round((totalPlanned / budget.incomeTotal) * 100)}% of income
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -285,7 +319,7 @@ export function Dashboard({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalSpent)}</div>
+            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(totalSpent)}</div>
             <div className="flex items-center gap-1 mt-1">
               <ArrowDownRight className="h-3 w-3 text-red-500" />
               <span className="text-xs text-muted-foreground">
@@ -319,7 +353,7 @@ export function Dashboard({
           <CardContent>
             <div
               className={cn(
-                'text-2xl font-bold',
+                'text-xl lg:text-2xl font-bold',
                 remaining >= 0 ? 'text-emerald-600' : 'text-red-600'
               )}
             >
@@ -328,27 +362,6 @@ export function Dashboard({
             <div className="flex items-center gap-1 mt-1">
               <span className="text-xs text-muted-foreground">
                 {remaining >= 0 ? 'Left to spend' : 'Over budget'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Savings Card */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Savings Rate
-            </CardTitle>
-            <div className="p-2 bg-blue-500/10 rounded-full">
-              <PiggyBank className="h-4 w-4 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Math.round(savingsPercentage)}%</div>
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-xs text-muted-foreground">
-                {formatCurrency(savingsAmount)} planned
               </span>
             </div>
           </CardContent>
@@ -420,9 +433,9 @@ export function Dashboard({
                 <p className="text-sm">No spending recorded yet</p>
               </div>
             ) : (
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                 <div className="relative flex-shrink-0">
-                  <ResponsiveContainer width={160} height={160}>
+                  <ResponsiveContainer width={140} height={140}>
                     <PieChart>
                       <Pie
                         data={donutData}
@@ -533,7 +546,9 @@ export function Dashboard({
               </p>
             ) : (
               topCategories.map((cat) => {
-                const isOver = cat.spent > cat.planned && cat.planned > 0
+                // Over budget if spending exceeds planned, OR if spending exists with no budget
+                const isOver = cat.spent > cat.planned
+                const hasNoBudget = cat.planned === 0 && cat.spent > 0
                 return (
                   <div key={cat.id} className="space-y-2">
                     <div className="flex justify-between items-center">
@@ -545,11 +560,11 @@ export function Dashboard({
                         <span className="font-medium text-sm">{cat.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={cn('text-sm', isOver && 'text-red-600')}>
+                        <span className={cn('text-sm', (isOver || hasNoBudget) && 'text-red-600')}>
                           {formatCurrency(cat.spent)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          / {formatCurrency(cat.planned)}
+                          / {hasNoBudget ? 'No budget' : formatCurrency(cat.planned)}
                         </span>
                       </div>
                     </div>
@@ -557,8 +572,8 @@ export function Dashboard({
                       value={Math.min(cat.percentage, 100)}
                       className="h-2"
                       indicatorClassName={cn(
-                        isOver && 'bg-red-500',
-                        cat.percentage >= 80 && !isOver && 'bg-amber-500'
+                        (isOver || hasNoBudget) && 'bg-red-500',
+                        cat.percentage >= 80 && !isOver && !hasNoBudget && 'bg-amber-500'
                       )}
                     />
                   </div>
@@ -570,12 +585,12 @@ export function Dashboard({
 
         {/* Recent Transactions */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg">Recent Transactions</CardTitle>
               <CardDescription>Latest activity</CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShowAddTransaction(true)}>
+            <Button size="sm" onClick={() => setShowAddTransaction(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" />
               Add
             </Button>
@@ -641,15 +656,6 @@ export function Dashboard({
           </CardContent>
         </Card>
       </div>
-
-      {/* Floating Add Button (mobile) */}
-      <Button
-        size="lg"
-        className="fixed bottom-20 right-4 md:bottom-8 rounded-full h-14 w-14 shadow-lg"
-        onClick={() => setShowAddTransaction(true)}
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
 
       <AddTransactionDialog
         open={showAddTransaction}

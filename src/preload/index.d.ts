@@ -18,6 +18,7 @@ interface BudgetAPI {
   addCategory: (category: Omit<Category, 'id'>) => Promise<Category>
   updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
   deleteCategory: (id: string) => Promise<boolean>
+  reorderCategories: (categoryIds: string[]) => Promise<void>
 
   // Budgets
   getBudget: (month: string) => Promise<Budget | null>
@@ -50,6 +51,47 @@ interface BudgetAPI {
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ) => Promise<Transaction | null>
   deleteTransaction: (id: string) => Promise<boolean>
+
+  // CSV Import/Export
+  exportBudgetsCSV: (options?: { months?: string[] }) => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }>
+  exportTransactionsCSV: (options?: { startDate?: string; endDate?: string }) => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }>
+  exportCategoriesCSV: () => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }>
+  importBudgetsCSV: (options?: { targetMonth?: string }) => Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }>
+  importTransactionsCSV: (options?: { targetMonth?: string }) => Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }>
+  importCategoriesCSV: (options?: { mode?: 'merge' | 'replace' }) => Promise<{
+    success: boolean
+    imported: number
+    updated: number
+    errors: string[]
+    canceled?: boolean
+  }>
 }
 
 declare global {

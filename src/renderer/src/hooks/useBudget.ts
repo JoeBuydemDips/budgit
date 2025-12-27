@@ -86,7 +86,15 @@ export function useCategories() {
     [refresh]
   )
 
-  return { categories, loading, refresh, addCategory, deleteCategory }
+  const reorderCategories = useCallback(
+    async (categoryIds: string[]) => {
+      await window.api.reorderCategories(categoryIds)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  return { categories, loading, refresh, addCategory, deleteCategory, reorderCategories }
 }
 
 // Hook to manage budget for a specific month
