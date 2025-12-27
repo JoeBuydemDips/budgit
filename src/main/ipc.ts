@@ -73,6 +73,10 @@ export function registerIpcHandlers(): void {
     return removeCategoryFromBudget(month, categoryId)
   })
 
+  ipcMain.handle('categories:cleanup-orphaned', () => {
+    return cleanupOrphanedAllocations()
+  })
+
   ipcMain.handle('categories:reorder', (_, categoryIds: string[]) => {
     return reorderCategories(categoryIds)
   })

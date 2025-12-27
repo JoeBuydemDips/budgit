@@ -96,9 +96,12 @@ export function removeCategoryFromBudget(month: string, categoryId: string): boo
   return true
 }
 
-export function cleanupOrphanedAllocations(): { cleanedBudgets: number; removedAllocations: number } {
+export function cleanupOrphanedAllocations(): {
+  cleanedBudgets: number
+  removedAllocations: number
+} {
   const categories = store.get('categories')
-  const categoryIds = new Set(categories.map(c => c.id))
+  const categoryIds = new Set(categories.map((c) => c.id))
   const budgets = store.get('budgets')
   let cleanedBudgets = 0
   let removedAllocations = 0

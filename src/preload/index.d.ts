@@ -19,6 +19,7 @@ interface BudgetAPI {
   updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
   deleteCategory: (id: string) => Promise<boolean>
   removeCategoryFromBudget: (month: string, categoryId: string) => Promise<boolean>
+  cleanupOrphanedAllocations: () => Promise<{ cleanedBudgets: number; removedAllocations: number }>
   reorderCategories: (categoryIds: string[]) => Promise<void>
 
   // Budgets

@@ -24,6 +24,8 @@ const budgetApi = {
   deleteCategory: (id: string): Promise<boolean> => ipcRenderer.invoke('categories:delete', id),
   removeCategoryFromBudget: (month: string, categoryId: string): Promise<boolean> =>
     ipcRenderer.invoke('categories:remove-from-budget', month, categoryId),
+  cleanupOrphanedAllocations: (): Promise<{ cleanedBudgets: number; removedAllocations: number }> =>
+    ipcRenderer.invoke('categories:cleanup-orphaned'),
   reorderCategories: (categoryIds: string[]): Promise<void> =>
     ipcRenderer.invoke('categories:reorder', categoryIds),
 
