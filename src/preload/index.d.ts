@@ -50,6 +50,34 @@ interface BudgetAPI {
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ) => Promise<Transaction | null>
   deleteTransaction: (id: string) => Promise<boolean>
+
+  // CSV Import/Export
+  exportBudgetsCSV: () => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }>
+  exportTransactionsCSV: () => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }>
+  importBudgetsCSV: () => Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }>
+  importTransactionsCSV: () => Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }>
 }
 
 declare global {

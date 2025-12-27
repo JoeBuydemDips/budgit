@@ -349,3 +349,216 @@ export function getNextMonth(month: string): string {
   const date = new Date(year, monthNum, 1)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
+
+// ============== CSV Import Helpers ==============
+export interface ImportBudgetAllocation {
+  month: string
+  incomeTotal: number
+  categoryId: string
+  planned: number
+  spent: number
+  carryover: number
+}
+
+export interface ImportResult {
+  success: boolean
+  imported: number
+  skipped: number
+  errors: string[]
+}
+
+// Import budgets from parsed CSV data
+export function importBudgets(allocations: ImportBudgetAllocation[]): ImportResult {
+  const categories = store.get('categories')
+  const categoryIds = new Set(categories.map((c) => c.id))
+  const budgets = store.get('budgets')
+
+  const errors: string[] = []
+  let imported = 0
+  let skipped = 0
+
+  // Group allocations by month
+  const allocationsByMonth = new Map<string, ImportBudgetAllocation[]>()
+  for (const allocation of allocations) {
+    // Validate category exists
+    if (!categoryIds.has(allocation.categoryId)) {
+      errors.push(`Unknown category ID: ${allocation.categoryId} for month ${allocation.month}`)
+      skipped++
+      continue
+    }
+
+    const existing = allocationsByMonth.get(allocation.month) || []
+    existing.push(allocation)
+    allocationsByMonth.set(allocation.month, existing)
+  }
+
+  // Process each month's data
+  for (const [month, monthAllocations] of allocationsByMonth) {
+    const existingBudget = budgets.find((b) => b.month === month)
+    const incomeTotal = monthAllocations[0]?.incomeTotal || 0
+
+    const newAllocations: CategoryAllocation[] = monthAllocations.map((a) => ({
+      categoryId: a.categoryId,
+      planned: a.planned,
+      spent: a.spent,
+      carryover: a.carryover
+    }))
+
+    if (existingBudget) {
+      // Merge with existing budget - update allocations that exist, add new ones
+      const existingAllocMap = new Map(existingBudget.allocations.map((a) => [a.categoryId, a]))
+      for (const newAlloc of newAllocations) {
+        existingAllocMap.set(newAlloc.categoryId, newAlloc)
+      }
+
+      const mergedAllocations = Array.from(existingAllocMap.values())
+      const totalPlanned = mergedAllocations.reduce((sum, a) => sum + a.planned, 0)
+
+      const updatedBudget: Budget = {
+        ...existingBudget,
+        incomeTotal: incomeTotal > 0 ? incomeTotal : existingBudget.incomeTotal,
+        allocations: mergedAllocations,
+        isBalanced: (incomeTotal > 0 ? incomeTotal : existingBudget.incomeTotal) === totalPlanned,
+        updatedAt: new Date().toISOString()
+      }
+
+      const idx = budgets.findIndex((b) => b.month === month)
+      budgets[idx] = updatedBudget
+      imported += monthAllocations.length
+    } else {
+      // Create new budget
+      // Ensure all categories have allocations (fill missing with zeros)
+      const allocMap = new Map(newAllocations.map((a) => [a.categoryId, a]))
+      const fullAllocations: CategoryAllocation[] = categories.map((cat) => {
+        const existing = allocMap.get(cat.id)
+        return existing || { categoryId: cat.id, planned: 0, spent: 0, carryover: 0 }
+      })
+
+      const totalPlanned = fullAllocations.reduce((sum, a) => sum + a.planned, 0)
+
+      const newBudget: Budget = {
+        id: uuidv4(),
+        month,
+        incomeTotal,
+        incomeSources: [
+          { id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }
+        ],
+        allocations: fullAllocations,
+        isBalanced: incomeTotal === totalPlanned,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      budgets.push(newBudget)
+      imported += monthAllocations.length
+    }
+  }
+
+  store.set('budgets', budgets)
+
+  return {
+    success: errors.length === 0,
+    imported,
+    skipped,
+    errors
+  }
+}
+
+// Import transactions from parsed CSV data
+export function importTransactions(
+  transactions: Array<{
+    budgetMonth: string
+    categoryId: string
+    amount: number
+    description: string
+    date: string
+  }>
+): ImportResult {
+  const categories = store.get('categories')
+  const categoryIds = new Set(categories.map((c) => c.id))
+  const existingTransactions = store.get('transactions')
+
+  const errors: string[] = []
+  let imported = 0
+  let skipped = 0
+
+  const newTransactions: Transaction[] = []
+
+  for (const tx of transactions) {
+    // Validate category exists
+    if (!categoryIds.has(tx.categoryId)) {
+      errors.push(`Unknown category ID: ${tx.categoryId} for transaction on ${tx.date}`)
+      skipped++
+      continue
+    }
+
+    // Check for duplicate (same date, category, amount, description)
+    const isDuplicate = existingTransactions.some(
+      (existing) =>
+        existing.date === tx.date &&
+        existing.categoryId === tx.categoryId &&
+        existing.amount === tx.amount &&
+        existing.description === tx.description
+    )
+
+    if (isDuplicate) {
+      skipped++
+      continue
+    }
+
+    const newTx: Transaction = {
+      id: uuidv4(),
+      budgetMonth: tx.budgetMonth,
+      categoryId: tx.categoryId,
+      amount: tx.amount,
+      description: tx.description,
+      date: tx.date,
+      createdAt: new Date().toISOString()
+    }
+
+    newTransactions.push(newTx)
+    imported++
+  }
+
+  if (newTransactions.length > 0) {
+    store.set('transactions', [...existingTransactions, ...newTransactions])
+
+    // Update budget spent amounts for affected months
+    const affectedMonths = new Set(newTransactions.map((tx) => tx.budgetMonth))
+    for (const month of affectedMonths) {
+      updateBudgetSpentForMonth(month)
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    imported,
+    skipped,
+    errors
+  }
+}
+
+// Helper to update budget spent amounts for a specific month
+function updateBudgetSpentForMonth(month: string): void {
+  const budgets = store.get('budgets')
+  const transactions = store.get('transactions')
+  const index = budgets.findIndex((b) => b.month === month)
+  if (index === -1) return
+
+  const monthTransactions = transactions.filter((t) => t.budgetMonth === month)
+  const budget = budgets[index]
+
+  const updatedAllocations = budget.allocations.map((allocation) => {
+    const spent = monthTransactions
+      .filter((t) => t.categoryId === allocation.categoryId)
+      .reduce((sum, t) => sum + t.amount, 0)
+    return { ...allocation, spent }
+  })
+
+  budgets[index] = {
+    ...budget,
+    allocations: updatedAllocations,
+    updatedAt: new Date().toISOString()
+  }
+  store.set('budgets', budgets)
+}

@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, GripVertical } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  GripVertical,
+  Download,
+  Upload,
+  CheckCircle,
+  XCircle
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -28,6 +37,11 @@ interface SettingsViewProps {
   onRefreshCategories: () => Promise<void>
 }
 
+interface ImportExportFeedback {
+  type: 'success' | 'error'
+  message: string
+}
+
 const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'GIVING', label: 'Giving' },
   { value: 'SAVINGS', label: 'Savings' },
@@ -36,11 +50,18 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'DEBT', label: 'Debt' }
 ]
 
-export function SettingsView({ categories, onRefreshCategories }: SettingsViewProps) {
+export function SettingsView({
+  categories,
+  onRefreshCategories
+}: SettingsViewProps): React.JSX.Element {
   const { theme, setTheme } = useTheme()
   const [showAddCategory, setShowAddCategory] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [importExportFeedback, setImportExportFeedback] = useState<ImportExportFeedback | null>(
+    null
+  )
+  const [isProcessing, setIsProcessing] = useState(false)
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -128,6 +149,191 @@ export function SettingsView({ categories, onRefreshCategories }: SettingsViewPr
         </CardContent>
       </Card>
 
+      {/* Import/Export Data */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Import/Export</CardTitle>
+          <CardDescription>
+            Import or export your budgets and transactions as CSV files
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Feedback Message */}
+          {importExportFeedback && (
+            <div
+              className={`flex items-center gap-2 p-3 rounded-md ${
+                importExportFeedback.type === 'success'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                  : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+              }`}
+            >
+              {importExportFeedback.type === 'success' ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              <span className="text-sm">{importExportFeedback.message}</span>
+            </div>
+          )}
+
+          {/* Export Section */}
+          <div className="space-y-2">
+            <Label className="text-base font-medium">Export Data</Label>
+            <p className="text-sm text-muted-foreground">
+              Download your data as CSV files for backup or use in other applications.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isProcessing}
+                onClick={async (): Promise<void> => {
+                  setIsProcessing(true)
+                  setImportExportFeedback(null)
+                  try {
+                    const result = await window.api.exportBudgetsCSV()
+                    if (result.canceled) {
+                      // User cancelled, no feedback needed
+                    } else if (result.success) {
+                      setImportExportFeedback({
+                        type: 'success',
+                        message: `Budgets exported successfully to ${result.filePath}`
+                      })
+                    } else {
+                      setImportExportFeedback({
+                        type: 'error',
+                        message: result.error || 'Failed to export budgets'
+                      })
+                    }
+                  } catch {
+                    setImportExportFeedback({ type: 'error', message: 'Failed to export budgets' })
+                  }
+                  setIsProcessing(false)
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Budgets
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isProcessing}
+                onClick={async (): Promise<void> => {
+                  setIsProcessing(true)
+                  setImportExportFeedback(null)
+                  try {
+                    const result = await window.api.exportTransactionsCSV()
+                    if (result.canceled) {
+                      // User cancelled, no feedback needed
+                    } else if (result.success) {
+                      setImportExportFeedback({
+                        type: 'success',
+                        message: `Transactions exported successfully to ${result.filePath}`
+                      })
+                    } else {
+                      setImportExportFeedback({
+                        type: 'error',
+                        message: result.error || 'Failed to export transactions'
+                      })
+                    }
+                  } catch {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message: 'Failed to export transactions'
+                    })
+                  }
+                  setIsProcessing(false)
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Transactions
+              </Button>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Import Section */}
+          <div className="space-y-2">
+            <Label className="text-base font-medium">Import Data</Label>
+            <p className="text-sm text-muted-foreground">
+              Import budgets or transactions from CSV files. Duplicate transactions will be skipped.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isProcessing}
+                onClick={async (): Promise<void> => {
+                  setIsProcessing(true)
+                  setImportExportFeedback(null)
+                  try {
+                    const result = await window.api.importBudgetsCSV()
+                    if (result.canceled) {
+                      // User cancelled, no feedback needed
+                    } else if (result.success) {
+                      setImportExportFeedback({
+                        type: 'success',
+                        message: `Imported ${result.imported} budget allocations${result.skipped > 0 ? `, skipped ${result.skipped}` : ''}`
+                      })
+                    } else {
+                      setImportExportFeedback({
+                        type: 'error',
+                        message:
+                          result.errors.length > 0 ? result.errors[0] : 'Failed to import budgets'
+                      })
+                    }
+                  } catch {
+                    setImportExportFeedback({ type: 'error', message: 'Failed to import budgets' })
+                  }
+                  setIsProcessing(false)
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Budgets
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isProcessing}
+                onClick={async (): Promise<void> => {
+                  setIsProcessing(true)
+                  setImportExportFeedback(null)
+                  try {
+                    const result = await window.api.importTransactionsCSV()
+                    if (result.canceled) {
+                      // User cancelled, no feedback needed
+                    } else if (result.success) {
+                      setImportExportFeedback({
+                        type: 'success',
+                        message: `Imported ${result.imported} transactions${result.skipped > 0 ? `, skipped ${result.skipped} duplicates` : ''}`
+                      })
+                    } else {
+                      setImportExportFeedback({
+                        type: 'error',
+                        message:
+                          result.errors.length > 0
+                            ? result.errors[0]
+                            : 'Failed to import transactions'
+                      })
+                    }
+                  } catch {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message: 'Failed to import transactions'
+                    })
+                  }
+                  setIsProcessing(false)
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Transactions
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* About */}
       <Card>
         <CardHeader>
@@ -210,7 +416,12 @@ interface CategoryDialogProps {
   onSave: (data: Omit<Category, 'id' | 'sortOrder'>) => Promise<void>
 }
 
-function CategoryDialog({ open, onOpenChange, category, onSave }: CategoryDialogProps) {
+function CategoryDialog({
+  open,
+  onOpenChange,
+  category,
+  onSave
+}: CategoryDialogProps): React.JSX.Element {
   const [name, setName] = useState(category?.name || '')
   const [type, setType] = useState<CategoryType>(category?.type || 'NEEDS')
   const [rolloverEnabled, setRolloverEnabled] = useState(category?.rolloverEnabled || false)
@@ -229,7 +440,7 @@ function CategoryDialog({ open, onOpenChange, category, onSave }: CategoryDialog
     }
   })
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!name.trim()) return
 
     setSaving(true)

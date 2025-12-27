@@ -56,7 +56,36 @@ const budgetApi = {
     id: string,
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ): Promise<Transaction | null> => ipcRenderer.invoke('transactions:update', id, updates),
-  deleteTransaction: (id: string): Promise<boolean> => ipcRenderer.invoke('transactions:delete', id)
+  deleteTransaction: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('transactions:delete', id),
+
+  // CSV Import/Export
+  exportBudgetsCSV: (): Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:exportBudgets'),
+  exportTransactionsCSV: (): Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:exportTransactions'),
+  importBudgetsCSV: (): Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:importBudgets'),
+  importTransactionsCSV: (): Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    canceled?: boolean
+  }> => ipcRenderer.invoke('csv:importTransactions')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

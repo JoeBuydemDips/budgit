@@ -1,4 +1,5 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { writeFile, readFile } from 'fs/promises'
 import {
   getSettings,
   updateSettings,
@@ -13,13 +14,23 @@ import {
   getBudgets,
   getBudgetsWithSpent,
   getTransactionsByMonth,
+  getTransactions,
   addTransaction,
   updateTransaction,
   deleteTransaction,
   getBudgetWithSpent,
   getPreviousMonth,
-  getNextMonth
+  getNextMonth,
+  importBudgets,
+  importTransactions,
+  ImportResult
 } from './store'
+import {
+  generateBudgetsCSV,
+  generateTransactionsCSV,
+  parseBudgetsCSV,
+  parseTransactionsCSV
+} from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
 
 export function registerIpcHandlers(): void {
@@ -118,4 +129,124 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('transactions:delete', (_, id: string) => {
     return deleteTransaction(id)
   })
+
+  // ============== CSV Export/Import ==============
+  ipcMain.handle('csv:exportBudgets', async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (!window) return { success: false, error: 'No active window' }
+
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export Budgets',
+      defaultPath: 'budgit-budgets.csv',
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+
+    try {
+      const budgets = getBudgets()
+      const categories = getCategories()
+      const csvContent = generateBudgetsCSV(budgets, categories)
+      await writeFile(result.filePath, csvContent, 'utf-8')
+      return { success: true, filePath: result.filePath }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('csv:exportTransactions', async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (!window) return { success: false, error: 'No active window' }
+
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export Transactions',
+      defaultPath: 'budgit-transactions.csv',
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+
+    try {
+      const transactions = getTransactions()
+      const categories = getCategories()
+      const csvContent = generateTransactionsCSV(transactions, categories)
+      await writeFile(result.filePath, csvContent, 'utf-8')
+      return { success: true, filePath: result.filePath }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('csv:importBudgets', async (): Promise<ImportResult & { canceled?: boolean }> => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
+
+    const result = await dialog.showOpenDialog(window, {
+      title: 'Import Budgets',
+      filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, imported: 0, skipped: 0, errors: [], canceled: true }
+    }
+
+    try {
+      const csvContent = await readFile(result.filePaths[0], 'utf-8')
+      const parsed = parseBudgetsCSV(csvContent)
+
+      if (parsed.errors.length > 0) {
+        return {
+          success: false,
+          imported: 0,
+          skipped: 0,
+          errors: parsed.errors.map((e) => `Row ${e.row}: ${e.message}`)
+        }
+      }
+
+      return importBudgets(parsed.allocations)
+    } catch (error) {
+      return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+    }
+  })
+
+  ipcMain.handle(
+    'csv:importTransactions',
+    async (): Promise<ImportResult & { canceled?: boolean }> => {
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
+
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Import Transactions',
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+        properties: ['openFile']
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, imported: 0, skipped: 0, errors: [], canceled: true }
+      }
+
+      try {
+        const csvContent = await readFile(result.filePaths[0], 'utf-8')
+        const parsed = parseTransactionsCSV(csvContent)
+
+        if (parsed.errors.length > 0) {
+          return {
+            success: false,
+            imported: 0,
+            skipped: 0,
+            errors: parsed.errors.map((e) => `Row ${e.row}: ${e.message}`)
+          }
+        }
+
+        return importTransactions(parsed.transactions)
+      } catch (error) {
+        return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+      }
+    }
+  )
 }
