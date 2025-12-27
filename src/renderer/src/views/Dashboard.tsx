@@ -254,7 +254,7 @@ export function Dashboard({
   return (
     <div className="space-y-6">
       {/* Hero Stats Section */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {/* Income Card */}
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -267,7 +267,7 @@ export function Dashboard({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</div>
+            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</div>
             <div className="flex items-center gap-1 mt-1">
               <ArrowUpRight className="h-3 w-3 text-green-600" />
               <span className="text-xs text-muted-foreground">Monthly budget</span>
@@ -285,7 +285,7 @@ export function Dashboard({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalSpent)}</div>
+            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(totalSpent)}</div>
             <div className="flex items-center gap-1 mt-1">
               <ArrowDownRight className="h-3 w-3 text-red-500" />
               <span className="text-xs text-muted-foreground">
@@ -319,7 +319,7 @@ export function Dashboard({
           <CardContent>
             <div
               className={cn(
-                'text-2xl font-bold',
+                'text-xl lg:text-2xl font-bold',
                 remaining >= 0 ? 'text-emerald-600' : 'text-red-600'
               )}
             >
@@ -345,7 +345,7 @@ export function Dashboard({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Math.round(savingsPercentage)}%</div>
+            <div className="text-xl lg:text-2xl font-bold">{Math.round(savingsPercentage)}%</div>
             <div className="flex items-center gap-1 mt-1">
               <span className="text-xs text-muted-foreground">
                 {formatCurrency(savingsAmount)} planned
@@ -420,9 +420,9 @@ export function Dashboard({
                 <p className="text-sm">No spending recorded yet</p>
               </div>
             ) : (
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                 <div className="relative flex-shrink-0">
-                  <ResponsiveContainer width={160} height={160}>
+                  <ResponsiveContainer width={140} height={140}>
                     <PieChart>
                       <Pie
                         data={donutData}
@@ -570,12 +570,12 @@ export function Dashboard({
 
         {/* Recent Transactions */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg">Recent Transactions</CardTitle>
               <CardDescription>Latest activity</CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShowAddTransaction(true)}>
+            <Button size="sm" onClick={() => setShowAddTransaction(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" />
               Add
             </Button>
@@ -641,15 +641,6 @@ export function Dashboard({
           </CardContent>
         </Card>
       </div>
-
-      {/* Floating Add Button (mobile) */}
-      <Button
-        size="lg"
-        className="fixed bottom-20 right-4 md:bottom-8 rounded-full h-14 w-14 shadow-lg"
-        onClick={() => setShowAddTransaction(true)}
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
 
       <AddTransactionDialog
         open={showAddTransaction}

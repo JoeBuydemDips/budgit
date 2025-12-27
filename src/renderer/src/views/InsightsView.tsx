@@ -182,10 +182,10 @@ export function InsightsView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Insights</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold">Insights</h1>
         <Select value={timeRange} onValueChange={(v) => setTimeRange(v as typeof timeRange)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Time range" />
           </SelectTrigger>
           <SelectContent>
@@ -224,9 +224,9 @@ export function InsightsView({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-8">
-              <div className="relative">
-                <ResponsiveContainer width={180} height={180}>
+            <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+              <div className="relative flex-shrink-0">
+                <ResponsiveContainer width={160} height={160}>
                   <PieChart>
                     <Pie
                       data={
@@ -377,7 +377,7 @@ export function InsightsView({
             <p className="text-sm text-muted-foreground mb-4">
               Want to really crush those money goals? Live on less than you make.
             </p>
-            <div className="flex items-center gap-4 mb-4 text-sm">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 text-xs sm:text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-500" />
                 <span>Income — {formatCurrency(totalIncome)}</span>

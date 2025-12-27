@@ -113,7 +113,7 @@ export function SettingsView({
               value={theme}
               onValueChange={(value: 'light' | 'dark' | 'system') => setTheme(value)}
             >
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -128,12 +128,12 @@ export function SettingsView({
 
       {/* Categories */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Categories</CardTitle>
             <CardDescription>Manage your budget categories</CardDescription>
           </div>
-          <Button size="sm" onClick={() => setShowAddCategory(true)}>
+          <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Add Category
           </Button>
@@ -212,10 +212,11 @@ export function SettingsView({
             <p className="text-sm text-muted-foreground">
               Download your data as CSV files for backup or use in other applications.
             </p>
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 disabled={isProcessing}
                 onClick={() => {
                   setSelectedMonths([])
@@ -228,6 +229,7 @@ export function SettingsView({
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 disabled={isProcessing}
                 onClick={() => {
                   setStartDate('')
@@ -249,10 +251,11 @@ export function SettingsView({
             <p className="text-sm text-muted-foreground">
               Import budgets or transactions from CSV files. Duplicate transactions will be skipped.
             </p>
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 disabled={isProcessing}
                 onClick={() => {
                   setTargetMonth('')
@@ -265,6 +268,7 @@ export function SettingsView({
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 disabled={isProcessing}
                 onClick={() => {
                   setTargetMonth('')
