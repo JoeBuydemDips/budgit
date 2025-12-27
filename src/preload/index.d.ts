@@ -18,6 +18,7 @@ interface BudgetAPI {
   addCategory: (category: Omit<Category, 'id'>) => Promise<Category>
   updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
   deleteCategory: (id: string) => Promise<boolean>
+  removeCategoryFromBudget: (month: string, categoryId: string) => Promise<boolean>
   reorderCategories: (categoryIds: string[]) => Promise<void>
 
   // Budgets

@@ -77,6 +77,7 @@ interface BudgetViewProps {
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
   onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
+  onRemoveCategoryFromBudget: (categoryId: string) => Promise<void>
   onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
@@ -105,6 +106,7 @@ export function BudgetView({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onRemoveCategoryFromBudget,
   onReorderCategories,
   onAddTransaction,
   onDeleteTransaction
@@ -573,7 +575,7 @@ export function BudgetView({
                             onToggleRollover={async (enabled) => {
                               await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
                             }}
-                            onDelete={() => onDeleteCategory(cat.id)}
+                            onDelete={() => onRemoveCategoryFromBudget(cat.id)}
                           />
                         ))}
                       </SortableContext>

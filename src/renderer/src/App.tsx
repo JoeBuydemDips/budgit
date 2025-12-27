@@ -30,7 +30,8 @@ function App(): React.JSX.Element {
     createBudget,
     updateIncome,
     updateAllocation,
-    updateIncomeSources
+    updateIncomeSources,
+    removeCategoryFromBudget
   } = useBudget(currentMonth)
   const {
     transactions,
@@ -138,6 +139,7 @@ function App(): React.JSX.Element {
                 onAddCategory={addCategory}
                 onUpdateCategory={updateCategory}
                 onDeleteCategory={deleteCategory}
+                onRemoveCategoryFromBudget={removeCategoryFromBudget}
                 onReorderCategories={reorderCategories}
                 onAddTransaction={handleAddTransaction}
                 onDeleteTransaction={handleDeleteTransaction}

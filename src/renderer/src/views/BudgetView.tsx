@@ -40,6 +40,7 @@ interface BudgetViewProps {
   onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
+  onRemoveCategoryFromBudget: (categoryId: string) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
@@ -63,6 +64,7 @@ export function BudgetView({
   onUpdateAllocation,
   onAddCategory,
   onDeleteCategory,
+  onRemoveCategoryFromBudget,
   onAddTransaction
 }: BudgetViewProps) {
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
@@ -337,7 +339,7 @@ export function BudgetView({
                 <CategoryRow
                   category={cat}
                   onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
-                  onDelete={() => onDeleteCategory(cat.id)}
+                  onDelete={() => onRemoveCategoryFromBudget(cat.id)}
                   onAddTransaction={() => {
                     setSelectedCategoryForTransaction(cat.id)
                     setShowAddTransactionDialog(true)

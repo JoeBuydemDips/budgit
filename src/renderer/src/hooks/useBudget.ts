@@ -173,6 +173,14 @@ export function useBudget(month: string) {
     [month, budget, refresh]
   )
 
+  const removeCategoryFromBudget = useCallback(
+    async (categoryId: string) => {
+      await window.api.removeCategoryFromBudget(month, categoryId)
+      await refresh()
+    },
+    [month, refresh]
+  )
+
   const updateAllocations = useCallback(
     async (allocations: CategoryAllocation[]) => {
       await window.api.updateBudget(month, { allocations })
@@ -198,7 +206,8 @@ export function useBudget(month: string) {
     updateIncome,
     updateAllocation,
     updateAllocations,
-    updateIncomeSources
+    updateIncomeSources,
+    removeCategoryFromBudget
   }
 }
 
