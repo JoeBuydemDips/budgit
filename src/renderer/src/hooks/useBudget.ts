@@ -60,7 +60,7 @@ export function useCategories() {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    // Don't set loading=true during refresh to prevent scroll reset
     const cats = await window.api.getCategories()
     setCategories(cats)
     setLoading(false)
@@ -108,15 +108,18 @@ export function useBudget(month: string) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    // Only show loading spinner on initial load, not during refreshes
+    // This prevents scroll position reset when updating allocations
     const b = await window.api.getBudgetWithSpent(month)
     setBudget(b)
     setLoading(false)
   }, [month])
 
+  // Reset loading when month changes
   useEffect(() => {
+    setLoading(true)
     refresh()
-  }, [refresh])
+  }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const createBudget = useCallback(
     async (incomeTotal: number, copyFromMonth?: string) => {
@@ -146,10 +149,7 @@ export function useBudget(month: string) {
         )
       } else {
         // Create new allocation for this category
-        newAllocations = [
-          ...budget.allocations,
-          { categoryId, planned, spent: 0, carryover: 0 }
-        ]
+        newAllocations = [...budget.allocations, { categoryId, planned, spent: 0, carryover: 0 }]
       }
       await window.api.updateBudget(month, { allocations: newAllocations })
       await refresh()
@@ -192,15 +192,17 @@ export function useTransactions(month: string) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    // Don't set loading=true during refresh to prevent scroll reset
     const txns = await window.api.getTransactions(month)
     setTransactions(txns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
     setLoading(false)
   }, [month])
 
+  // Reset loading when month changes
   useEffect(() => {
+    setLoading(true)
     refresh()
-  }, [refresh])
+  }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addTransaction = useCallback(
     async (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
