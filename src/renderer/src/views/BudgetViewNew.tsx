@@ -327,7 +327,7 @@ export function BudgetView({
               </p>
             </div>
             {/* Column Headers - offset to align with card content */}
-            <div className="flex items-center text-xs text-muted-foreground uppercase tracking-wide pr-7">
+            <div className="flex items-center text-xs text-muted-foreground uppercase tracking-wide pr-6">
               <div className="w-28 text-right pr-2">Planned</div>
               <div className="w-28 text-right">Spent</div>
               <div className="w-12" />
@@ -336,7 +336,7 @@ export function BudgetView({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-4 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4 md:pb-8 pt-4 space-y-6">
           {/* Income Section */}
           <Card>
           <Collapsible open={expandedGroups['INCOME']} onOpenChange={() => toggleGroup('INCOME')}>
@@ -1015,7 +1015,7 @@ function CategoryRow({
                 setPlannedValue(category.planned.toString())
                 setEditingPlanned(true)
               }}
-              className="hover:bg-muted px-2 py-1 rounded transition-colors"
+              className="hover:bg-muted pl-2 py-1 rounded transition-colors"
             >
               {formatCurrency(category.planned)}
             </button>

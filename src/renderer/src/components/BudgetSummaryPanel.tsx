@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { Receipt } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -135,30 +136,48 @@ export function BudgetSummaryPanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="transactions" className="mt-0 space-y-4">
+          <TabsContent value="transactions" className="mt-0">
             {recentTransactions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No transactions yet</p>
-                <p className="text-sm">Add expenses to see them here</p>
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
+                  <Receipt className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="font-medium">No transactions yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Add expenses to see them here
+                </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {recentTransactions.map((tx) => {
                   const category = categories.find((c) => c.id === tx.categoryId)
+                  const categoryColor = category ? CATEGORY_TYPE_COLORS[category.type] : '#888'
                   return (
                     <div
                       key={tx.id}
-                      className="flex items-center justify-between py-2 px-2 hover:bg-muted/50 rounded-md transition-colors"
+                      className="flex items-center gap-3 py-3 px-3 hover:bg-muted/50 rounded-lg transition-colors"
                     >
+                      {/* Color indicator */}
+                      <div
+                        className="w-1 h-10 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: categoryColor }}
+                      />
+                      
+                      {/* Content */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
                           {tx.description || category?.name || 'Expense'}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {category?.name} • {new Date(tx.date).toLocaleDateString()}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {category?.name} • {new Date(tx.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
                         </p>
                       </div>
-                      <span className="text-sm font-medium text-red-600">
+                      
+                      {/* Amount */}
+                      <span className="text-sm font-semibold text-red-500 tabular-nums">
                         -{formatCurrency(tx.amount)}
                       </span>
                     </div>

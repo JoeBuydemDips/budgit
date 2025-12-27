@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { X, Calendar, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +56,9 @@ export function CategoryDetailPanel({
 
   const safeToSpend = category.planned + category.carryover - category.spent
   const headerColor = TYPE_COLORS[category.type]
+  const spentPercentage = category.planned > 0 
+    ? Math.min((category.spent / category.planned) * 100, 100) 
+    : 0
 
   const handleQuickAdd = async (): Promise<void> => {
     if (!amount || parseFloat(amount) <= 0) return
@@ -88,83 +89,105 @@ export function CategoryDetailPanel({
     <div className="h-full flex flex-col bg-background border-l">
       {/* Colored Header */}
       <div
-        className="relative px-6 py-8 text-white"
-        style={{ backgroundColor: headerColor }}
+        className="relative px-6 pt-6 pb-8 text-white"
+        style={{ 
+          background: `linear-gradient(135deg, ${headerColor} 0%, ${headerColor}dd 100%)`
+        }}
       >
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-3 right-3 text-white/80 hover:text-white hover:bg-white/20"
+          className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/20"
           onClick={onClose}
         >
           <X className="h-5 w-5" />
         </Button>
 
-        <div className="mt-4">
-          <p className="text-white/80 text-sm text-right">Safe to Spend</p>
-          <div className="flex items-baseline justify-between mt-1">
+        <div className="space-y-4">
+          <div>
             <h2 className="text-2xl font-bold">{category.name}</h2>
-            <span className="text-3xl font-bold">
+            <p className="text-white/70 text-sm mt-0.5">
+              {formatCurrency(category.spent)} of {formatCurrency(category.planned)} spent
+            </p>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="space-y-2">
+            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${spentPercentage}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-baseline justify-between pt-2">
+            <span className="text-white/70 text-sm">Available</span>
+            <span className="text-3xl font-bold tracking-tight">
               {formatCurrency(safeToSpend)}
             </span>
           </div>
-          <p className="text-white/80 text-sm mt-1">
-            <span className={safeToSpend >= 0 ? 'text-white' : 'text-red-200'}>
-              {formatCurrency(category.spent)}
-            </span>{' '}
-            spent of {formatCurrency(category.planned)}
-          </p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto">
         {/* Quick Add Button */}
-        <Button
-          className="w-full gap-2"
-          variant="outline"
-          onClick={() => setShowQuickAdd(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Add Expense
-        </Button>
-
-        <Separator />
+        <div className="p-4">
+          <Button
+            className="w-full h-12 gap-2 text-base font-medium"
+            style={{ 
+              backgroundColor: `${headerColor}15`,
+              color: headerColor,
+              borderColor: `${headerColor}30`
+            }}
+            variant="outline"
+            onClick={() => setShowQuickAdd(true)}
+          >
+            <Plus className="h-5 w-5" />
+            Add Expense
+          </Button>
+        </div>
 
         {/* Activity This Month */}
-        <div>
-          <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground mb-3">
+        <div className="px-4 pb-4">
+          <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4 px-2">
             Activity This Month
           </h3>
 
           {categoryTransactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">No transactions have been tracked to</p>
-              <p className="text-sm font-medium">{category.name} for this month.</p>
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
+                <Receipt className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No transactions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Add your first expense to {category.name}
+              </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {categoryTransactions.map((tx) => (
                 <div
                   key={tx.id}
                   className="group flex items-center justify-between py-3 px-3 rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="text-xs text-muted-foreground w-10">
-                      {formatDate(tx.date)}
-                    </div>
-                    <span className="font-medium text-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
                       {tx.description || category.name}
-                    </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(tx.date)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-red-600">
+                    <span className="font-semibold text-red-500 tabular-nums">
                       -{formatCurrency(tx.amount)}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       onClick={() => onDeleteTransaction(tx.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -177,14 +200,19 @@ export function CategoryDetailPanel({
         </div>
       </div>
 
-      {/* Footer - Available */}
-      <div className="border-t px-6 py-4 bg-muted/30">
+      {/* Footer */}
+      <div className="border-t px-6 py-4">
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Available</span>
+          <div>
+            <p className="text-xs text-muted-foreground">Remaining Budget</p>
+            <p className="text-sm text-muted-foreground">
+              {Math.round(spentPercentage)}% spent
+            </p>
+          </div>
           <span
             className={cn(
-              'text-lg font-bold',
-              safeToSpend >= 0 ? 'text-green-600' : 'text-red-600'
+              'text-2xl font-bold tabular-nums',
+              safeToSpend >= 0 ? 'text-green-500' : 'text-red-500'
             )}
           >
             {formatCurrency(safeToSpend)}
