@@ -205,8 +205,15 @@ export function SettingsView({
                         message: result.error || 'Failed to export budgets'
                       })
                     }
-                  } catch {
-                    setImportExportFeedback({ type: 'error', message: 'Failed to export budgets' })
+                  } catch (error) {
+                    console.error('Failed to export budgets:', error)
+                    setImportExportFeedback({
+                      type: 'error',
+                      message:
+                        error instanceof Error
+                          ? `Failed to export budgets: ${error.message}`
+                          : 'Failed to export budgets'
+                    })
                   }
                   setIsProcessing(false)
                 }}
@@ -236,10 +243,14 @@ export function SettingsView({
                         message: result.error || 'Failed to export transactions'
                       })
                     }
-                  } catch {
+                  } catch (error) {
+                    console.error('Failed to export transactions:', error)
                     setImportExportFeedback({
                       type: 'error',
-                      message: 'Failed to export transactions'
+                      message:
+                        error instanceof Error
+                          ? `Failed to export transactions: ${error.message}`
+                          : 'Failed to export transactions'
                     })
                   }
                   setIsProcessing(false)
@@ -283,8 +294,15 @@ export function SettingsView({
                           result.errors.length > 0 ? result.errors[0] : 'Failed to import budgets'
                       })
                     }
-                  } catch {
-                    setImportExportFeedback({ type: 'error', message: 'Failed to import budgets' })
+                  } catch (error) {
+                    console.error('Failed to import budgets:', error)
+                    setImportExportFeedback({
+                      type: 'error',
+                      message:
+                        error instanceof Error
+                          ? `Failed to import budgets: ${error.message}`
+                          : 'Failed to import budgets'
+                    })
                   }
                   setIsProcessing(false)
                 }}
@@ -317,10 +335,14 @@ export function SettingsView({
                             : 'Failed to import transactions'
                       })
                     }
-                  } catch {
+                  } catch (error) {
+                    console.error('Failed to import transactions:', error)
                     setImportExportFeedback({
                       type: 'error',
-                      message: 'Failed to import transactions'
+                      message:
+                        error instanceof Error
+                          ? `Failed to import transactions: ${error.message}`
+                          : 'Failed to import transactions'
                     })
                   }
                   setIsProcessing(false)

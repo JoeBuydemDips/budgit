@@ -395,7 +395,8 @@ export function importBudgets(allocations: ImportBudgetAllocation[]): ImportResu
   // Process each month's data
   for (const [month, monthAllocations] of allocationsByMonth) {
     const existingBudget = budgets.find((b) => b.month === month)
-    const incomeTotal = monthAllocations[0]?.incomeTotal || 0
+    // Use the maximum incomeTotal from all allocations in this month (they should be consistent)
+    const incomeTotal = Math.max(...monthAllocations.map((a) => a.incomeTotal), 0)
 
     const newAllocations: CategoryAllocation[] = monthAllocations.map((a) => ({
       categoryId: a.categoryId,
