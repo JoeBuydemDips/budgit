@@ -120,6 +120,7 @@ function App(): React.JSX.Element {
             onPreviousMonth={goToPreviousMonth}
             onNextMonth={goToNextMonth}
             onOpenBudgets={() => setShowBudgetManager(true)}
+            showMonthNav={currentView !== 'insights' && currentView !== 'settings'}
           />
 
           <main className="flex-1 overflow-hidden">
