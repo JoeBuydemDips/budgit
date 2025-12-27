@@ -71,13 +71,11 @@ interface BudgetViewProps {
   loading: boolean
   currentMonth: string
   onCreateBudget: (incomeTotal: number, copyFromMonth?: string) => Promise<void>
-  onUpdateIncome: (incomeTotal: number) => Promise<void>
   onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
   onUpdateIncomeSources: (sources: IncomeSource[]) => Promise<void>
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
   onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
-  onRemoveCategoryFromBudget: (categoryId: string) => Promise<void>
   onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
@@ -100,13 +98,11 @@ export function BudgetView({
   loading,
   currentMonth,
   onCreateBudget,
-  onUpdateIncome,
   onUpdateAllocation,
   onUpdateIncomeSources,
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
-  onRemoveCategoryFromBudget,
   onReorderCategories,
   onAddTransaction,
   onDeleteTransaction

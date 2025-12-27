@@ -35,6 +35,7 @@ function App(): React.JSX.Element {
   } = useBudget(currentMonth)
   const {
     transactions,
+    refresh: refreshTransactions,
     addTransaction,
     updateTransaction,
     deleteTransaction
@@ -66,6 +67,7 @@ function App(): React.JSX.Element {
     await deleteCategory(id)
     await refreshBudget()
     await refreshBudgets() // Keep insights in sync
+    await refreshTransactions() // Ensure transactions view updates if needed
   }
 
   // Wrap budget update functions to also refresh the budgets index for Insights
