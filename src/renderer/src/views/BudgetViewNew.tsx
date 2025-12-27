@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronUp, Trash2, Sparkles, Copy, RefreshCcw } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, Trash2, Sparkles, Copy, RefreshCcw, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,23 @@ import {
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { CategoryDetailPanel } from '@/components/CategoryDetailPanel'
 import { BudgetSummaryPanel } from '@/components/BudgetSummaryPanel'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type {
   Budget,
   Category,
@@ -57,6 +74,7 @@ interface BudgetViewProps {
   onUpdateIncomeSources: (sources: IncomeSource[]) => Promise<void>
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
+  onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
 }
@@ -83,6 +101,7 @@ export function BudgetView({
   onUpdateIncomeSources,
   onAddCategory,
   onDeleteCategory,
+  onReorderCategories,
   onAddTransaction,
   onDeleteTransaction
 }: BudgetViewProps) {
@@ -108,8 +127,40 @@ export function BudgetView({
     DEBT: true
   })
 
+  // DnD Kit sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8 // Require 8px movement before starting drag
+      }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  )
+
   const toggleGroup = (type: string) => {
     setExpandedGroups((prev) => ({ ...prev, [type]: !prev[type] }))
+  }
+
+  // Handle drag end for category reordering
+  const handleDragEnd = async (event: DragEndEvent, groupType: CategoryType) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      // Get categories of this type sorted by sortOrder
+      const typeCats = categories
+        .filter((c) => c.type === groupType)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+      const oldIndex = typeCats.findIndex((c) => c.id === active.id)
+      const newIndex = typeCats.findIndex((c) => c.id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(typeCats, oldIndex, newIndex)
+        const reorderedIds = reordered.map((c) => c.id)
+        await onReorderCategories(reorderedIds)
+      }
+    }
   }
 
   if (loading) {
@@ -232,6 +283,7 @@ export function BudgetView({
   const groupedCategories = CATEGORY_TYPE_ORDER.map((type) => {
     const typeCats = categories
       .filter((c) => c.type === type)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) // Sort by sortOrder
       .map((cat) => {
         const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
         return {
@@ -445,22 +497,33 @@ export function BudgetView({
                       No categories yet
                     </p>
                   ) : (
-                    group.categories.map((cat) => (
-                      <CategoryRow
-                        key={cat.id}
-                        category={cat}
-                        isSelected={selectedCategory === cat.id}
-                        onSelect={() => setSelectedCategory(cat.id)}
-                        onUpdateName={async (name) => {
-                          await window.api.updateCategory(cat.id, { name })
-                        }}
-                        onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
-                        onToggleRollover={async (enabled) => {
-                          await window.api.updateCategory(cat.id, { rolloverEnabled: enabled })
-                        }}
-                        onDelete={() => onDeleteCategory(cat.id)}
-                      />
-                    ))
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(event) => handleDragEnd(event, group.type)}
+                    >
+                      <SortableContext
+                        items={group.categories.map((c) => c.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {group.categories.map((cat) => (
+                          <SortableCategoryRow
+                            key={cat.id}
+                            category={cat}
+                            isSelected={selectedCategory === cat.id}
+                            onSelect={() => setSelectedCategory(cat.id)}
+                            onUpdateName={async (name) => {
+                              await window.api.updateCategory(cat.id, { name })
+                            }}
+                            onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
+                            onToggleRollover={async (enabled) => {
+                              await window.api.updateCategory(cat.id, { rolloverEnabled: enabled })
+                            }}
+                            onDelete={() => onDeleteCategory(cat.id)}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
                   )}
                   <Button
                     variant="ghost"
@@ -894,6 +957,33 @@ interface CategoryRowProps {
   onUpdatePlanned: (planned: number) => void
   onToggleRollover: (enabled: boolean) => void
   onDelete: () => void
+  dragHandleProps?: {
+    attributes: React.HTMLAttributes<HTMLElement>
+    listeners: React.DOMAttributes<HTMLElement>
+  }
+}
+
+// Sortable wrapper component
+function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): React.JSX.Element {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.category.id
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <CategoryRow
+        {...props}
+        dragHandleProps={{ attributes, listeners }}
+      />
+    </div>
+  )
 }
 
 function CategoryRow({
@@ -903,7 +993,8 @@ function CategoryRow({
   onUpdateName,
   onUpdatePlanned,
   onToggleRollover,
-  onDelete
+  onDelete,
+  dragHandleProps
 }: CategoryRowProps): React.JSX.Element {
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState(category.name)
@@ -937,6 +1028,17 @@ function CategoryRow({
       onClick={onSelect}
     >
       <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Drag handle */}
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps.attributes}
+            {...dragHandleProps.listeners}
+            className="cursor-grab active:cursor-grabbing p-1 -ml-2 text-muted-foreground/50 hover:text-muted-foreground touch-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         {editingName ? (
           <Input
             type="text"

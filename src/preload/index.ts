@@ -22,6 +22,8 @@ const budgetApi = {
   updateCategory: (id: string, updates: Partial<Category>): Promise<Category | null> =>
     ipcRenderer.invoke('categories:update', id, updates),
   deleteCategory: (id: string): Promise<boolean> => ipcRenderer.invoke('categories:delete', id),
+  reorderCategories: (categoryIds: string[]): Promise<void> =>
+    ipcRenderer.invoke('categories:reorder', categoryIds),
 
   // Budgets
   getBudget: (month: string): Promise<Budget | null> => ipcRenderer.invoke('budget:get', month),

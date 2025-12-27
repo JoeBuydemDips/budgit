@@ -68,6 +68,18 @@ export function deleteCategory(id: string): boolean {
   return true
 }
 
+export function reorderCategories(categoryIds: string[]): void {
+  const categories = store.get('categories')
+  const updated = categories.map((cat) => {
+    const newIndex = categoryIds.indexOf(cat.id)
+    if (newIndex !== -1) {
+      return { ...cat, sortOrder: newIndex }
+    }
+    return cat
+  })
+  store.set('categories', updated)
+}
+
 // ============== Budgets ==============
 export function getBudgets(): Budget[] {
   return store.get('budgets')

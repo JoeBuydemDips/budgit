@@ -7,6 +7,7 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+  reorderCategories,
   getBudgetByMonth,
   createBudget,
   updateBudget,
@@ -60,6 +61,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('categories:delete', (_, id: string) => {
     return deleteCategory(id)
+  })
+
+  ipcMain.handle('categories:reorder', (_, categoryIds: string[]) => {
+    return reorderCategories(categoryIds)
   })
 
   // ============== Budgets ==============
