@@ -101,7 +101,7 @@ export function importCategories(
 ): ImportCategoriesResult {
   const existingCategories = store.get('categories')
   const existingIds = new Set(existingCategories.map((c) => c.id))
-  
+
   const errors: string[] = []
   let imported = 0
   let updated = 0
@@ -120,7 +120,7 @@ export function importCategories(
   } else {
     // Merge - update existing, add new
     const categoryMap = new Map(existingCategories.map((c) => [c.id, c]))
-    
+
     for (const cat of categoriesToImport) {
       if (existingIds.has(cat.id)) {
         // Update existing
@@ -144,7 +144,7 @@ export function importCategories(
         imported++
       }
     }
-    
+
     store.set('categories', Array.from(categoryMap.values()))
   }
 

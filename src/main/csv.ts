@@ -22,13 +22,7 @@ export const TRANSACTION_CSV_HEADERS = [
   'createdAt'
 ]
 
-export const CATEGORY_CSV_HEADERS = [
-  'id',
-  'name',
-  'type',
-  'rolloverEnabled',
-  'sortOrder'
-]
+export const CATEGORY_CSV_HEADERS = ['id', 'name', 'type', 'rolloverEnabled', 'sortOrder']
 
 // Escape CSV field values
 function escapeCSVField(value: string | number): string {
@@ -102,13 +96,7 @@ export function generateCategoriesCSV(categories: Category[]): string {
   const lines: string[] = [CATEGORY_CSV_HEADERS.join(',')]
 
   for (const cat of categories) {
-    const row = [
-      cat.id,
-      cat.name,
-      cat.type,
-      cat.rolloverEnabled ? 'true' : 'false',
-      cat.sortOrder
-    ]
+    const row = [cat.id, cat.name, cat.type, cat.rolloverEnabled ? 'true' : 'false', cat.sortOrder]
     lines.push(row.map(escapeCSVField).join(','))
   }
 
@@ -412,13 +400,10 @@ export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
       continue
     }
 
-    const rolloverEnabled = rolloverIdx !== -1
-      ? values[rolloverIdx]?.toLowerCase() === 'true'
-      : false
+    const rolloverEnabled =
+      rolloverIdx !== -1 ? values[rolloverIdx]?.toLowerCase() === 'true' : false
 
-    const sortOrder = sortOrderIdx !== -1
-      ? parseInt(values[sortOrderIdx], 10)
-      : i - 1
+    const sortOrder = sortOrderIdx !== -1 ? parseInt(values[sortOrderIdx], 10) : i - 1
 
     categories.push({
       id,
