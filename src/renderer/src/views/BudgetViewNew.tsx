@@ -401,12 +401,6 @@ export function BudgetView({
                     : 'over budget'}
               </p>
             </div>
-            {/* Column Headers - offset to align with card content */}
-            <div className="flex items-center text-xs text-muted-foreground uppercase tracking-wide pr-6">
-              <div className="w-28 text-right pr-2">Planned</div>
-              <div className="w-28 text-right">Spent</div>
-              <div className="w-12" />
-            </div>
           </div>
         </div>
 
@@ -433,9 +427,11 @@ export function BudgetView({
                   </div>
                   <div className="flex items-center">
                     <div className="w-28 text-right pr-2">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Planned</p>
                       <p className="font-semibold">{formatCurrency(budget.incomeTotal)}</p>
                     </div>
                     <div className="w-28 text-right">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Received</p>
                       <p className="font-semibold">{formatCurrency(totalReceived)}</p>
                     </div>
                     <div className="w-12" />
@@ -518,9 +514,11 @@ export function BudgetView({
                     </div>
                     <div className="flex items-center">
                       <div className="w-28 text-right pr-2">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Planned</p>
                         <p className="font-semibold">{formatCurrency(group.planned)}</p>
                       </div>
                       <div className="w-28 text-right">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Spent</p>
                         <p
                           className={cn(
                             'font-semibold',
