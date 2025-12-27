@@ -94,7 +94,23 @@ export function useCategories() {
     [refresh]
   )
 
-  return { categories, loading, refresh, addCategory, deleteCategory, reorderCategories }
+  const updateCategory = useCallback(
+    async (id: string, updates: Partial<Category>) => {
+      await window.api.updateCategory(id, updates)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  return {
+    categories,
+    loading,
+    refresh,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    reorderCategories
+  }
 }
 
 // Hook to manage budget for a specific month

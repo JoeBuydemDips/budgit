@@ -75,6 +75,7 @@ interface BudgetViewProps {
   onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
   onUpdateIncomeSources: (sources: IncomeSource[]) => Promise<void>
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
+  onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
   onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
@@ -102,6 +103,7 @@ export function BudgetView({
   onUpdateAllocation,
   onUpdateIncomeSources,
   onAddCategory,
+  onUpdateCategory,
   onDeleteCategory,
   onReorderCategories,
   onAddTransaction,
@@ -565,11 +567,11 @@ export function BudgetView({
                               setSelectedIncomeSource(null)
                             }}
                             onUpdateName={async (name) => {
-                              await window.api.updateCategory(cat.id, { name })
+                              await onUpdateCategory(cat.id, { name })
                             }}
                             onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
                             onToggleRollover={async (enabled) => {
-                              await window.api.updateCategory(cat.id, { rolloverEnabled: enabled })
+                              await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
                             }}
                             onDelete={() => onDeleteCategory(cat.id)}
                           />

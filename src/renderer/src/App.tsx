@@ -21,7 +21,7 @@ function App(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
-  const { categories, refresh: refreshCategories, addCategory, deleteCategory, reorderCategories } = useCategories()
+  const { categories, refresh: refreshCategories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
@@ -136,6 +136,7 @@ function App(): React.JSX.Element {
                 onUpdateAllocation={handleUpdateAllocation}
                 onUpdateIncomeSources={handleUpdateIncomeSources}
                 onAddCategory={addCategory}
+                onUpdateCategory={updateCategory}
                 onDeleteCategory={deleteCategory}
                 onReorderCategories={reorderCategories}
                 onAddTransaction={handleAddTransaction}
