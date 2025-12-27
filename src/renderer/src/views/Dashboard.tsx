@@ -71,11 +71,21 @@ export function Dashboard({
     if (!transactions.length) return []
 
     const spendingByDay: Record<string, number> = {}
+    
+    // Parse the currentMonth to get the correct month/year
+    const monthDate = parseMonthKey(currentMonth)
+    const year = monthDate.getFullYear()
+    const month = monthDate.getMonth()
+    
     const today = new Date()
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const startOfMonth = new Date(year, month, 1)
+    
+    // Determine the end date: either today (if viewing current month) or end of the selected month
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
+    const endOfMonth = isCurrentMonth ? today : new Date(year, month + 1, 0) // Last day of selected month
 
-    // Initialize all days of the month up to today
-    for (let d = new Date(startOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
+    // Initialize all days of the month up to the end date
+    for (let d = new Date(startOfMonth); d <= endOfMonth; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().split('T')[0]
       spendingByDay[key] = 0
     }
@@ -94,7 +104,7 @@ export function Dashboard({
         date: new Date(date).getDate().toString(),
         amount
       }))
-  }, [transactions])
+  }, [transactions, currentMonth])
 
   // Calculate category breakdown for pie chart
   const categoryBreakdown = useMemo(() => {
@@ -133,11 +143,16 @@ export function Dashboard({
     return categories
       .map((cat) => {
         const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
+        const spent = allocation?.spent || 0
+        const planned = allocation?.planned || 0
+        // If no budget set but there's spending, show as 100% (over budget)
+        // If budget is set, calculate actual percentage
+        const percentage = planned > 0 ? (spent / planned) * 100 : (spent > 0 ? 100 : 0)
         return {
           ...cat,
-          planned: allocation?.planned || 0,
-          spent: allocation?.spent || 0,
-          percentage: allocation?.planned ? (allocation.spent / allocation.planned) * 100 : 0
+          planned,
+          spent,
+          percentage
         }
       })
       .filter((c) => c.spent > 0)
@@ -531,7 +546,9 @@ export function Dashboard({
               </p>
             ) : (
               topCategories.map((cat) => {
-                const isOver = cat.spent > cat.planned && cat.planned > 0
+                // Over budget if spending exceeds planned, OR if spending exists with no budget
+                const isOver = cat.spent > cat.planned
+                const hasNoBudget = cat.planned === 0 && cat.spent > 0
                 return (
                   <div key={cat.id} className="space-y-2">
                     <div className="flex justify-between items-center">
@@ -543,11 +560,11 @@ export function Dashboard({
                         <span className="font-medium text-sm">{cat.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={cn('text-sm', isOver && 'text-red-600')}>
+                        <span className={cn('text-sm', (isOver || hasNoBudget) && 'text-red-600')}>
                           {formatCurrency(cat.spent)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          / {formatCurrency(cat.planned)}
+                          / {hasNoBudget ? 'No budget' : formatCurrency(cat.planned)}
                         </span>
                       </div>
                     </div>
@@ -555,8 +572,8 @@ export function Dashboard({
                       value={Math.min(cat.percentage, 100)}
                       className="h-2"
                       indicatorClassName={cn(
-                        isOver && 'bg-red-500',
-                        cat.percentage >= 80 && !isOver && 'bg-amber-500'
+                        (isOver || hasNoBudget) && 'bg-red-500',
+                        cat.percentage >= 80 && !isOver && !hasNoBudget && 'bg-amber-500'
                       )}
                     />
                   </div>

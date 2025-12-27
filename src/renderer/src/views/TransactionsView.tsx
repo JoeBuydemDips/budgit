@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, Search, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -225,7 +225,7 @@ export function TransactionsView({
                           </div>
 
                           {/* Actions */}
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -329,30 +329,28 @@ function TransactionDialog({
   transaction,
   onSave
 }: TransactionDialogProps) {
-  const [amount, setAmount] = useState(transaction?.amount.toString() || '')
-  const [categoryId, setCategoryId] = useState(transaction?.categoryId || '')
-  const [description, setDescription] = useState(transaction?.description || '')
-  const [date, setDate] = useState(
-    transaction?.date
-      ? new Date(transaction.date).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0]
-  )
+  const [amount, setAmount] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [description, setDescription] = useState('')
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
 
-  // Reset form when dialog opens/closes or transaction changes
-  useState(() => {
-    if (transaction) {
-      setAmount(transaction.amount.toString())
-      setCategoryId(transaction.categoryId)
-      setDescription(transaction.description)
-      setDate(new Date(transaction.date).toISOString().split('T')[0])
-    } else {
-      setAmount('')
-      setCategoryId('')
-      setDescription('')
-      setDate(new Date().toISOString().split('T')[0])
+  // Reset form when dialog opens or transaction changes
+  useEffect(() => {
+    if (open) {
+      if (transaction) {
+        setAmount(transaction.amount.toString())
+        setCategoryId(transaction.categoryId)
+        setDescription(transaction.description)
+        setDate(new Date(transaction.date).toISOString().split('T')[0])
+      } else {
+        setAmount('')
+        setCategoryId('')
+        setDescription('')
+        setDate(new Date().toISOString().split('T')[0])
+      }
     }
-  })
+  }, [open, transaction])
 
   const handleSave = async () => {
     if (!amount || !categoryId) return
