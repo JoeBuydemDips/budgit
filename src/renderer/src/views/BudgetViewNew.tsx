@@ -31,7 +31,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  MeasuringStrategy
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -41,6 +42,7 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
 import type {
   Budget,
   Category,
@@ -501,6 +503,12 @@ export function BudgetView({
                       sensors={sensors}
                       collisionDetection={closestCenter}
                       onDragEnd={(event) => handleDragEnd(event, group.type)}
+                      modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                      measuring={{
+                        droppable: {
+                          strategy: MeasuringStrategy.Always
+                        }
+                      }}
                     >
                       <SortableContext
                         items={group.categories.map((c) => c.id)}
@@ -969,11 +977,15 @@ function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): 
     id: props.category.id
   })
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 1 : 0
+    transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
+    opacity: isDragging ? 0.9 : 1,
+    zIndex: isDragging ? 50 : 0,
+    position: 'relative',
+    boxShadow: isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
+    backgroundColor: isDragging ? 'hsl(var(--background))' : undefined,
+    borderRadius: isDragging ? '6px' : undefined
   }
 
   return (
