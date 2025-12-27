@@ -122,6 +122,7 @@ export function BudgetView({
   const [newIncomeName, setNewIncomeName] = useState('')
   const [creating, setCreating] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    INCOME: true,
     GIVING: true,
     SAVINGS: true,
     NEEDS: true,
@@ -161,6 +162,20 @@ export function BudgetView({
         const reordered = arrayMove(typeCats, oldIndex, newIndex)
         const reorderedIds = reordered.map((c) => c.id)
         await onReorderCategories(reorderedIds)
+      }
+    }
+  }
+
+  // Handle drag end for income source reordering
+  const handleIncomeDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = incomeSources.findIndex((s) => s.id === active.id)
+      const newIndex = incomeSources.findIndex((s) => s.id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(incomeSources, oldIndex, newIndex)
+        await onUpdateIncomeSources(reordered)
       }
     }
   }
@@ -424,15 +439,32 @@ export function BudgetView({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent className="pt-0 pb-3 px-0 space-y-0">
-                {incomeSources.map((source) => (
-                  <IncomeRow
-                    key={source.id}
-                    source={source}
-                    canDelete={incomeSources.length > 1}
-                    onUpdate={(updates) => handleUpdateIncomeSource(source.id, updates)}
-                    onDelete={() => handleDeleteIncomeSource(source.id)}
-                  />
-                ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleIncomeDragEnd}
+                  modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                  measuring={{
+                    droppable: {
+                      strategy: MeasuringStrategy.Always
+                    }
+                  }}
+                >
+                  <SortableContext
+                    items={incomeSources.map((s) => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {incomeSources.map((source) => (
+                      <SortableIncomeRow
+                        key={source.id}
+                        source={source}
+                        canDelete={incomeSources.length > 1}
+                        onUpdate={(updates) => handleUpdateIncomeSource(source.id, updates)}
+                        onDelete={() => handleDeleteIncomeSource(source.id)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -809,9 +841,40 @@ interface IncomeRowProps {
   canDelete: boolean
   onUpdate: (updates: Partial<IncomeSource>) => void
   onDelete: () => void
+  dragHandleProps?: {
+    attributes: React.HTMLAttributes<HTMLElement>
+    listeners: React.DOMAttributes<HTMLElement>
+  }
 }
 
-function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
+// Sortable wrapper for income row
+function SortableIncomeRow(props: Omit<IncomeRowProps, 'dragHandleProps'>): React.JSX.Element {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.source.id
+  })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
+    opacity: isDragging ? 0.9 : 1,
+    zIndex: isDragging ? 50 : 0,
+    position: 'relative',
+    boxShadow: isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
+    backgroundColor: isDragging ? 'hsl(var(--background))' : undefined,
+    borderRadius: isDragging ? '6px' : undefined
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <IncomeRow
+        {...props}
+        dragHandleProps={{ attributes, listeners }}
+      />
+    </div>
+  )
+}
+
+function IncomeRow({ source, canDelete, onUpdate, onDelete, dragHandleProps }: IncomeRowProps) {
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState(source.name)
   const [editingPlanned, setEditingPlanned] = useState(false)
@@ -848,6 +911,16 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
   return (
     <div className="group flex items-center justify-between py-3 px-6 hover:bg-muted/50 transition-colors border-b border-border/30 last:border-b-0">
       <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Drag handle */}
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps.attributes}
+            {...dragHandleProps.listeners}
+            className="cursor-grab active:cursor-grabbing p-1 -ml-2 text-muted-foreground/50 hover:text-muted-foreground touch-none"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         {editingName ? (
           <Input
             type="text"
@@ -875,16 +948,6 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
             {source.name}
           </button>
         )}
-        {canDelete && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        )}
       </div>
       <div className="flex items-center">
         <div className="w-28 text-right pr-2">
@@ -908,7 +971,7 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
                 setPlannedValue(source.planned.toString())
                 setEditingPlanned(true)
               }}
-              className="hover:bg-muted px-2 py-1 rounded transition-colors"
+              className="hover:bg-muted pl-2 py-1 rounded transition-colors"
             >
               {formatCurrency(source.planned)}
             </button>
@@ -935,14 +998,26 @@ function IncomeRow({ source, canDelete, onUpdate, onDelete }: IncomeRowProps) {
                 setReceivedValue(source.received.toString())
                 setEditingReceived(true)
               }}
-              className="hover:bg-muted px-2 py-1 rounded transition-colors"
+              className="hover:bg-muted pl-2 py-1 rounded transition-colors"
             >
               {formatCurrency(source.received)}
             </button>
           )}
         </div>
-        {/* Spacer to align with category row action buttons */}
-        <div className="w-12" />
+        {/* Action buttons - matching CategoryRow structure */}
+        <div className="w-12 flex items-center justify-end">
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+              onClick={onDelete}
+              title="Delete Income"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
