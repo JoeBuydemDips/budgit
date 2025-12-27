@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Plus,
   Pencil,
@@ -30,7 +30,8 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
-import type { Category, CategoryType } from '../../../shared/types'
+import { formatMonth, parseMonthKey } from '@/lib/utils'
+import type { Budget, Category, CategoryType } from '../../../shared/types'
 
 interface SettingsViewProps {
   categories: Category[]
@@ -41,6 +42,9 @@ interface ImportExportFeedback {
   type: 'success' | 'error'
   message: string
 }
+
+type ExportDialogType = 'budgets' | 'transactions' | null
+type ImportDialogType = 'budgets' | 'transactions' | null
 
 const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'GIVING', label: 'Giving' },
@@ -62,6 +66,22 @@ export function SettingsView({
     null
   )
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Export/Import dialog states
+  const [exportDialogType, setExportDialogType] = useState<ExportDialogType>(null)
+  const [importDialogType, setImportDialogType] = useState<ImportDialogType>(null)
+  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([])
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [targetMonth, setTargetMonth] = useState<string>('')
+
+  // Load budgets when export/import dialog opens
+  useEffect(() => {
+    if (exportDialogType === 'budgets' || importDialogType) {
+      window.api.getBudgets().then(setBudgets)
+    }
+  }, [exportDialogType, importDialogType])
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -187,35 +207,9 @@ export function SettingsView({
                 variant="outline"
                 size="sm"
                 disabled={isProcessing}
-                onClick={async (): Promise<void> => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.exportBudgetsCSV()
-                    if (result.canceled) {
-                      // User cancelled, no feedback needed
-                    } else if (result.success) {
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: `Budgets exported successfully to ${result.filePath}`
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message: result.error || 'Failed to export budgets'
-                      })
-                    }
-                  } catch (error) {
-                    console.error('Failed to export budgets:', error)
-                    setImportExportFeedback({
-                      type: 'error',
-                      message:
-                        error instanceof Error
-                          ? `Failed to export budgets: ${error.message}`
-                          : 'Failed to export budgets'
-                    })
-                  }
-                  setIsProcessing(false)
+                onClick={() => {
+                  setSelectedMonths([])
+                  setExportDialogType('budgets')
                 }}
               >
                 <Download className="h-4 w-4 mr-2" />
@@ -225,35 +219,10 @@ export function SettingsView({
                 variant="outline"
                 size="sm"
                 disabled={isProcessing}
-                onClick={async (): Promise<void> => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.exportTransactionsCSV()
-                    if (result.canceled) {
-                      // User cancelled, no feedback needed
-                    } else if (result.success) {
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: `Transactions exported successfully to ${result.filePath}`
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message: result.error || 'Failed to export transactions'
-                      })
-                    }
-                  } catch (error) {
-                    console.error('Failed to export transactions:', error)
-                    setImportExportFeedback({
-                      type: 'error',
-                      message:
-                        error instanceof Error
-                          ? `Failed to export transactions: ${error.message}`
-                          : 'Failed to export transactions'
-                    })
-                  }
-                  setIsProcessing(false)
+                onClick={() => {
+                  setStartDate('')
+                  setEndDate('')
+                  setExportDialogType('transactions')
                 }}
               >
                 <Download className="h-4 w-4 mr-2" />
@@ -275,36 +244,9 @@ export function SettingsView({
                 variant="outline"
                 size="sm"
                 disabled={isProcessing}
-                onClick={async (): Promise<void> => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.importBudgetsCSV()
-                    if (result.canceled) {
-                      // User cancelled, no feedback needed
-                    } else if (result.success) {
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: `Imported ${result.imported} budget allocations${result.skipped > 0 ? `, skipped ${result.skipped}` : ''}`
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message:
-                          result.errors.length > 0 ? result.errors[0] : 'Failed to import budgets'
-                      })
-                    }
-                  } catch (error) {
-                    console.error('Failed to import budgets:', error)
-                    setImportExportFeedback({
-                      type: 'error',
-                      message:
-                        error instanceof Error
-                          ? `Failed to import budgets: ${error.message}`
-                          : 'Failed to import budgets'
-                    })
-                  }
-                  setIsProcessing(false)
+                onClick={() => {
+                  setTargetMonth('')
+                  setImportDialogType('budgets')
                 }}
               >
                 <Upload className="h-4 w-4 mr-2" />
@@ -314,38 +256,9 @@ export function SettingsView({
                 variant="outline"
                 size="sm"
                 disabled={isProcessing}
-                onClick={async (): Promise<void> => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.importTransactionsCSV()
-                    if (result.canceled) {
-                      // User cancelled, no feedback needed
-                    } else if (result.success) {
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: `Imported ${result.imported} transactions${result.skipped > 0 ? `, skipped ${result.skipped} duplicates` : ''}`
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message:
-                          result.errors.length > 0
-                            ? result.errors[0]
-                            : 'Failed to import transactions'
-                      })
-                    }
-                  } catch (error) {
-                    console.error('Failed to import transactions:', error)
-                    setImportExportFeedback({
-                      type: 'error',
-                      message:
-                        error instanceof Error
-                          ? `Failed to import transactions: ${error.message}`
-                          : 'Failed to import transactions'
-                    })
-                  }
-                  setIsProcessing(false)
+                onClick={() => {
+                  setTargetMonth('')
+                  setImportDialogType('transactions')
                 }}
               >
                 <Upload className="h-4 w-4 mr-2" />
@@ -423,6 +336,365 @@ export function SettingsView({
               }}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Budgets Dialog */}
+      <Dialog
+        open={exportDialogType === 'budgets'}
+        onOpenChange={(open) => !open && setExportDialogType(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Budgets</DialogTitle>
+            <DialogDescription>
+              Select which budget months to export, or leave empty to export all.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Months</Label>
+              <div className="max-h-48 overflow-y-auto border rounded-md p-2 space-y-1">
+                {budgets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground p-2">No budgets available</p>
+                ) : (
+                  [...budgets]
+                    .sort((a, b) => b.month.localeCompare(a.month))
+                    .map((budget) => (
+                      <label
+                        key={budget.month}
+                        className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMonths.includes(budget.month)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMonths([...selectedMonths, budget.month])
+                            } else {
+                              setSelectedMonths(selectedMonths.filter((m) => m !== budget.month))
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <span className="text-sm">{formatMonth(parseMonthKey(budget.month))}</span>
+                      </label>
+                    ))
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {selectedMonths.length === 0
+                  ? 'All budgets will be exported'
+                  : `${selectedMonths.length} month(s) selected`}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogType(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isProcessing}
+              onClick={async () => {
+                setIsProcessing(true)
+                setImportExportFeedback(null)
+                setExportDialogType(null)
+                try {
+                  const result = await window.api.exportBudgetsCSV(
+                    selectedMonths.length > 0 ? { months: selectedMonths } : undefined
+                  )
+                  if (result.canceled) {
+                    // User cancelled
+                  } else if (result.success) {
+                    setImportExportFeedback({
+                      type: 'success',
+                      message: `Budgets exported successfully to ${result.filePath}`
+                    })
+                  } else {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message: result.error || 'Failed to export budgets'
+                    })
+                  }
+                } catch (error) {
+                  setImportExportFeedback({
+                    type: 'error',
+                    message:
+                      error instanceof Error
+                        ? `Failed to export budgets: ${error.message}`
+                        : 'Failed to export budgets'
+                  })
+                }
+                setIsProcessing(false)
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Transactions Dialog */}
+      <Dialog
+        open={exportDialogType === 'transactions'}
+        onOpenChange={(open) => !open && setExportDialogType(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Transactions</DialogTitle>
+            <DialogDescription>
+              Set a date range to filter transactions, or leave empty to export all.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {!startDate && !endDate
+                ? 'All transactions will be exported'
+                : startDate && endDate
+                  ? `Transactions from ${startDate} to ${endDate}`
+                  : startDate
+                    ? `Transactions from ${startDate} onwards`
+                    : `Transactions up to ${endDate}`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogType(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isProcessing}
+              onClick={async () => {
+                setIsProcessing(true)
+                setImportExportFeedback(null)
+                setExportDialogType(null)
+                try {
+                  const options =
+                    startDate || endDate
+                      ? { startDate: startDate || undefined, endDate: endDate || undefined }
+                      : undefined
+                  const result = await window.api.exportTransactionsCSV(options)
+                  if (result.canceled) {
+                    // User cancelled
+                  } else if (result.success) {
+                    setImportExportFeedback({
+                      type: 'success',
+                      message: `Transactions exported successfully to ${result.filePath}`
+                    })
+                  } else {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message: result.error || 'Failed to export transactions'
+                    })
+                  }
+                } catch (error) {
+                  setImportExportFeedback({
+                    type: 'error',
+                    message:
+                      error instanceof Error
+                        ? `Failed to export transactions: ${error.message}`
+                        : 'Failed to export transactions'
+                  })
+                }
+                setIsProcessing(false)
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Budgets Dialog */}
+      <Dialog
+        open={importDialogType === 'budgets'}
+        onOpenChange={(open) => !open && setImportDialogType(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Budgets</DialogTitle>
+            <DialogDescription>
+              Choose whether to import budget allocations to a specific month or use the months from
+              the CSV file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Target Budget Month</Label>
+              <Select value={targetMonth} onValueChange={setTargetMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Use months from CSV file" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">Use months from CSV file</SelectItem>
+                  {[...budgets]
+                    .sort((a, b) => b.month.localeCompare(a.month))
+                    .map((budget) => (
+                      <SelectItem key={budget.month} value={budget.month}>
+                        {formatMonth(parseMonthKey(budget.month))}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {!targetMonth || targetMonth === 'csv'
+                  ? 'Each row will be imported to the month specified in the CSV'
+                  : `All allocations will be imported to ${formatMonth(parseMonthKey(targetMonth))}`}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogType(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isProcessing}
+              onClick={async () => {
+                setIsProcessing(true)
+                setImportExportFeedback(null)
+                setImportDialogType(null)
+                try {
+                  const options =
+                    targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
+                  const result = await window.api.importBudgetsCSV(options)
+                  if (result.canceled) {
+                    // User cancelled
+                  } else if (result.success) {
+                    setImportExportFeedback({
+                      type: 'success',
+                      message: `Imported ${result.imported} budget allocations${result.skipped > 0 ? `, skipped ${result.skipped}` : ''}`
+                    })
+                  } else {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message:
+                        result.errors.length > 0 ? result.errors[0] : 'Failed to import budgets'
+                    })
+                  }
+                } catch (error) {
+                  setImportExportFeedback({
+                    type: 'error',
+                    message:
+                      error instanceof Error
+                        ? `Failed to import budgets: ${error.message}`
+                        : 'Failed to import budgets'
+                  })
+                }
+                setIsProcessing(false)
+              }}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Select File & Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Transactions Dialog */}
+      <Dialog
+        open={importDialogType === 'transactions'}
+        onOpenChange={(open) => !open && setImportDialogType(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Transactions</DialogTitle>
+            <DialogDescription>
+              Choose whether to import transactions to a specific budget month or use the months
+              from the CSV file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Target Budget Month</Label>
+              <Select value={targetMonth} onValueChange={setTargetMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Use months from CSV file" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">Use months from CSV file</SelectItem>
+                  {[...budgets]
+                    .sort((a, b) => b.month.localeCompare(a.month))
+                    .map((budget) => (
+                      <SelectItem key={budget.month} value={budget.month}>
+                        {formatMonth(parseMonthKey(budget.month))}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {!targetMonth || targetMonth === 'csv'
+                  ? 'Each transaction will be imported to the budget month specified in the CSV'
+                  : `All transactions will be imported to ${formatMonth(parseMonthKey(targetMonth))}`}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogType(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isProcessing}
+              onClick={async () => {
+                setIsProcessing(true)
+                setImportExportFeedback(null)
+                setImportDialogType(null)
+                try {
+                  const options =
+                    targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
+                  const result = await window.api.importTransactionsCSV(options)
+                  if (result.canceled) {
+                    // User cancelled
+                  } else if (result.success) {
+                    setImportExportFeedback({
+                      type: 'success',
+                      message: `Imported ${result.imported} transactions${result.skipped > 0 ? `, skipped ${result.skipped} duplicates` : ''}`
+                    })
+                  } else {
+                    setImportExportFeedback({
+                      type: 'error',
+                      message:
+                        result.errors.length > 0
+                          ? result.errors[0]
+                          : 'Failed to import transactions'
+                    })
+                  }
+                } catch (error) {
+                  setImportExportFeedback({
+                    type: 'error',
+                    message:
+                      error instanceof Error
+                        ? `Failed to import transactions: ${error.message}`
+                        : 'Failed to import transactions'
+                  })
+                }
+                setIsProcessing(false)
+              }}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Select File & Import
             </Button>
           </DialogFooter>
         </DialogContent>

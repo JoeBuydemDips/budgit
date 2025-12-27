@@ -52,26 +52,26 @@ interface BudgetAPI {
   deleteTransaction: (id: string) => Promise<boolean>
 
   // CSV Import/Export
-  exportBudgetsCSV: () => Promise<{
+  exportBudgetsCSV: (options?: { months?: string[] }) => Promise<{
     success: boolean
     filePath?: string
     error?: string
     canceled?: boolean
   }>
-  exportTransactionsCSV: () => Promise<{
+  exportTransactionsCSV: (options?: { startDate?: string; endDate?: string }) => Promise<{
     success: boolean
     filePath?: string
     error?: string
     canceled?: boolean
   }>
-  importBudgetsCSV: () => Promise<{
+  importBudgetsCSV: (options?: { targetMonth?: string }) => Promise<{
     success: boolean
     imported: number
     skipped: number
     errors: string[]
     canceled?: boolean
   }>
-  importTransactionsCSV: () => Promise<{
+  importTransactionsCSV: (options?: { targetMonth?: string }) => Promise<{
     success: boolean
     imported: number
     skipped: number

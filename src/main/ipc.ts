@@ -12,9 +12,11 @@ import {
   updateBudget,
   deleteBudget,
   getBudgets,
+  getBudgetsByMonths,
   getBudgetsWithSpent,
   getTransactionsByMonth,
   getTransactions,
+  getTransactionsByDateRange,
   addTransaction,
   updateTransaction,
   deleteTransaction,
@@ -131,7 +133,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ============== CSV Export/Import ==============
-  ipcMain.handle('csv:exportBudgets', async () => {
+  ipcMain.handle('csv:exportBudgets', async (_, options?: { months?: string[] }) => {
     const window = BrowserWindow.getFocusedWindow()
     if (!window) return { success: false, error: 'No active window' }
 
@@ -146,7 +148,11 @@ export function registerIpcHandlers(): void {
     }
 
     try {
-      const budgets = getBudgets()
+      // Use filtered budgets if months specified, otherwise export all
+      const budgets =
+        options?.months && options.months.length > 0
+          ? getBudgetsByMonths(options.months)
+          : getBudgets()
       const categories = getCategories()
       const csvContent = generateBudgetsCSV(budgets, categories)
       await writeFile(result.filePath, csvContent, 'utf-8')
@@ -156,67 +162,80 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('csv:exportTransactions', async () => {
-    const window = BrowserWindow.getFocusedWindow()
-    if (!window) return { success: false, error: 'No active window' }
+  ipcMain.handle(
+    'csv:exportTransactions',
+    async (_, options?: { startDate?: string; endDate?: string }) => {
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, error: 'No active window' }
 
-    const result = await dialog.showSaveDialog(window, {
-      title: 'Export Transactions',
-      defaultPath: 'budgit-transactions.csv',
-      filters: [{ name: 'CSV Files', extensions: ['csv'] }]
-    })
+      const result = await dialog.showSaveDialog(window, {
+        title: 'Export Transactions',
+        defaultPath: 'budgit-transactions.csv',
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+      })
 
-    if (result.canceled || !result.filePath) {
-      return { success: false, canceled: true }
-    }
-
-    try {
-      const transactions = getTransactions()
-      const categories = getCategories()
-      const csvContent = generateTransactionsCSV(transactions, categories)
-      await writeFile(result.filePath, csvContent, 'utf-8')
-      return { success: true, filePath: result.filePath }
-    } catch (error) {
-      return { success: false, error: String(error) }
-    }
-  })
-
-  ipcMain.handle('csv:importBudgets', async (): Promise<ImportResult & { canceled?: boolean }> => {
-    const window = BrowserWindow.getFocusedWindow()
-    if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
-
-    const result = await dialog.showOpenDialog(window, {
-      title: 'Import Budgets',
-      filters: [{ name: 'CSV Files', extensions: ['csv'] }],
-      properties: ['openFile']
-    })
-
-    if (result.canceled || result.filePaths.length === 0) {
-      return { success: false, imported: 0, skipped: 0, errors: [], canceled: true }
-    }
-
-    try {
-      const csvContent = await readFile(result.filePaths[0], 'utf-8')
-      const parsed = parseBudgetsCSV(csvContent)
-
-      if (parsed.errors.length > 0) {
-        return {
-          success: false,
-          imported: 0,
-          skipped: 0,
-          errors: parsed.errors.map((e) => `Row ${e.row}: ${e.message}`)
-        }
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true }
       }
 
-      return importBudgets(parsed.allocations)
-    } catch (error) {
-      return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+      try {
+        // Use filtered transactions if date range specified, otherwise export all
+        const transactions =
+          options?.startDate || options?.endDate
+            ? getTransactionsByDateRange(options.startDate, options.endDate)
+            : getTransactions()
+        const categories = getCategories()
+        const csvContent = generateTransactionsCSV(transactions, categories)
+        await writeFile(result.filePath, csvContent, 'utf-8')
+        return { success: true, filePath: result.filePath }
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
     }
-  })
+  )
+
+  ipcMain.handle(
+    'csv:importBudgets',
+    async (_, options?: { targetMonth?: string }): Promise<ImportResult & { canceled?: boolean }> => {
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
+
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Import Budgets',
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+        properties: ['openFile']
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, imported: 0, skipped: 0, errors: [], canceled: true }
+      }
+
+      try {
+        const csvContent = await readFile(result.filePaths[0], 'utf-8')
+        const parsed = parseBudgetsCSV(csvContent)
+
+        if (parsed.errors.length > 0) {
+          return {
+            success: false,
+            imported: 0,
+            skipped: 0,
+            errors: parsed.errors.map((e) => `Row ${e.row}: ${e.message}`)
+          }
+        }
+
+        return importBudgets(parsed.allocations, options?.targetMonth)
+      } catch (error) {
+        return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+      }
+    }
+  )
 
   ipcMain.handle(
     'csv:importTransactions',
-    async (): Promise<ImportResult & { canceled?: boolean }> => {
+    async (
+      _,
+      options?: { targetMonth?: string }
+    ): Promise<ImportResult & { canceled?: boolean }> => {
       const window = BrowserWindow.getFocusedWindow()
       if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
 
@@ -243,7 +262,7 @@ export function registerIpcHandlers(): void {
           }
         }
 
-        return importTransactions(parsed.transactions)
+        return importTransactions(parsed.transactions, options?.targetMonth)
       } catch (error) {
         return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
       }

@@ -8,8 +8,7 @@ import {
   AppSettings,
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
-  CategoryAllocation,
-  IncomeSource
+  CategoryAllocation
 } from '../shared/types'
 
 // Create the store with schema defaults
@@ -72,6 +71,11 @@ export function deleteCategory(id: string): boolean {
 // ============== Budgets ==============
 export function getBudgets(): Budget[] {
   return store.get('budgets')
+}
+
+export function getBudgetsByMonths(months: string[]): Budget[] {
+  const budgets = store.get('budgets')
+  return budgets.filter((b) => months.includes(b.month))
 }
 
 export function getBudgetByMonth(month: string): Budget | null {
@@ -194,6 +198,15 @@ export function deleteBudget(month: string): boolean {
 // ============== Transactions ==============
 export function getTransactions(): Transaction[] {
   return store.get('transactions')
+}
+
+export function getTransactionsByDateRange(startDate?: string, endDate?: string): Transaction[] {
+  const transactions = store.get('transactions')
+  return transactions.filter((t) => {
+    if (startDate && t.date < startDate) return false
+    if (endDate && t.date > endDate) return false
+    return true
+  })
 }
 
 export function getTransactionsByMonth(month: string): Transaction[] {
@@ -368,7 +381,11 @@ export interface ImportResult {
 }
 
 // Import budgets from parsed CSV data
-export function importBudgets(allocations: ImportBudgetAllocation[]): ImportResult {
+// If targetMonth is provided, all allocations will be imported to that month regardless of the CSV month
+export function importBudgets(
+  allocations: ImportBudgetAllocation[],
+  targetMonth?: string
+): ImportResult {
   const categories = store.get('categories')
   const categoryIds = new Set(categories.map((c) => c.id))
   const budgets = store.get('budgets')
@@ -377,7 +394,7 @@ export function importBudgets(allocations: ImportBudgetAllocation[]): ImportResu
   let imported = 0
   let skipped = 0
 
-  // Group allocations by month
+  // Group allocations by month (or use target month for all)
   const allocationsByMonth = new Map<string, ImportBudgetAllocation[]>()
   for (const allocation of allocations) {
     // Validate category exists
@@ -387,9 +404,11 @@ export function importBudgets(allocations: ImportBudgetAllocation[]): ImportResu
       continue
     }
 
-    const existing = allocationsByMonth.get(allocation.month) || []
-    existing.push(allocation)
-    allocationsByMonth.set(allocation.month, existing)
+    // Use targetMonth if provided, otherwise use the month from CSV
+    const monthKey = targetMonth || allocation.month
+    const existing = allocationsByMonth.get(monthKey) || []
+    existing.push({ ...allocation, month: monthKey })
+    allocationsByMonth.set(monthKey, existing)
   }
 
   // Process each month's data
@@ -466,6 +485,7 @@ export function importBudgets(allocations: ImportBudgetAllocation[]): ImportResu
 }
 
 // Import transactions from parsed CSV data
+// If targetMonth is provided, all transactions will be imported to that month regardless of the CSV budgetMonth
 export function importTransactions(
   transactions: Array<{
     budgetMonth: string
@@ -473,7 +493,8 @@ export function importTransactions(
     amount: number
     description: string
     date: string
-  }>
+  }>,
+  targetMonth?: string
 ): ImportResult {
   const categories = store.get('categories')
   const categoryIds = new Set(categories.map((c) => c.id))
@@ -509,7 +530,7 @@ export function importTransactions(
 
     const newTx: Transaction = {
       id: uuidv4(),
-      budgetMonth: tx.budgetMonth,
+      budgetMonth: targetMonth || tx.budgetMonth,
       categoryId: tx.categoryId,
       amount: tx.amount,
       description: tx.description,
