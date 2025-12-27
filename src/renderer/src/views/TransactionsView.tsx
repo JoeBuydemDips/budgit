@@ -148,7 +148,7 @@ export function TransactionsView({
       </Card>
 
       {/* Summary */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-6">
         <span className="text-sm text-muted-foreground">
           {filteredTransactions.length} transaction
           {filteredTransactions.length !== 1 ? 's' : ''}
