@@ -62,6 +62,12 @@ function App(): React.JSX.Element {
     await refreshBudgets() // Keep insights in sync
   }
 
+  const handleDeleteCategory = async (id: string) => {
+    await deleteCategory(id)
+    await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
+  }
+
   // Wrap budget update functions to also refresh the budgets index for Insights
   const handleUpdateIncomeSources = async (incomeSources: Parameters<typeof updateIncomeSources>[0]) => {
     await updateIncomeSources(incomeSources)
@@ -138,7 +144,7 @@ function App(): React.JSX.Element {
                 onUpdateIncomeSources={handleUpdateIncomeSources}
                 onAddCategory={addCategory}
                 onUpdateCategory={updateCategory}
-                onDeleteCategory={deleteCategory}
+                onDeleteCategory={handleDeleteCategory}
                 onRemoveCategoryFromBudget={removeCategoryFromBudget}
                 onReorderCategories={reorderCategories}
                 onAddTransaction={handleAddTransaction}

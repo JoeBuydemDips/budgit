@@ -126,6 +126,8 @@ export function BudgetView({
   const [newIncome, setNewIncome] = useState('')
   const [newIncomeName, setNewIncomeName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     INCOME: true,
     GIVING: true,
@@ -575,7 +577,10 @@ export function BudgetView({
                             onToggleRollover={async (enabled) => {
                               await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
                             }}
-                            onDelete={() => onRemoveCategoryFromBudget(cat.id)}
+                            onDelete={() => {
+                              setCategoryToDelete(cat)
+                              setShowDeleteCategoryDialog(true)
+                            }}
                           />
                         ))}
                       </SortableContext>
@@ -849,6 +854,34 @@ export function BudgetView({
               }}
             >
               Track Expense
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteCategoryDialog} onOpenChange={setShowDeleteCategoryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will remove the category and all its allocations from all budgets. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteCategoryDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (categoryToDelete) {
+                  await onDeleteCategory(categoryToDelete.id)
+                  setShowDeleteCategoryDialog(false)
+                  setCategoryToDelete(null)
+                }
+              }}
+            >
+              Delete Category
             </Button>
           </DialogFooter>
         </DialogContent>
