@@ -236,8 +236,6 @@ export function Dashboard({
   // Budget health indicators
   const isOverBudget = totalSpent > totalPlanned
   const isBalanced = leftToBudget === 0
-  const savingsAmount = categoryBreakdown.find((c) => c.type === 'SAVINGS')?.planned || 0
-  const savingsPercentage = budget.incomeTotal > 0 ? (savingsAmount / budget.incomeTotal) * 100 : 0
 
   // Recent transactions
   const recentTransactions = [...transactions]
@@ -270,7 +268,28 @@ export function Dashboard({
             <div className="text-xl lg:text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</div>
             <div className="flex items-center gap-1 mt-1">
               <ArrowUpRight className="h-3 w-3 text-green-600" />
-              <span className="text-xs text-muted-foreground">Monthly budget</span>
+              <span className="text-xs text-muted-foreground">Monthly income</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Budgeted Card */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Budgeted
+            </CardTitle>
+            <div className="p-2 bg-blue-500/10 rounded-full">
+              <PiggyBank className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-xs text-muted-foreground">
+                {Math.round((totalPlanned / budget.incomeTotal) * 100)}% of income
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -328,27 +347,6 @@ export function Dashboard({
             <div className="flex items-center gap-1 mt-1">
               <span className="text-xs text-muted-foreground">
                 {remaining >= 0 ? 'Left to spend' : 'Over budget'}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Savings Card */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Savings Rate
-            </CardTitle>
-            <div className="p-2 bg-blue-500/10 rounded-full">
-              <PiggyBank className="h-4 w-4 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl lg:text-2xl font-bold">{Math.round(savingsPercentage)}%</div>
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-xs text-muted-foreground">
-                {formatCurrency(savingsAmount)} planned
               </span>
             </div>
           </CardContent>

@@ -61,6 +61,17 @@ function App(): React.JSX.Element {
     await refreshBudgets() // Keep insights in sync
   }
 
+  // Wrap budget update functions to also refresh the budgets index for Insights
+  const handleUpdateIncomeSources = async (incomeSources: Parameters<typeof updateIncomeSources>[0]) => {
+    await updateIncomeSources(incomeSources)
+    await refreshBudgets() // Keep insights in sync
+  }
+
+  const handleUpdateAllocation = async (categoryId: string, planned: number) => {
+    await updateAllocation(categoryId, planned)
+    await refreshBudgets() // Keep insights in sync
+  }
+
   const handleSelectMonth = (month: string) => {
     setCurrentMonth(month)
   }
@@ -121,8 +132,8 @@ function App(): React.JSX.Element {
                 currentMonth={currentMonth}
                 onCreateBudget={createBudget}
                 onUpdateIncome={updateIncome}
-                onUpdateAllocation={updateAllocation}
-                onUpdateIncomeSources={updateIncomeSources}
+                onUpdateAllocation={handleUpdateAllocation}
+                onUpdateIncomeSources={handleUpdateIncomeSources}
                 onAddCategory={addCategory}
                 onDeleteCategory={deleteCategory}
                 onAddTransaction={handleAddTransaction}
