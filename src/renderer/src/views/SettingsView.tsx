@@ -83,6 +83,16 @@ export function SettingsView({
     }
   }, [exportDialogType, importDialogType])
 
+  // Auto-dismiss feedback after 5 seconds
+  useEffect(() => {
+    if (importExportFeedback) {
+      const timer = setTimeout(() => {
+        setImportExportFeedback(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [importExportFeedback])
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>

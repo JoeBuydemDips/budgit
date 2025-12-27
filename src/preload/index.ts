@@ -60,34 +60,35 @@ const budgetApi = {
     ipcRenderer.invoke('transactions:delete', id),
 
   // CSV Import/Export
-  exportBudgetsCSV: (
-    options?: { months?: string[] }
-  ): Promise<{
+  exportBudgetsCSV: (options?: {
+    months?: string[]
+  }): Promise<{
     success: boolean
     filePath?: string
     error?: string
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:exportBudgets', options),
-  exportTransactionsCSV: (
-    options?: { startDate?: string; endDate?: string }
-  ): Promise<{
+  exportTransactionsCSV: (options?: {
+    startDate?: string
+    endDate?: string
+  }): Promise<{
     success: boolean
     filePath?: string
     error?: string
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:exportTransactions', options),
-  importBudgetsCSV: (
-    options?: { targetMonth?: string }
-  ): Promise<{
+  importBudgetsCSV: (options?: {
+    targetMonth?: string
+  }): Promise<{
     success: boolean
     imported: number
     skipped: number
     errors: string[]
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:importBudgets', options),
-  importTransactionsCSV: (
-    options?: { targetMonth?: string }
-  ): Promise<{
+  importTransactionsCSV: (options?: {
+    targetMonth?: string
+  }): Promise<{
     success: boolean
     imported: number
     skipped: number

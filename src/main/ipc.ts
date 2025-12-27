@@ -196,7 +196,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'csv:importBudgets',
-    async (_, options?: { targetMonth?: string }): Promise<ImportResult & { canceled?: boolean }> => {
+    async (
+      _,
+      options?: { targetMonth?: string }
+    ): Promise<ImportResult & { canceled?: boolean }> => {
       const window = BrowserWindow.getFocusedWindow()
       if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
 
