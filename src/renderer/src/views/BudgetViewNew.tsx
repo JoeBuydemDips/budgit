@@ -895,8 +895,8 @@ interface IncomeRowProps {
   onUpdate: (updates: Partial<IncomeSource>) => void
   onDelete: () => void
   dragHandleProps?: {
-    attributes: React.HTMLAttributes<HTMLElement>
-    listeners: React.DOMAttributes<HTMLElement>
+    attributes: Record<string, any>
+    listeners: any
   }
 }
 
@@ -1101,8 +1101,8 @@ interface CategoryRowProps {
   onToggleRollover: (enabled: boolean) => void
   onDelete: () => void
   dragHandleProps?: {
-    attributes: React.HTMLAttributes<HTMLElement>
-    listeners: React.DOMAttributes<HTMLElement>
+    attributes: Record<string, any>
+    listeners: any
   }
 }
 
