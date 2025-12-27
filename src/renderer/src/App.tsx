@@ -21,19 +21,19 @@ function App(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
-  const { categories, refresh: refreshCategories, addCategory, deleteCategory, reorderCategories } = useCategories()
+  const { categories, refresh: refreshCategories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
     loading: budgetLoading,
     refresh: refreshBudget,
     createBudget,
-    updateIncome,
     updateAllocation,
     updateIncomeSources
   } = useBudget(currentMonth)
   const {
     transactions,
+    refresh: refreshTransactions,
     addTransaction,
     updateTransaction,
     deleteTransaction
@@ -59,6 +59,13 @@ function App(): React.JSX.Element {
     await deleteTransaction(id)
     await refreshBudget()
     await refreshBudgets() // Keep insights in sync
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+    await deleteCategory(id)
+    await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
+    await refreshTransactions() // Ensure transactions view updates if needed
   }
 
   // Wrap budget update functions to also refresh the budgets index for Insights
@@ -132,11 +139,11 @@ function App(): React.JSX.Element {
                 loading={budgetLoading}
                 currentMonth={currentMonth}
                 onCreateBudget={createBudget}
-                onUpdateIncome={updateIncome}
                 onUpdateAllocation={handleUpdateAllocation}
                 onUpdateIncomeSources={handleUpdateIncomeSources}
                 onAddCategory={addCategory}
-                onDeleteCategory={deleteCategory}
+                onUpdateCategory={updateCategory}
+                onDeleteCategory={handleDeleteCategory}
                 onReorderCategories={reorderCategories}
                 onAddTransaction={handleAddTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
@@ -168,7 +175,7 @@ function App(): React.JSX.Element {
                 <InsightsView budgets={budgets} categories={categories} />
               )}
               {currentView === 'settings' && (
-                <SettingsView categories={categories} onRefreshCategories={refreshCategories} />
+                <SettingsView categories={categories} onRefreshCategories={refreshCategories} onRefreshBudgets={refreshBudgets} />
               )}
             </div>
             )}

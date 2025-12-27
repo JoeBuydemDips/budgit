@@ -71,10 +71,10 @@ interface BudgetViewProps {
   loading: boolean
   currentMonth: string
   onCreateBudget: (incomeTotal: number, copyFromMonth?: string) => Promise<void>
-  onUpdateIncome: (incomeTotal: number) => Promise<void>
   onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
   onUpdateIncomeSources: (sources: IncomeSource[]) => Promise<void>
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
+  onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
   onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
@@ -98,10 +98,10 @@ export function BudgetView({
   loading,
   currentMonth,
   onCreateBudget,
-  onUpdateIncome,
   onUpdateAllocation,
   onUpdateIncomeSources,
   onAddCategory,
+  onUpdateCategory,
   onDeleteCategory,
   onReorderCategories,
   onAddTransaction,
@@ -122,6 +122,8 @@ export function BudgetView({
   const [newIncome, setNewIncome] = useState('')
   const [newIncomeName, setNewIncomeName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     INCOME: true,
     GIVING: true,
@@ -565,13 +567,16 @@ export function BudgetView({
                               setSelectedIncomeSource(null)
                             }}
                             onUpdateName={async (name) => {
-                              await window.api.updateCategory(cat.id, { name })
+                              await onUpdateCategory(cat.id, { name })
                             }}
                             onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
                             onToggleRollover={async (enabled) => {
-                              await window.api.updateCategory(cat.id, { rolloverEnabled: enabled })
+                              await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
                             }}
-                            onDelete={() => onDeleteCategory(cat.id)}
+                            onDelete={() => {
+                              setCategoryToDelete(cat)
+                              setShowDeleteCategoryDialog(true)
+                            }}
                           />
                         ))}
                       </SortableContext>
@@ -849,6 +854,34 @@ export function BudgetView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showDeleteCategoryDialog} onOpenChange={setShowDeleteCategoryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will remove the category and all its allocations from all budgets. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteCategoryDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (categoryToDelete) {
+                  await onDeleteCategory(categoryToDelete.id)
+                  setShowDeleteCategoryDialog(false)
+                  setCategoryToDelete(null)
+                }
+              }}
+            >
+              Delete Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -862,8 +895,8 @@ interface IncomeRowProps {
   onUpdate: (updates: Partial<IncomeSource>) => void
   onDelete: () => void
   dragHandleProps?: {
-    attributes: React.HTMLAttributes<HTMLElement>
-    listeners: React.DOMAttributes<HTMLElement>
+    attributes: Record<string, any>
+    listeners: any
   }
 }
 
@@ -1068,8 +1101,8 @@ interface CategoryRowProps {
   onToggleRollover: (enabled: boolean) => void
   onDelete: () => void
   dragHandleProps?: {
-    attributes: React.HTMLAttributes<HTMLElement>
-    listeners: React.DOMAttributes<HTMLElement>
+    attributes: Record<string, any>
+    listeners: any
   }
 }
 

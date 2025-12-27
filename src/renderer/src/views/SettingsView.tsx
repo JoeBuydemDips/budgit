@@ -36,6 +36,7 @@ import type { Budget, Category, CategoryType } from '../../../shared/types'
 interface SettingsViewProps {
   categories: Category[]
   onRefreshCategories: () => Promise<void>
+  onRefreshBudgets: () => Promise<void>
 }
 
 interface ImportExportFeedback {
@@ -56,7 +57,8 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
 
 export function SettingsView({
   categories,
-  onRefreshCategories
+  onRefreshCategories,
+  onRefreshBudgets
 }: SettingsViewProps): React.JSX.Element {
   const { theme, setTheme } = useTheme()
   const [showAddCategory, setShowAddCategory] = useState(false)
@@ -91,6 +93,7 @@ export function SettingsView({
       }, 5000)
       return () => clearTimeout(timer)
     }
+    return undefined
   }, [importExportFeedback])
 
   return (
@@ -352,6 +355,49 @@ export function SettingsView({
                 Import Categories
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Maintenance */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Maintenance</CardTitle>
+          <CardDescription>Fix data inconsistencies</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label className="text-base font-medium">Clean Up Orphaned Allocations</Label>
+            <p className="text-sm text-muted-foreground">
+              Remove budget allocations for categories that no longer exist. This fixes calculation errors from previous bugs.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isProcessing}
+              onClick={async () => {
+                setIsProcessing(true)
+                setImportExportFeedback(null)
+                try {
+                  const result = await window.api.cleanupOrphanedAllocations()
+                  await onRefreshCategories()
+                  await onRefreshBudgets()
+                  setImportExportFeedback({
+                    type: 'success',
+                    message: `Cleaned up ${result.removedAllocations} orphaned allocations from ${result.cleanedBudgets} budgets`
+                  })
+                } catch (error) {
+                  setImportExportFeedback({
+                    type: 'error',
+                    message: String(error)
+                  })
+                } finally {
+                  setIsProcessing(false)
+                }
+              }}
+            >
+              Clean Up Data
+            </Button>
           </div>
         </CardContent>
       </Card>

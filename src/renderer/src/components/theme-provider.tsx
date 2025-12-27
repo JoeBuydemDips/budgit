@@ -47,6 +47,7 @@ export function ThemeProvider({
       mediaQuery.addEventListener('change', handler)
       return () => mediaQuery.removeEventListener('change', handler)
     }
+    return undefined
   }, [theme])
 
   const value = {

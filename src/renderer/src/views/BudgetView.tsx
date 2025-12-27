@@ -12,8 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger
+  DialogTitle
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -24,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import type { Budget, Category, CategoryAllocation, CategoryType, Transaction } from '../../../shared/types'
+import type { Budget, Category, CategoryType, Transaction } from '../../../shared/types'
 
 interface BudgetViewProps {
   budget:
@@ -75,6 +74,8 @@ export function BudgetView({
   const [creating, setCreating] = useState(false)
   const [incomeEdit, setIncomeEdit] = useState('')
   const [savingIncome, setSavingIncome] = useState(false)
+  const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
 
   // Sync incomeEdit with budget - must be before any early returns
   useEffect(() => {
@@ -337,7 +338,10 @@ export function BudgetView({
                 <CategoryRow
                   category={cat}
                   onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
-                  onDelete={() => onDeleteCategory(cat.id)}
+                  onDelete={() => {
+                    setCategoryToDelete(cat)
+                    setShowDeleteCategoryDialog(true)
+                  }}
                   onAddTransaction={() => {
                     setSelectedCategoryForTransaction(cat.id)
                     setShowAddTransactionDialog(true)
@@ -357,6 +361,34 @@ export function BudgetView({
         defaultCategoryId={selectedCategoryForTransaction}
         onAddTransaction={onAddTransaction}
       />
+
+      <Dialog open={showDeleteCategoryDialog} onOpenChange={setShowDeleteCategoryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will remove the category and all its allocations from all budgets. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteCategoryDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (categoryToDelete) {
+                  await onDeleteCategory(categoryToDelete.id)
+                  setShowDeleteCategoryDialog(false)
+                  setCategoryToDelete(null)
+                }
+              }}
+            >
+              Delete Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
         <DialogContent>

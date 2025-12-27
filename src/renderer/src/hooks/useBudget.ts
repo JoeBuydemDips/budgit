@@ -60,7 +60,7 @@ export function useCategories() {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    // Don't set loading=true during refresh to prevent scroll reset
     const cats = await window.api.getCategories()
     setCategories(cats)
     setLoading(false)
@@ -94,7 +94,23 @@ export function useCategories() {
     [refresh]
   )
 
-  return { categories, loading, refresh, addCategory, deleteCategory, reorderCategories }
+  const updateCategory = useCallback(
+    async (id: string, updates: Partial<Category>) => {
+      await window.api.updateCategory(id, updates)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  return {
+    categories,
+    loading,
+    refresh,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    reorderCategories
+  }
 }
 
 // Hook to manage budget for a specific month
@@ -108,15 +124,18 @@ export function useBudget(month: string) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    // Only show loading spinner on initial load, not during refreshes
+    // This prevents scroll position reset when updating allocations
     const b = await window.api.getBudgetWithSpent(month)
     setBudget(b)
     setLoading(false)
   }, [month])
 
+  // Reset loading when month changes
   useEffect(() => {
+    setLoading(true)
     refresh()
-  }, [refresh])
+  }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const createBudget = useCallback(
     async (incomeTotal: number, copyFromMonth?: string) => {
@@ -137,13 +156,29 @@ export function useBudget(month: string) {
   const updateAllocation = useCallback(
     async (categoryId: string, planned: number) => {
       if (!budget) return
-      const newAllocations = budget.allocations.map((a) =>
-        a.categoryId === categoryId ? { ...a, planned } : a
-      )
+      const existingAllocation = budget.allocations.find((a) => a.categoryId === categoryId)
+      let newAllocations
+      if (existingAllocation) {
+        // Update existing allocation
+        newAllocations = budget.allocations.map((a) =>
+          a.categoryId === categoryId ? { ...a, planned } : a
+        )
+      } else {
+        // Create new allocation for this category
+        newAllocations = [...budget.allocations, { categoryId, planned, spent: 0, carryover: 0 }]
+      }
       await window.api.updateBudget(month, { allocations: newAllocations })
       await refresh()
     },
     [month, budget, refresh]
+  )
+
+  const removeCategoryFromBudget = useCallback(
+    async (categoryId: string) => {
+      await window.api.removeCategoryFromBudget(month, categoryId)
+      await refresh()
+    },
+    [month, refresh]
   )
 
   const updateAllocations = useCallback(
@@ -171,7 +206,8 @@ export function useBudget(month: string) {
     updateIncome,
     updateAllocation,
     updateAllocations,
-    updateIncomeSources
+    updateIncomeSources,
+    removeCategoryFromBudget
   }
 }
 
@@ -181,15 +217,17 @@ export function useTransactions(month: string) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    // Don't set loading=true during refresh to prevent scroll reset
     const txns = await window.api.getTransactions(month)
     setTransactions(txns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
     setLoading(false)
   }, [month])
 
+  // Reset loading when month changes
   useEffect(() => {
+    setLoading(true)
     refresh()
-  }, [refresh])
+  }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addTransaction = useCallback(
     async (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {

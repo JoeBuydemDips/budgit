@@ -65,7 +65,67 @@ export function deleteCategory(id: string): boolean {
   const filtered = categories.filter((c) => c.id !== id)
   if (filtered.length === categories.length) return false
   store.set('categories', filtered)
+
+  // Clean up allocations in all budgets
+  const budgets = store.get('budgets')
+  const updatedBudgets = budgets.map((budget) => {
+    const filteredAllocations = budget.allocations.filter((a) => a.categoryId !== id)
+    if (filteredAllocations.length !== budget.allocations.length) {
+      const totalPlanned = filteredAllocations.reduce((sum, a) => sum + a.planned, 0)
+      return {
+        ...budget,
+        allocations: filteredAllocations,
+        isBalanced: budget.incomeTotal === totalPlanned,
+        updatedAt: new Date().toISOString()
+      }
+    }
+    return budget
+  })
+  store.set('budgets', updatedBudgets)
   return true
+}
+
+export function removeCategoryFromBudget(month: string, categoryId: string): boolean {
+  const budget = getBudgetByMonth(month)
+  if (!budget) return false
+
+  const filteredAllocations = budget.allocations.filter((a) => a.categoryId !== categoryId)
+  if (filteredAllocations.length === budget.allocations.length) return false
+
+  updateBudget(month, { allocations: filteredAllocations })
+  return true
+}
+
+export function cleanupOrphanedAllocations(): {
+  cleanedBudgets: number
+  removedAllocations: number
+} {
+  const categories = store.get('categories')
+  const categoryIds = new Set(categories.map((c) => c.id))
+  const budgets = store.get('budgets')
+  let cleanedBudgets = 0
+  let removedAllocations = 0
+
+  const updatedBudgets = budgets.map((budget) => {
+    const originalLength = budget.allocations.length
+    const filteredAllocations = budget.allocations.filter((a) => categoryIds.has(a.categoryId))
+    const removed = originalLength - filteredAllocations.length
+    if (removed > 0) {
+      cleanedBudgets++
+      removedAllocations += removed
+      const totalPlanned = filteredAllocations.reduce((sum, a) => sum + a.planned, 0)
+      return {
+        ...budget,
+        allocations: filteredAllocations,
+        isBalanced: budget.incomeTotal === totalPlanned,
+        updatedAt: new Date().toISOString()
+      }
+    }
+    return budget
+  })
+
+  store.set('budgets', updatedBudgets)
+  return { cleanedBudgets, removedAllocations }
 }
 
 export function reorderCategories(categoryIds: string[]): void {
