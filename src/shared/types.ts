@@ -1,5 +1,5 @@
 // Category types for zero-based budgeting
-export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT' | 'FOOD'
+export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT' | 'FOOD' | 'MISC'
 
 // Color mappings for category types
 export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
@@ -8,7 +8,8 @@ export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
   NEEDS: '#8B5CF6', // Purple
   WANTS: '#F59E0B', // Amber
   DEBT: '#EF4444', // Red
-  FOOD: '#06B6D4' // Cyan
+  FOOD: '#06B6D4', // Cyan
+  MISC: '#6B7280' // Gray
 }
 
 export interface Category {
@@ -111,7 +112,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
     sortOrder: 11
   },
   { id: 'clothing', name: 'Clothing', type: 'WANTS', rolloverEnabled: true, sortOrder: 12 },
-  { id: 'debt', name: 'Debt Payments', type: 'DEBT', rolloverEnabled: false, sortOrder: 13 }
+  { id: 'debt', name: 'Debt Payments', type: 'DEBT', rolloverEnabled: false, sortOrder: 13 },
+  { id: 'misc', name: 'Miscellaneous', type: 'MISC', rolloverEnabled: false, sortOrder: 14 }
 ]
 
 export const DEFAULT_SETTINGS: AppSettings = {

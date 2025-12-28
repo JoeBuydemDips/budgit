@@ -63,7 +63,8 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'NEEDS', label: 'Essentials' },
   { value: 'WANTS', label: 'Lifestyle' },
   { value: 'DEBT', label: 'Debt' },
-  { value: 'FOOD', label: 'Food' }
+  { value: 'FOOD', label: 'Food' },
+  { value: 'MISC', label: 'Miscellaneous' }
 ]
 
 export function SettingsView({

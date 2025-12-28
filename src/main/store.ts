@@ -663,7 +663,8 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   Debt: ['Loan', 'Credit Card', 'Payment'],
   Giving: ['Church', 'Charity', 'Donation'],
   Wants: ['Lifestyle', 'Personal'],
-  Needs: ['Essentials', 'Necessities']
+  Needs: ['Essentials', 'Necessities'],
+  Miscellaneous: ['Misc', 'Other', 'Various', 'Sundry']
 }
 
 // Helper to find the best matching category, including aliases

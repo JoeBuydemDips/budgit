@@ -53,7 +53,8 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   NEEDS: 'Essentials',
   WANTS: 'Lifestyle',
   DEBT: 'Debt',
-  FOOD: 'Food'
+  FOOD: 'Food',
+  MISC: 'Miscellaneous'
 }
 
 export function Dashboard({
