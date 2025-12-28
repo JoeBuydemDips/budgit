@@ -17,12 +17,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { Category, Transaction } from '../../../shared/types'
+import type { Category, Transaction, LearnedCategoryMapping } from '../../../shared/types'
+import { getCategorySuggestions } from '../../../shared/categoryInference'
 
 interface AddTransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   categories: Category[]
+  learnedMappings?: LearnedCategoryMapping[]
   currentMonth: string
   defaultCategoryId?: string
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
@@ -32,6 +34,7 @@ export function AddTransactionDialog({
   open,
   onOpenChange,
   categories,
+  learnedMappings = [],
   currentMonth,
   defaultCategoryId,
   onAddTransaction
@@ -41,6 +44,7 @@ export function AddTransactionDialog({
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
+  const [categorySuggestions, setCategorySuggestions] = useState<string[]>([])
 
   useEffect(() => {
     if (open) {
@@ -48,8 +52,23 @@ export function AddTransactionDialog({
       setAmount('')
       setDescription('')
       setDate(new Date().toISOString().split('T')[0])
+      setCategorySuggestions([])
     }
   }, [open, defaultCategoryId])
+
+  // Update category suggestions when description changes
+  useEffect(() => {
+    if (description.trim()) {
+      const suggestions = getCategorySuggestions(description, categories, learnedMappings)
+      setCategorySuggestions(suggestions)
+      // Auto-select first suggestion if no category selected
+      if (!categoryId && suggestions.length > 0) {
+        setCategoryId(suggestions[0])
+      }
+    } else {
+      setCategorySuggestions([])
+    }
+  }, [description, categories, learnedMappings, categoryId])
 
   const handleSave = async () => {
     if (!amount || !categoryId) return
@@ -69,6 +88,7 @@ export function AddTransactionDialog({
     setCategoryId('')
     setDescription('')
     setDate(new Date().toISOString().split('T')[0])
+    setCategorySuggestions([])
     onOpenChange(false)
   }
 
@@ -104,6 +124,25 @@ export function AddTransactionDialog({
 
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
+            {categorySuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                <span className="text-sm text-muted-foreground">Suggestions:</span>
+                {categorySuggestions.slice(0, 3).map((suggestionId) => {
+                  const category = categories.find(c => c.id === suggestionId)
+                  return category ? (
+                    <Button
+                      key={suggestionId}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCategoryId(suggestionId)}
+                      className={categoryId === suggestionId ? 'bg-primary text-primary-foreground' : ''}
+                    >
+                      {category.name}
+                    </Button>
+                  ) : null
+                })}
+              </div>
+            )}
             <Select value={categoryId} onValueChange={setCategoryId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a category" />

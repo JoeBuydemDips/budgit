@@ -11,13 +11,7 @@ export const BUDGET_CSV_HEADERS = [
   'carryover'
 ]
 
-export const TRANSACTION_CSV_HEADERS = [
-  'Date',
-  'Amount',
-  'Card',
-  'Category',
-  'Description'
-]
+export const TRANSACTION_CSV_HEADERS = ['Date', 'Amount', 'Card', 'Category', 'Description']
 
 export const CATEGORY_CSV_HEADERS = ['id', 'name', 'type', 'rolloverEnabled', 'sortOrder']
 
@@ -241,7 +235,10 @@ export interface ParseTransactionsResult {
 }
 
 // Parse CSV content for transactions
-export function parseTransactionsCSV(csvContent: string, categories: Category[]): ParseTransactionsResult {
+export function parseTransactionsCSV(
+  csvContent: string,
+  categories: Category[]
+): ParseTransactionsResult {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
   const errors: ParseError[] = []
   const transactions: ParsedTransaction[] = []
@@ -268,7 +265,11 @@ export function parseTransactionsCSV(csvContent: string, categories: Category[])
     errors.push({ row: 1, field: 'date', message: 'Missing required column: date' })
   }
   if (categoryIdIdx === -1 && categoryNameIdx === -1) {
-    errors.push({ row: 1, field: 'category', message: 'Missing required column: categoryId or category' })
+    errors.push({
+      row: 1,
+      field: 'category',
+      message: 'Missing required column: categoryId or category'
+    })
   }
 
   if (errors.length > 0) {
@@ -302,7 +303,11 @@ export function parseTransactionsCSV(csvContent: string, categories: Category[])
       const [month, day, year] = dateStr.split('/').map(Number)
       parsedDate = new Date(year, month - 1, day)
     } else {
-      errors.push({ row: rowNum, field: 'date', message: 'Invalid date format (expected MM/DD/YYYY or YYYY-MM-DD)' })
+      errors.push({
+        row: rowNum,
+        field: 'date',
+        message: 'Invalid date format (expected MM/DD/YYYY or YYYY-MM-DD)'
+      })
       continue
     }
     if (isNaN(parsedDate.getTime())) {
@@ -333,7 +338,7 @@ export function parseTransactionsCSV(csvContent: string, categories: Category[])
     } else if (categoryIdIdx !== -1) {
       const categoryId = values[categoryIdIdx]?.trim()
       if (categoryId) {
-        const cat = categories.find(c => c.id === categoryId)
+        const cat = categories.find((c) => c.id === categoryId)
         categoryName = cat ? cat.name : categoryId // fallback to id if not found
       }
     }

@@ -45,6 +45,8 @@ interface SettingsViewProps {
   categories: Category[]
   onRefreshCategories: () => Promise<void>
   onRefreshBudgets: () => Promise<void>
+  onRefreshBudget: () => Promise<void>
+  onRefreshTransactions: () => Promise<void>
 }
 
 interface ImportExportFeedback {
@@ -67,7 +69,9 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
 export function SettingsView({
   categories,
   onRefreshCategories,
-  onRefreshBudgets
+  onRefreshBudgets,
+  onRefreshBudget,
+  onRefreshTransactions
 }: SettingsViewProps): React.JSX.Element {
   const { theme, setTheme } = useTheme()
   const [showAddCategory, setShowAddCategory] = useState(false)
@@ -858,6 +862,11 @@ export function SettingsView({
                   if (result.canceled) {
                     // User cancelled
                   } else if (result.success) {
+                    // Refresh data after import
+                    await onRefreshCategories()
+                    await onRefreshBudget()
+                    await onRefreshBudgets()
+                    await onRefreshTransactions()
                     setImportExportFeedback({
                       type: 'success',
                       message: `Imported ${result.imported} transactions${result.skipped > 0 ? `, skipped ${result.skipped} duplicates` : ''}`

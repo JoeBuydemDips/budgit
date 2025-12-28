@@ -4,6 +4,7 @@ import {
   getSettings,
   updateSettings,
   getCategories,
+  getLearnedMappings,
   addCategory,
   updateCategory,
   deleteCategory,
@@ -29,6 +30,7 @@ import {
   importBudgets,
   importTransactions,
   importCategories,
+  learnTransactionCategory,
   ImportResult,
   ImportCategoriesResult
 } from './store'
@@ -55,6 +57,10 @@ export function registerIpcHandlers(): void {
   // ============== Categories ==============
   ipcMain.handle('categories:list', () => {
     return getCategories()
+  })
+
+  ipcMain.handle('categories:getLearnedMappings', () => {
+    return getLearnedMappings()
   })
 
   ipcMain.handle('categories:add', (_, category: Omit<Category, 'id'>) => {
@@ -289,6 +295,13 @@ export function registerIpcHandlers(): void {
       } catch (error) {
         return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
       }
+    }
+  )
+
+  ipcMain.handle(
+    'transactions:learnCategory',
+    async (_, transactionId: string, categoryId: string): Promise<void> => {
+      learnTransactionCategory(transactionId, categoryId)
     }
   )
 

@@ -175,7 +175,7 @@ function App(): React.JSX.Element {
                 <InsightsView budgets={budgets} categories={categories} />
               )}
               {currentView === 'settings' && (
-                <SettingsView categories={categories} onRefreshCategories={refreshCategories} onRefreshBudgets={refreshBudgets} />
+                <SettingsView categories={categories} onRefreshCategories={refreshCategories} onRefreshBudgets={refreshBudgets} onRefreshBudget={refreshBudget} onRefreshTransactions={refreshTransactions} />
               )}
             </div>
             )}

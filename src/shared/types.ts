@@ -63,11 +63,19 @@ export interface AppSettings {
   currencySymbol: string
 }
 
+export interface LearnedCategoryMapping {
+  merchantName: string
+  categoryId: string
+  confidence: number // 0-1, increases with repeated confirmations
+  lastUsed: string // ISO date
+}
+
 export interface StoreSchema {
   categories: Category[]
   budgets: Budget[]
   transactions: Transaction[]
   settings: AppSettings
+  learnedMappings: LearnedCategoryMapping[]
 }
 
 // Default categories following EveryDollar / zero-based budgeting principles

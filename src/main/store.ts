@@ -10,6 +10,7 @@ import {
   DEFAULT_SETTINGS,
   CategoryAllocation
 } from '../shared/types'
+import { inferCategoryFromDescription, learnCategoryMapping } from '../shared/categoryInference'
 
 // Create the store with schema defaults
 const store = new Store<StoreSchema>({
@@ -18,7 +19,8 @@ const store = new Store<StoreSchema>({
     categories: DEFAULT_CATEGORIES,
     budgets: [],
     transactions: [],
-    settings: DEFAULT_SETTINGS
+    settings: DEFAULT_SETTINGS,
+    learnedMappings: []
   }
 })
 
@@ -646,6 +648,7 @@ export function importTransactions(
   targetMonth?: string
 ): ImportResult {
   let categories = store.get('categories')
+  let learnedMappings = store.get('learnedMappings')
   const categoryNameMap = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]))
   const existingTransactions = store.get('transactions')
 
@@ -659,18 +662,24 @@ export function importTransactions(
     // Get or create category
     let categoryId = categoryNameMap.get(tx.categoryName.toLowerCase())
     if (!categoryId) {
-      // Create new category
-      const newCategory: Category = {
-        id: uuidv4(),
-        name: tx.categoryName,
-        type: 'NEEDS', // Default type for unknown categories
-        rolloverEnabled: false,
-        sortOrder: categories.length
+      // Try to infer category from description if category name doesn't match
+      const inferredCategoryId = inferCategoryFromDescription(tx.description, categories, learnedMappings)
+      if (inferredCategoryId) {
+        categoryId = inferredCategoryId
+      } else {
+        // Create new category only if inference fails
+        const newCategory: Category = {
+          id: uuidv4(),
+          name: tx.categoryName || 'Uncategorized', // Use description-based name if possible?
+          type: 'NEEDS', // Default type for unknown categories
+          rolloverEnabled: false,
+          sortOrder: categories.length
+        }
+        categories = [...categories, newCategory]
+        store.set('categories', categories)
+        categoryNameMap.set(tx.categoryName.toLowerCase(), newCategory.id)
+        categoryId = newCategory.id
       }
-      categories = [...categories, newCategory]
-      store.set('categories', categories)
-      categoryNameMap.set(tx.categoryName.toLowerCase(), newCategory.id)
-      categoryId = newCategory.id
     }
 
     // Check for duplicate (same date, category, amount, description, card)
@@ -744,4 +753,34 @@ function updateBudgetSpentForMonth(month: string): void {
     updatedAt: new Date().toISOString()
   }
   store.set('budgets', budgets)
+}
+
+// Learn category mapping from user correction
+export function learnTransactionCategory(transactionId: string, categoryId: string): void {
+  const transactions = store.get("transactions")
+  const transaction = transactions.find(t => t.id === transactionId)
+  if (!transaction) return
+
+  const categories = store.get("categories")
+  const category = categories.find(c => c.id === categoryId)
+  if (!category) return
+
+  // Update the transaction's category
+  const updatedTransactions = transactions.map(t =>
+    t.id === transactionId ? { ...t, categoryId } : t
+  )
+  store.set("transactions", updatedTransactions)
+
+  // Learn the mapping
+  let learnedMappings = store.get("learnedMappings")
+  learnedMappings = learnCategoryMapping(transaction.description, categoryId, learnedMappings)
+  store.set("learnedMappings", learnedMappings)
+
+  // Update budget spent amounts for affected months
+  updateBudgetSpentForMonth(transaction.budgetMonth)
+}
+
+// Get learned category mappings
+export function getLearnedMappings() {
+  return store.get("learnedMappings")
 }

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   Category,
+  LearnedCategoryMapping,
   AppSettings,
   Transaction,
   Budget,
@@ -17,6 +18,7 @@ const budgetApi = {
 
   // Categories
   getCategories: (): Promise<Category[]> => ipcRenderer.invoke('categories:list'),
+  getLearnedMappings: (): Promise<LearnedCategoryMapping[]> => ipcRenderer.invoke('categories:getLearnedMappings'),
   addCategory: (category: Omit<Category, 'id'>): Promise<Category> =>
     ipcRenderer.invoke('categories:add', category),
   updateCategory: (id: string, updates: Partial<Category>): Promise<Category | null> =>
@@ -115,7 +117,9 @@ const budgetApi = {
     updated: number
     errors: string[]
     canceled?: boolean
-  }> => ipcRenderer.invoke('csv:importCategories', options)
+  }> => ipcRenderer.invoke('csv:importCategories', options),
+  learnTransactionCategory: (transactionId: string, categoryId: string): Promise<void> =>
+    ipcRenderer.invoke('transactions:learnCategory', transactionId, categoryId)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

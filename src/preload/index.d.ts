@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   Category,
+  LearnedCategoryMapping,
   AppSettings,
   Transaction,
   Budget,
@@ -15,6 +16,7 @@ interface BudgetAPI {
 
   // Categories
   getCategories: () => Promise<Category[]>
+  getLearnedMappings: () => Promise<LearnedCategoryMapping[]>
   addCategory: (category: Omit<Category, 'id'>) => Promise<Category>
   updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
   deleteCategory: (id: string) => Promise<boolean>
@@ -94,6 +96,7 @@ interface BudgetAPI {
     errors: string[]
     canceled?: boolean
   }>
+  learnTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>
 }
 
 declare global {
