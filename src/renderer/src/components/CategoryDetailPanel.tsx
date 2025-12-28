@@ -19,7 +19,8 @@ const TYPE_COLORS: Record<CategoryType, string> = {
   SAVINGS: '#3B82F6',
   NEEDS: '#8B5CF6',
   WANTS: '#F59E0B',
-  DEBT: '#EF4444'
+  DEBT: '#EF4444',
+  FOOD: '#06B6D4'
 }
 
 interface CategoryDetailPanelProps {

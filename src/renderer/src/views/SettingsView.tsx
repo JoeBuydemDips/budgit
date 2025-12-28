@@ -52,7 +52,8 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'SAVINGS', label: 'Savings' },
   { value: 'NEEDS', label: 'Essentials' },
   { value: 'WANTS', label: 'Lifestyle' },
-  { value: 'DEBT', label: 'Debt' }
+  { value: 'DEBT', label: 'Debt' },
+  { value: 'FOOD', label: 'Food' }
 ]
 
 export function SettingsView({
@@ -855,7 +856,7 @@ function CategoryDialog({
   const [saving, setSaving] = useState(false)
 
   // Reset form when category changes
-  useState(() => {
+  useEffect(() => {
     if (category) {
       setName(category.name)
       setType(category.type)
@@ -865,7 +866,7 @@ function CategoryDialog({
       setType('NEEDS')
       setRolloverEnabled(false)
     }
-  })
+  }, [category])
 
   const handleSave = async (): Promise<void> => {
     if (!name.trim()) return

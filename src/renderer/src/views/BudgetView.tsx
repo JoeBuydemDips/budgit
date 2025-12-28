@@ -47,10 +47,11 @@ const CATEGORY_TYPE_LABELS = {
   SAVINGS: 'Savings',
   NEEDS: 'Essentials',
   WANTS: 'Lifestyle',
-  DEBT: 'Debt'
+  DEBT: 'Debt',
+  FOOD: 'Food'
 }
 
-const CATEGORY_TYPE_ORDER = ['GIVING', 'SAVINGS', 'NEEDS', 'WANTS', 'DEBT']
+const CATEGORY_TYPE_ORDER = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
 
 export function BudgetView({
   budget,
