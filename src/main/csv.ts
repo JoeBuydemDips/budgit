@@ -1,4 +1,12 @@
 import { Budget, Transaction, Category, CategoryType } from '../shared/types'
+import { getCategorySuggestions } from '../shared/categoryInference'
+
+// CSV format types for import
+export enum CsvFormat {
+  BUDGIT = 'budgit',      // Standard Budgit format
+  CREDIT_CARD = 'credit_card', // Credit card statements (negative amounts = income)
+  DEBIT_CARD = 'debit_card'   // Debit card statements (Transaction Type column)
+}
 
 // CSV column headers for exports
 export const BUDGET_CSV_HEADERS = [
@@ -57,6 +65,53 @@ function parseCSVLine(line: string): string[] {
   }
   result.push(current.trim())
   return result
+}
+
+// Parse amount based on CSV format
+function parseAmount(
+  values: string[],
+  format: CsvFormat,
+  amountIdx: number,
+  transactionTypeIdx: number,
+  debitAmountIdx: number,
+  creditAmountIdx: number
+): number {
+  if (format === CsvFormat.DEBIT_CARD) {
+    // Handle debit card format
+    if (debitAmountIdx !== -1 && creditAmountIdx !== -1) {
+      // Separate debit and credit amount columns
+      const debitAmount = parseFloat(values[debitAmountIdx]) || 0
+      const creditAmount = parseFloat(values[creditAmountIdx]) || 0
+      return creditAmount - debitAmount // Credit = income (negative), Debit = expense (positive)
+    } else if (amountIdx !== -1 && transactionTypeIdx !== -1) {
+      // Single amount column with transaction type
+      const amount = parseFloat(values[amountIdx])
+      const transactionType = values[transactionTypeIdx]?.toLowerCase()
+
+      if (isNaN(amount)) return 0
+
+      if (transactionType === 'credit') {
+        return -Math.abs(amount) // Credit = income (negative)
+      } else if (transactionType === 'debit') {
+        return Math.abs(amount) // Debit = expense (positive)
+      } else {
+        return amount // Fallback
+      }
+    } else if (amountIdx !== -1) {
+      // Single amount column, assume positive = expense
+      return parseFloat(values[amountIdx]) || 0
+    }
+  } else if (format === CsvFormat.CREDIT_CARD) {
+    // Handle credit card format: negative amounts become positive income
+    const amount = parseFloat(values[amountIdx])
+    if (isNaN(amount)) return 0
+    return amount < 0 ? Math.abs(amount) : amount // Negative → positive income
+  } else {
+    // Standard Budgit format
+    return parseFloat(values[amountIdx]) || 0
+  }
+
+  return 0
 }
 
 // Generate CSV content for budgets
@@ -237,7 +292,8 @@ export interface ParseTransactionsResult {
 // Parse CSV content for transactions
 export function parseTransactionsCSV(
   csvContent: string,
-  categories: Category[]
+  categories: Category[],
+  format: CsvFormat = CsvFormat.BUDGIT
 ): ParseTransactionsResult {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
   const errors: ParseError[] = []
@@ -249,27 +305,68 @@ export function parseTransactionsCSV(
 
   // Parse header
   const headers = parseCSVLine(lines[0])
-  const budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
-  const categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
-  const categoryNameIdx = headers.findIndex((h) => h.toLowerCase() === 'category')
-  const amountIdx = headers.findIndex((h) => h.toLowerCase() === 'amount')
-  const descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'description')
-  const dateIdx = headers.findIndex((h) => h.toLowerCase() === 'date')
-  const cardIdx = headers.findIndex((h) => h.toLowerCase() === 'card')
+  let budgetMonthIdx: number
+  let categoryIdIdx: number
+  let categoryNameIdx: number
+  let amountIdx: number
+  let descriptionIdx: number
+  let dateIdx: number
+  let cardIdx: number
+  let transactionTypeIdx: number
+  let debitAmountIdx: number
+  let creditAmountIdx: number
+
+  if (format === CsvFormat.DEBIT_CARD) {
+    // Debit card format headers
+    budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
+    categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
+    categoryNameIdx = headers.findIndex((h) => h.toLowerCase() === 'category')
+    amountIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction amount')
+    descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction description')
+    dateIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction date')
+    cardIdx = headers.findIndex((h) => h.toLowerCase() === 'card')
+    transactionTypeIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction type')
+    debitAmountIdx = headers.findIndex((h) => h.toLowerCase() === 'debit amount')
+    creditAmountIdx = headers.findIndex((h) => h.toLowerCase() === 'credit amount')
+  } else {
+    // Standard Budgit format headers
+    budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
+    categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
+    categoryNameIdx = headers.findIndex((h) => h.toLowerCase() === 'category')
+    amountIdx = headers.findIndex((h) => h.toLowerCase() === 'amount')
+    descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'description')
+    dateIdx = headers.findIndex((h) => h.toLowerCase() === 'date')
+    cardIdx = headers.findIndex((h) => h.toLowerCase() === 'card')
+    transactionTypeIdx = -1
+    debitAmountIdx = -1
+    creditAmountIdx = -1
+  }
 
   // Validate required headers
-  if (amountIdx === -1) {
-    errors.push({ row: 1, field: 'amount', message: 'Missing required column: amount' })
-  }
-  if (dateIdx === -1) {
-    errors.push({ row: 1, field: 'date', message: 'Missing required column: date' })
-  }
-  if (categoryIdIdx === -1 && categoryNameIdx === -1) {
-    errors.push({
-      row: 1,
-      field: 'category',
-      message: 'Missing required column: categoryId or category'
-    })
+  if (format === CsvFormat.DEBIT_CARD) {
+    if (amountIdx === -1 && debitAmountIdx === -1 && creditAmountIdx === -1) {
+      errors.push({ row: 1, field: 'amount', message: 'Missing required column: Transaction Amount, Debit Amount, or Credit Amount' })
+    }
+    if (dateIdx === -1) {
+      errors.push({ row: 1, field: 'date', message: 'Missing required column: Transaction Date' })
+    }
+    if (descriptionIdx === -1) {
+      errors.push({ row: 1, field: 'description', message: 'Missing required column: Transaction Description' })
+    }
+  } else {
+    if (amountIdx === -1) {
+      errors.push({ row: 1, field: 'amount', message: 'Missing required column: amount' })
+    }
+    if (dateIdx === -1) {
+      errors.push({ row: 1, field: 'date', message: 'Missing required column: date' })
+    }
+    if (categoryIdIdx === -1 && categoryNameIdx === -1) {
+      errors.push({
+        row: 1,
+        field: 'category',
+        message: 'Missing required column: categoryId or category'
+      })
+    }
   }
 
   if (errors.length > 0) {
@@ -282,7 +379,7 @@ export function parseTransactionsCSV(
     const rowNum = i + 1
 
     // Parse amount
-    const amount = parseFloat(values[amountIdx])
+    const amount = parseAmount(values, format, amountIdx, transactionTypeIdx, debitAmountIdx, creditAmountIdx)
     if (isNaN(amount)) {
       errors.push({ row: rowNum, field: 'amount', message: 'Invalid amount' })
       continue
@@ -298,15 +395,20 @@ export function parseTransactionsCSV(
     if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
       // ISO format
       parsedDate = new Date(dateStr)
-    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
-      // MM/DD/YYYY format
-      const [month, day, year] = dateStr.split('/').map(Number)
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(dateStr)) {
+      // MM/DD/YY or MM/DD/YYYY format
+      const [month, day, yearStr] = dateStr.split('/').map(Number)
+      let year = yearStr
+      if (year < 100) {
+        // 2-digit year, assume 2000s
+        year += 2000
+      }
       parsedDate = new Date(year, month - 1, day)
     } else {
       errors.push({
         row: rowNum,
         field: 'date',
-        message: 'Invalid date format (expected MM/DD/YYYY or YYYY-MM-DD)'
+        message: 'Invalid date format (expected MM/DD/YY, MM/DD/YYYY, or YYYY-MM-DD)'
       })
       continue
     }
@@ -333,18 +435,44 @@ export function parseTransactionsCSV(
 
     // Determine categoryName
     let categoryName = ''
-    if (categoryNameIdx !== -1) {
-      categoryName = values[categoryNameIdx]?.trim() || ''
-    } else if (categoryIdIdx !== -1) {
-      const categoryId = values[categoryIdIdx]?.trim()
-      if (categoryId) {
-        const cat = categories.find((c) => c.id === categoryId)
-        categoryName = cat ? cat.name : categoryId // fallback to id if not found
+    if (format === CsvFormat.DEBIT_CARD) {
+      // For debit cards, try to infer category from description
+      if (categoryNameIdx !== -1) {
+        categoryName = values[categoryNameIdx]?.trim() || ''
       }
-    }
-    if (!categoryName) {
-      errors.push({ row: rowNum, field: 'category', message: 'Missing category' })
-      continue
+      
+      // If no explicit category, try to infer from description
+      if (!categoryName && descriptionIdx !== -1) {
+        const description = values[descriptionIdx] || ''
+        const suggestions = getCategorySuggestions(description, categories)
+        if (suggestions.length > 0) {
+          // Find the category by ID
+          const suggestedCategory = categories.find(c => c.id === suggestions[0])
+          if (suggestedCategory) {
+            categoryName = suggestedCategory.name
+          }
+        }
+      }
+      
+      // Final fallback to Uncategorized
+      if (!categoryName) {
+        categoryName = 'Uncategorized'
+      }
+    } else {
+      // Standard format requires category
+      if (categoryNameIdx !== -1) {
+        categoryName = values[categoryNameIdx]?.trim() || ''
+      } else if (categoryIdIdx !== -1) {
+        const categoryId = values[categoryIdIdx]?.trim()
+        if (categoryId) {
+          const cat = categories.find((c) => c.id === categoryId)
+          categoryName = cat ? cat.name : categoryId // fallback to id if not found
+        }
+      }
+      if (!categoryName) {
+        errors.push({ row: rowNum, field: 'category', message: 'Missing category' })
+        continue
+      }
     }
 
     const card = cardIdx !== -1 ? values[cardIdx] : undefined

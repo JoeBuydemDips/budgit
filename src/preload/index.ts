@@ -103,6 +103,7 @@ const budgetApi = {
   }> => ipcRenderer.invoke('csv:importBudgets', options),
   importTransactionsCSV: (options?: {
     targetMonth?: string
+    format?: string
   }): Promise<{
     success: boolean
     imported: number

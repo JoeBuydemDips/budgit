@@ -82,7 +82,7 @@ interface BudgetAPI {
     errors: string[]
     canceled?: boolean
   }>
-  importTransactionsCSV: (options?: { targetMonth?: string }) => Promise<{
+  importTransactionsCSV: (options?: { targetMonth?: string; format?: string }) => Promise<{
     success: boolean
     imported: number
     skipped: number

@@ -40,7 +40,8 @@ import {
   generateCategoriesCSV,
   parseBudgetsCSV,
   parseTransactionsCSV,
-  parseCategoriesCSV
+  parseCategoriesCSV,
+  CsvFormat
 } from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
 
@@ -262,7 +263,7 @@ export function registerIpcHandlers(): void {
     'csv:importTransactions',
     async (
       _,
-      options?: { targetMonth?: string }
+      options?: { targetMonth?: string; format?: string }
     ): Promise<ImportResult & { canceled?: boolean }> => {
       const window = BrowserWindow.getFocusedWindow()
       if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
@@ -280,7 +281,8 @@ export function registerIpcHandlers(): void {
       try {
         const csvContent = await readFile(result.filePaths[0], 'utf-8')
         const categories = getCategories()
-        const parsed = parseTransactionsCSV(csvContent, categories)
+        const format = options?.format as CsvFormat || CsvFormat.BUDGIT
+        const parsed = parseTransactionsCSV(csvContent, categories, format)
 
         if (parsed.errors.length > 0) {
           return {

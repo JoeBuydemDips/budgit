@@ -223,7 +223,9 @@ export function TransactionsView({
           {filteredTransactions.length !== 1 ? 's' : ''}
         </span>
         <span className="text-sm font-medium">
-          Total: <span className="text-red-600">{formatCurrency(totalSpent)}</span>
+          Total: <span className={totalSpent >= 0 ? 'text-red-600' : 'text-green-600'}>
+            {formatCurrency(totalSpent)}
+          </span>
         </span>
       </div>
 
@@ -266,7 +268,7 @@ export function TransactionsView({
                     return (
                       <div key={txn.id}>
                         {index > 0 && <Separator className="my-2" />}
-                        <div className={`flex items-center gap-4 py-2 group ${txn.categoryId === uncategorizedCategory?.id ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}>
+                        <div className="flex items-center gap-4 py-2 group">
                           <Checkbox
                             checked={selectedTransactions.includes(txn.id)}
                             onCheckedChange={() => handleToggleSelect(txn.id)}
@@ -293,8 +295,10 @@ export function TransactionsView({
 
                           {/* Amount */}
                           <div className="text-right">
-                            <p className="font-semibold text-red-600 tabular-nums">
-                              -{formatCurrency(txn.amount)}
+                            <p className={`font-semibold tabular-nums ${
+                              txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              {txn.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(txn.amount))}
                             </p>
                           </div>
 
