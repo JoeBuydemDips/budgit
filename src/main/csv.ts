@@ -376,7 +376,15 @@ export interface ParseCategoriesResult {
   errors: ParseError[]
 }
 
-const VALID_CATEGORY_TYPES: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'WANTS', 'DEBT', 'FOOD', 'MISC']
+const VALID_CATEGORY_TYPES: CategoryType[] = [
+  'GIVING',
+  'SAVINGS',
+  'NEEDS',
+  'WANTS',
+  'DEBT',
+  'FOOD',
+  'MISC'
+]
 
 // Parse CSV content for categories
 export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {

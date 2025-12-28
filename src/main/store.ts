@@ -10,7 +10,7 @@ import {
   DEFAULT_SETTINGS,
   CategoryAllocation
 } from '../shared/types'
-import { inferCategoryFromDescription, learnCategoryMapping } from '../shared/categoryInference'
+import { learnCategoryMapping } from '../shared/categoryInference'
 
 // Create the store with schema defaults
 const store = new Store<StoreSchema>({
@@ -634,15 +634,15 @@ export function importBudgets(
   }
 }
 
-// Helper to get or create the "Unmapped" category for transactions with unmatched categories
-function getOrCreateUnmappedCategory(): string {
+// Helper to get or create the "Uncategorized" category for transactions with unmatched categories
+function getOrCreateUncategorizedCategory(): string {
   const categories = store.get('categories')
-  const existing = categories.find((c) => c.name === 'Unmapped')
+  const existing = categories.find((c) => c.name === 'Uncategorized')
   if (existing) return existing.id
 
   const newCategory: Category = {
     id: uuidv4(),
-    name: 'Unmapped',
+    name: 'Uncategorized',
     type: 'NEEDS',
     rolloverEnabled: false,
     sortOrder: categories.length
@@ -711,8 +711,7 @@ export function importTransactions(
   targetMonth?: string
 ): ImportResult {
   const categories = store.get('categories')
-  const categoryNameMap = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]))
-  const unmappedCategoryId = getOrCreateUnmappedCategory()
+  const uncategorizedCategoryId = getOrCreateUncategorizedCategory()
   const existingTransactions = store.get('transactions')
 
   const errors: string[] = []
@@ -725,8 +724,8 @@ export function importTransactions(
     // Find matching category with improved matching
     let categoryId = findMatchingCategory(tx.categoryName, categories)
     if (!categoryId) {
-      // Assign to Unmapped category
-      categoryId = unmappedCategoryId
+      // Assign to Uncategorized category
+      categoryId = uncategorizedCategoryId
     }
 
     // Check for duplicate (same date, category, amount, description, card)

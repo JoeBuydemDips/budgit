@@ -27,7 +27,8 @@ const TYPE_COLORS: Record<CategoryType, string> = {
   NEEDS: '#8B5CF6',
   WANTS: '#F59E0B',
   DEBT: '#EF4444',
-  FOOD: '#06B6D4'
+  FOOD: '#06B6D4',
+  MISC: '#6B7280'
 }
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
@@ -36,7 +37,8 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   NEEDS: 'Essentials',
   WANTS: 'Lifestyle',
   DEBT: 'Debt',
-  FOOD: 'Food'
+  FOOD: 'Food',
+  MISC: 'Miscellaneous'
 }
 
 const CATEGORY_TYPE_ORDER: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']

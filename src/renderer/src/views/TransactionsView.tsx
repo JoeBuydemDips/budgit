@@ -55,7 +55,7 @@ export function TransactionsView({
   const [showBulkMapDialog, setShowBulkMapDialog] = useState(false)
   const [bulkMapCategory, setBulkMapCategory] = useState<string>('')
 
-  const unmappedCategory = categories.find((c) => c.name === 'Unmapped')
+  const uncategorizedCategory = categories.find((c) => c.name === 'Uncategorized')
 
   const handleSelectAll = () => {
     setSelectedTransactions(filteredTransactions.map((t) => t.id))
@@ -89,7 +89,7 @@ export function TransactionsView({
       const searchLower = searchQuery.toLowerCase()
       return (
         txn.description.toLowerCase().includes(searchLower) ||
-        category?.name.toLowerCase().includes(searchLower)
+        (category?.name || 'Uncategorized').toLowerCase().includes(searchLower)
       )
     }
     return true
@@ -177,8 +177,7 @@ export function TransactionsView({
         </CardContent>
       </Card>
 
-      {/* Bulk Actions */}
-      {(selectedTransactions.length > 0 || unmappedCategory) && (
+      {(selectedTransactions.length > 0 || uncategorizedCategory) && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -203,13 +202,13 @@ export function TransactionsView({
                   </Button>
                 </>
               )}
-              {unmappedCategory && (
+              {uncategorizedCategory && (
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setFilterCategory(unmappedCategory.id)}
+                  onClick={() => setFilterCategory(uncategorizedCategory.id)}
                 >
-                  Show Unmapped ({transactions.filter((t) => t.categoryId === unmappedCategory.id).length})
+                  Show Uncategorized ({transactions.filter((t) => t.categoryId === uncategorizedCategory.id).length})
                 </Button>
               )}
             </div>
@@ -267,7 +266,7 @@ export function TransactionsView({
                     return (
                       <div key={txn.id}>
                         {index > 0 && <Separator className="my-2" />}
-                        <div className={`flex items-center gap-4 py-2 group ${txn.categoryId === unmappedCategory?.id ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}>
+                        <div className={`flex items-center gap-4 py-2 group ${txn.categoryId === uncategorizedCategory?.id ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}>
                           <Checkbox
                             checked={selectedTransactions.includes(txn.id)}
                             onCheckedChange={() => handleToggleSelect(txn.id)}
@@ -348,7 +347,7 @@ export function TransactionsView({
                 </SelectTrigger>
                 <SelectContent>
                   {categories
-                    .filter((c) => c.name !== 'Unmapped')
+                    .filter((c) => c.name !== 'Uncategorized')
                     .map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}

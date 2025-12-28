@@ -118,7 +118,8 @@ export function Dashboard({
       NEEDS: { planned: 0, spent: 0 },
       WANTS: { planned: 0, spent: 0 },
       DEBT: { planned: 0, spent: 0 },
-      FOOD: { planned: 0, spent: 0 }
+      FOOD: { planned: 0, spent: 0 },
+      MISC: { planned: 0, spent: 0 }
     }
 
     categories.forEach((cat) => {
