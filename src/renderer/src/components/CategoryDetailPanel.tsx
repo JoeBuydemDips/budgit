@@ -402,7 +402,7 @@ export function CategoryDetailPanel({
 
       {/* Add Transactions Dialog */}
       <Dialog open={showAddTransactions} onOpenChange={setShowAddTransactions}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl" style={{ maxHeight: '90vh', maxWidth: '90vw', overflow: 'auto', padding: '1rem' }}>
           <DialogHeader>
             <DialogTitle>Add Transactions to {category.name}</DialogTitle>
             <DialogDescription>
@@ -438,14 +438,14 @@ export function CategoryDetailPanel({
             )}
 
             {/* Transaction List */}
-            <div className="max-h-96 overflow-y-auto border rounded-md">
+            <div className="max-h-64 overflow-y-auto border rounded-md" style={{ padding: '0.5rem' }}>
               {filteredAvailableTransactions.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   {searchQuery ? 'No transactions match your search' : 'No available transactions to assign'}
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredAvailableTransactions.slice(0, 10).map((txn) => (
+                  {filteredAvailableTransactions.map((txn) => (
                     <div key={txn.id} className="flex items-center gap-3 p-3 hover:bg-muted/50">
                       <Checkbox
                         checked={selectedTransactionIds.includes(txn.id)}
