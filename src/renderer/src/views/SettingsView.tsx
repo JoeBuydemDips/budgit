@@ -7,7 +7,8 @@ import {
   Download,
   Upload,
   CheckCircle,
-  XCircle
+  XCircle,
+  Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -69,6 +70,7 @@ export function SettingsView({
     null
   )
   const [isProcessing, setIsProcessing] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   // Export/Import dialog states
   const [exportDialogType, setExportDialogType] = useState<ExportDialogType>(null)
@@ -96,6 +98,17 @@ export function SettingsView({
     }
     return undefined
   }, [importExportFeedback])
+
+  // Filter categories based on search term
+  const filteredCategories = categories.filter((category) => {
+    if (!searchTerm.trim()) return true
+
+    const searchLower = searchTerm.toLowerCase()
+    const categoryName = category.name.toLowerCase()
+    const categoryTypeLabel = CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
+
+    return categoryName.includes(searchLower) || categoryTypeLabel.includes(searchLower)
+  })
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -143,8 +156,19 @@ export function SettingsView({
           </Button>
         </CardHeader>
         <CardContent>
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search categories by name or type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
           <div className="space-y-2">
-            {categories.map((category, index) => (
+            {filteredCategories.map((category, index) => (
               <div key={category.id}>
                 {index > 0 && <Separator className="my-2" />}
                 <div className="flex items-center justify-between py-2 group">
@@ -179,6 +203,13 @@ export function SettingsView({
                 </div>
               </div>
             ))}
+            {filteredCategories.length === 0 && searchTerm.trim() && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No categories found matching "{searchTerm}"</p>
+                <p className="text-sm">Try searching by category name or type</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
