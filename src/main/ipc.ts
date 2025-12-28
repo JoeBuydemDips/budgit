@@ -305,7 +305,17 @@ export function registerIpcHandlers(): void {
       _,
       csvContent: string,
       options?: { format?: string; defaultCategoryId?: string }
-    ): Promise<{ transactions: Array<{ budgetMonth: string; categoryName: string; amount: number; description: string; date: string; card?: string }>; errors: { row: number; message: string }[] }> => {
+    ): Promise<{
+      transactions: Array<{
+        budgetMonth: string
+        categoryName: string
+        amount: number
+        description: string
+        date: string
+        card?: string
+      }>
+      errors: { row: number; message: string }[]
+    }> => {
       try {
         const categories = getCategories()
         const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT

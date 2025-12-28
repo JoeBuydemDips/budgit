@@ -100,7 +100,14 @@ interface BudgetAPI {
     csvContent: string,
     options?: { format?: string; defaultCategoryId?: string }
   ) => Promise<{
-    transactions: Array<{ budgetMonth: string; categoryName: string; amount: number; description: string; date: string; card?: string }>
+    transactions: Array<{
+      budgetMonth: string
+      categoryName: string
+      amount: number
+      description: string
+      date: string
+      card?: string
+    }>
     errors: { row: number; message: string }[]
   }>
 }
