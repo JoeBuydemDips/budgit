@@ -614,6 +614,7 @@ export function BudgetView({
             onClose={() => setSelectedCategory(null)}
             onAddTransaction={onAddTransaction}
             onDeleteTransaction={onDeleteTransaction}
+            onUpdateCategory={onUpdateCategory}
           />
         ) : selectedIncomeData ? (
           <IncomeDetailPanel

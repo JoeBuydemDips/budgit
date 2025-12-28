@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X, Plus, Trash2, Receipt } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Plus, Trash2, Receipt, Edit3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +11,13 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { Category, Transaction, CategoryType } from '../../../shared/types'
 
@@ -22,6 +29,17 @@ const TYPE_COLORS: Record<CategoryType, string> = {
   DEBT: '#EF4444',
   FOOD: '#06B6D4'
 }
+
+const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
+  GIVING: 'Giving',
+  SAVINGS: 'Savings',
+  NEEDS: 'Essentials',
+  WANTS: 'Lifestyle',
+  DEBT: 'Debt',
+  FOOD: 'Food'
+}
+
+const CATEGORY_TYPE_ORDER: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
 
 interface CategoryDetailPanelProps {
   category: Category & {
@@ -35,6 +53,7 @@ interface CategoryDetailPanelProps {
   onClose: () => void
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
+  onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
 }
 
 export function CategoryDetailPanel({
@@ -43,13 +62,21 @@ export function CategoryDetailPanel({
   currentMonth,
   onClose,
   onAddTransaction,
-  onDeleteTransaction
+  onDeleteTransaction,
+  onUpdateCategory
 }: CategoryDetailPanelProps): React.JSX.Element {
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [submitting, setSubmitting] = useState(false)
+  const [editingType, setEditingType] = useState(false)
+  const [typeValue, setTypeValue] = useState<CategoryType>(category.type)
+
+  // Update type value when category changes
+  useEffect(() => {
+    setTypeValue(category.type)
+  }, [category.type])
 
   const categoryTransactions = transactions
     .filter((t) => t.categoryId === category.id)
@@ -148,6 +175,86 @@ export function CategoryDetailPanel({
             <Plus className="h-5 w-5" />
             Add Expense
           </Button>
+        </div>
+
+        {/* Category Type */}
+        <div className="px-4 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Category Type</span>
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: TYPE_COLORS[category.type] }}
+              />
+            </div>
+            {!editingType ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingType(true)}
+                className="h-8 px-2 text-muted-foreground hover:text-foreground"
+              >
+                <Edit3 className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTypeValue(category.type)
+                    setEditingType(false)
+                  }}
+                  className="h-8 px-2"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (typeValue !== category.type) {
+                      await onUpdateCategory(category.id, { type: typeValue })
+                    }
+                    setEditingType(false)
+                  }}
+                  className="h-8 px-2"
+                  disabled={typeValue === category.type}
+                >
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+          {editingType ? (
+            <div className="mt-3">
+              <Select
+                value={typeValue}
+                onValueChange={(value: CategoryType) => setTypeValue(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_TYPE_ORDER.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: TYPE_COLORS[type] }}
+                        />
+                        {CATEGORY_TYPE_LABELS[type]}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">
+              {CATEGORY_TYPE_LABELS[category.type]}
+            </p>
+          )}
         </div>
 
         {/* Activity This Month */}
