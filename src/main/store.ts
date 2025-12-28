@@ -723,8 +723,39 @@ export function importTransactions(
   for (const tx of transactions) {
     // Find matching category with improved matching
     let categoryId = findMatchingCategory(tx.categoryName, categories)
+    
+    // For income transactions (positive amounts), prioritize income categories
+    if (!categoryId && tx.amount > 0) {
+      // This is an income transaction - try to match against income categories
+      const incomeCategories = categories.filter(cat => 
+        cat.name.toLowerCase().includes('income') || 
+        cat.name.toLowerCase().includes('salary') ||
+        cat.name.toLowerCase().includes('payroll') ||
+        cat.name.toLowerCase().includes('freelance') ||
+        cat.name.toLowerCase().includes('dividend') ||
+        cat.name.toLowerCase().includes('interest') ||
+        cat.name.toLowerCase().includes('investment')
+      )
+      
+      // Try fuzzy matching against income categories
+      for (const incomeCat of incomeCategories) {
+        const normalizedDesc = tx.description.toLowerCase()
+        const normalizedCatName = incomeCat.name.toLowerCase()
+        
+        if (normalizedDesc.includes(normalizedCatName) || 
+            normalizedCatName.includes(normalizedDesc) ||
+            // Check for common income keywords in description
+            (normalizedDesc.includes('deposit') && normalizedCatName.includes('salary')) ||
+            (normalizedDesc.includes('payroll') && normalizedCatName.includes('salary')) ||
+            (normalizedDesc.includes('direct deposit') && normalizedCatName.includes('salary'))) {
+          categoryId = incomeCat.id
+          break
+        }
+      }
+    }
+    
     if (!categoryId) {
-      // Assign to Uncategorized category
+      // Assign to Uncategorized category for manual assignment
       categoryId = uncategorizedCategoryId
     }
 

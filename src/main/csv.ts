@@ -3,9 +3,9 @@ import { getCategorySuggestions } from '../shared/categoryInference'
 
 // CSV format types for import
 export enum CsvFormat {
-  BUDGIT = 'budgit',      // Standard Budgit format
+  BUDGIT = 'budgit', // Standard Budgit format
   CREDIT_CARD = 'credit_card', // Credit card statements (negative amounts = income)
-  DEBIT_CARD = 'debit_card'   // Debit card statements (Transaction Type column)
+  DEBIT_CARD = 'debit_card' // Debit card statements (Transaction Type column)
 }
 
 // CSV column headers for exports
@@ -345,13 +345,21 @@ export function parseTransactionsCSV(
   // Validate required headers
   if (format === CsvFormat.DEBIT_CARD) {
     if (amountIdx === -1 && debitAmountIdx === -1 && creditAmountIdx === -1) {
-      errors.push({ row: 1, field: 'amount', message: 'Missing required column: Transaction Amount, Debit Amount, or Credit Amount' })
+      errors.push({
+        row: 1,
+        field: 'amount',
+        message: 'Missing required column: Transaction Amount, Debit Amount, or Credit Amount'
+      })
     }
     if (dateIdx === -1) {
       errors.push({ row: 1, field: 'date', message: 'Missing required column: Transaction Date' })
     }
     if (descriptionIdx === -1) {
-      errors.push({ row: 1, field: 'description', message: 'Missing required column: Transaction Description' })
+      errors.push({
+        row: 1,
+        field: 'description',
+        message: 'Missing required column: Transaction Description'
+      })
     }
   } else {
     if (amountIdx === -1) {
@@ -379,7 +387,14 @@ export function parseTransactionsCSV(
     const rowNum = i + 1
 
     // Parse amount
-    const amount = parseAmount(values, format, amountIdx, transactionTypeIdx, debitAmountIdx, creditAmountIdx)
+    const amount = parseAmount(
+      values,
+      format,
+      amountIdx,
+      transactionTypeIdx,
+      debitAmountIdx,
+      creditAmountIdx
+    )
     if (isNaN(amount)) {
       errors.push({ row: rowNum, field: 'amount', message: 'Invalid amount' })
       continue
@@ -440,20 +455,21 @@ export function parseTransactionsCSV(
       if (categoryNameIdx !== -1) {
         categoryName = values[categoryNameIdx]?.trim() || ''
       }
-      
+
       // If no explicit category, try to infer from description
       if (!categoryName && descriptionIdx !== -1) {
         const description = values[descriptionIdx] || ''
         const suggestions = getCategorySuggestions(description, categories)
+        
         if (suggestions.length > 0) {
           // Find the category by ID
-          const suggestedCategory = categories.find(c => c.id === suggestions[0])
+          const suggestedCategory = categories.find((c) => c.id === suggestions[0])
           if (suggestedCategory) {
             categoryName = suggestedCategory.name
           }
         }
       }
-      
+
       // Final fallback to Uncategorized
       if (!categoryName) {
         categoryName = 'Uncategorized'

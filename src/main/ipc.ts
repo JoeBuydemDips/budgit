@@ -281,7 +281,7 @@ export function registerIpcHandlers(): void {
       try {
         const csvContent = await readFile(result.filePaths[0], 'utf-8')
         const categories = getCategories()
-        const format = options?.format as CsvFormat || CsvFormat.BUDGIT
+        const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
         const parsed = parseTransactionsCSV(csvContent, categories, format)
 
         if (parsed.errors.length > 0) {
