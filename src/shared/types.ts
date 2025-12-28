@@ -1,5 +1,5 @@
 // Category types for zero-based budgeting
-export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT'
+export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT' | 'FOOD'
 
 // Color mappings for category types
 export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
@@ -7,7 +7,8 @@ export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
   SAVINGS: '#3B82F6', // Blue
   NEEDS: '#8B5CF6', // Purple
   WANTS: '#F59E0B', // Amber
-  DEBT: '#EF4444' // Red
+  DEBT: '#EF4444', // Red
+  FOOD: '#06B6D4' // Cyan
 }
 
 export interface Category {

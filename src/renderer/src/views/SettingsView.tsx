@@ -7,10 +7,18 @@ import {
   Download,
   Upload,
   CheckCircle,
-  XCircle
+  XCircle,
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -52,7 +60,8 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'SAVINGS', label: 'Savings' },
   { value: 'NEEDS', label: 'Essentials' },
   { value: 'WANTS', label: 'Lifestyle' },
-  { value: 'DEBT', label: 'Debt' }
+  { value: 'DEBT', label: 'Debt' },
+  { value: 'FOOD', label: 'Food' }
 ]
 
 export function SettingsView({
@@ -68,6 +77,8 @@ export function SettingsView({
     null
   )
   const [isProcessing, setIsProcessing] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoriesExpanded, setCategoriesExpanded] = useState(true)
 
   // Export/Import dialog states
   const [exportDialogType, setExportDialogType] = useState<ExportDialogType>(null)
@@ -95,6 +106,17 @@ export function SettingsView({
     }
     return undefined
   }, [importExportFeedback])
+
+  // Filter categories based on search term
+  const filteredCategories = categories.filter((category) => {
+    if (!searchTerm.trim()) return true
+
+    const searchLower = searchTerm.toLowerCase()
+    const categoryName = category.name.toLowerCase()
+    const categoryTypeLabel = CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
+
+    return categoryName.includes(searchLower) || categoryTypeLabel.includes(searchLower)
+  })
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -131,19 +153,45 @@ export function SettingsView({
 
       {/* Categories */}
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <CardTitle>Categories</CardTitle>
-            <CardDescription>Manage your budget categories</CardDescription>
+        <Collapsible open={categoriesExpanded} onOpenChange={setCategoriesExpanded}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <CardTitle>Categories</CardTitle>
+                    <CardDescription>Manage your budget categories</CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Category
+                  </Button>
+                  {categoriesExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search categories by name or type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-          <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
-          </Button>
-        </CardHeader>
-        <CardContent>
+
           <div className="space-y-2">
-            {categories.map((category, index) => (
+            {filteredCategories.map((category, index) => (
               <div key={category.id}>
                 {index > 0 && <Separator className="my-2" />}
                 <div className="flex items-center justify-between py-2 group">
@@ -178,8 +226,17 @@ export function SettingsView({
                 </div>
               </div>
             ))}
+            {filteredCategories.length === 0 && searchTerm.trim() && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No categories found matching "{searchTerm}"</p>
+                <p className="text-sm">Try searching by category name or type</p>
+              </div>
+            )}
           </div>
         </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {/* Import/Export Data */}
@@ -855,7 +912,7 @@ function CategoryDialog({
   const [saving, setSaving] = useState(false)
 
   // Reset form when category changes
-  useState(() => {
+  useEffect(() => {
     if (category) {
       setName(category.name)
       setType(category.type)
@@ -865,7 +922,7 @@ function CategoryDialog({
       setType('NEEDS')
       setRolloverEnabled(false)
     }
-  })
+  }, [category])
 
   const handleSave = async (): Promise<void> => {
     if (!name.trim()) return

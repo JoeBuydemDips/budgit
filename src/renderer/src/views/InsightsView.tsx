@@ -36,7 +36,8 @@ const TYPE_COLORS: Record<CategoryType, string> = {
   SAVINGS: '#3B82F6',
   NEEDS: '#8B5CF6',
   WANTS: '#F59E0B',
-  DEBT: '#EF4444'
+  DEBT: '#EF4444',
+  FOOD: '#06B6D4'
 }
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
@@ -44,7 +45,8 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   SAVINGS: 'Savings',
   NEEDS: 'Housing & Utilities',
   WANTS: 'Lifestyle',
-  DEBT: 'Debt'
+  DEBT: 'Debt',
+  FOOD: 'Food'
 }
 
 interface InsightsViewProps {
@@ -74,7 +76,8 @@ export function InsightsView({
       SAVINGS: { planned: 0, spent: 0 },
       NEEDS: { planned: 0, spent: 0 },
       WANTS: { planned: 0, spent: 0 },
-      DEBT: { planned: 0, spent: 0 }
+      DEBT: { planned: 0, spent: 0 },
+      FOOD: { planned: 0, spent: 0 }
     }
 
     budgets.forEach((budget) => {

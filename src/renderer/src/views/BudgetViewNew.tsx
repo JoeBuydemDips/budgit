@@ -57,7 +57,8 @@ const TYPE_COLORS: Record<CategoryType, string> = {
   SAVINGS: '#3B82F6',
   NEEDS: '#8B5CF6',
   WANTS: '#F59E0B',
-  DEBT: '#EF4444'
+  DEBT: '#EF4444',
+  FOOD: '#06B6D4'
 }
 
 interface BudgetViewProps {
@@ -86,10 +87,11 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   SAVINGS: 'Savings',
   NEEDS: 'Housing & Utilities',
   WANTS: 'Lifestyle',
-  DEBT: 'Debt'
+  DEBT: 'Debt',
+  FOOD: 'Food'
 }
 
-const CATEGORY_TYPE_ORDER: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'WANTS', 'DEBT']
+const CATEGORY_TYPE_ORDER: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
 
 export function BudgetView({
   budget,
@@ -612,6 +614,7 @@ export function BudgetView({
             onClose={() => setSelectedCategory(null)}
             onAddTransaction={onAddTransaction}
             onDeleteTransaction={onDeleteTransaction}
+            onUpdateCategory={onUpdateCategory}
           />
         ) : selectedIncomeData ? (
           <IncomeDetailPanel
