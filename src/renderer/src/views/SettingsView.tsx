@@ -8,10 +8,17 @@ import {
   Upload,
   CheckCircle,
   XCircle,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -71,6 +78,7 @@ export function SettingsView({
   )
   const [isProcessing, setIsProcessing] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [categoriesExpanded, setCategoriesExpanded] = useState(true)
 
   // Export/Import dialog states
   const [exportDialogType, setExportDialogType] = useState<ExportDialogType>(null)
@@ -145,17 +153,32 @@ export function SettingsView({
 
       {/* Categories */}
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <CardTitle>Categories</CardTitle>
-            <CardDescription>Manage your budget categories</CardDescription>
-          </div>
-          <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
-          </Button>
-        </CardHeader>
-        <CardContent>
+        <Collapsible open={categoriesExpanded} onOpenChange={setCategoriesExpanded}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <CardTitle>Categories</CardTitle>
+                    <CardDescription>Manage your budget categories</CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Category
+                  </Button>
+                  {categoriesExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
           {/* Search */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -212,6 +235,8 @@ export function SettingsView({
             )}
           </div>
         </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {/* Import/Export Data */}
