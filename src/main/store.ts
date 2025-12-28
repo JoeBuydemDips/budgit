@@ -637,15 +637,16 @@ export function importBudgets(
 export function importTransactions(
   transactions: Array<{
     budgetMonth: string
-    categoryId: string
+    categoryName: string
     amount: number
     description: string
     date: string
+    card?: string
   }>,
   targetMonth?: string
 ): ImportResult {
-  const categories = store.get('categories')
-  const categoryIds = new Set(categories.map((c) => c.id))
+  let categories = store.get('categories')
+  const categoryNameMap = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]))
   const existingTransactions = store.get('transactions')
 
   const errors: string[] = []
@@ -655,20 +656,31 @@ export function importTransactions(
   const newTransactions: Transaction[] = []
 
   for (const tx of transactions) {
-    // Validate category exists
-    if (!categoryIds.has(tx.categoryId)) {
-      errors.push(`Unknown category ID: ${tx.categoryId} for transaction on ${tx.date}`)
-      skipped++
-      continue
+    // Get or create category
+    let categoryId = categoryNameMap.get(tx.categoryName.toLowerCase())
+    if (!categoryId) {
+      // Create new category
+      const newCategory: Category = {
+        id: uuidv4(),
+        name: tx.categoryName,
+        type: 'NEEDS', // Default type for unknown categories
+        rolloverEnabled: false,
+        sortOrder: categories.length
+      }
+      categories = [...categories, newCategory]
+      store.set('categories', categories)
+      categoryNameMap.set(tx.categoryName.toLowerCase(), newCategory.id)
+      categoryId = newCategory.id
     }
 
-    // Check for duplicate (same date, category, amount, description)
+    // Check for duplicate (same date, category, amount, description, card)
     const isDuplicate = existingTransactions.some(
       (existing) =>
         existing.date === tx.date &&
-        existing.categoryId === tx.categoryId &&
+        existing.categoryId === categoryId &&
         existing.amount === tx.amount &&
-        existing.description === tx.description
+        existing.description === tx.description &&
+        existing.card === tx.card
     )
 
     if (isDuplicate) {
@@ -679,11 +691,12 @@ export function importTransactions(
     const newTx: Transaction = {
       id: uuidv4(),
       budgetMonth: targetMonth || tx.budgetMonth,
-      categoryId: tx.categoryId,
+      categoryId,
       amount: tx.amount,
       description: tx.description,
       date: tx.date,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      card: tx.card
     }
 
     newTransactions.push(newTx)

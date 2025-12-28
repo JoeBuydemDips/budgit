@@ -54,6 +54,7 @@ export interface Transaction {
   description: string
   date: string // ISO date string
   createdAt: string
+  card?: string // Optional payment method/card identifier
 }
 
 export interface AppSettings {

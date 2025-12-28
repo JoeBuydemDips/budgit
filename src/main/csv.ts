@@ -12,14 +12,11 @@ export const BUDGET_CSV_HEADERS = [
 ]
 
 export const TRANSACTION_CSV_HEADERS = [
-  'id',
-  'budgetMonth',
-  'categoryId',
-  'categoryName',
-  'amount',
-  'description',
-  'date',
-  'createdAt'
+  'Date',
+  'Amount',
+  'Card',
+  'Category',
+  'Description'
 ]
 
 export const CATEGORY_CSV_HEADERS = ['id', 'name', 'type', 'rolloverEnabled', 'sortOrder']
@@ -112,15 +109,16 @@ export function generateTransactionsCSV(
   const lines: string[] = [TRANSACTION_CSV_HEADERS.join(',')]
 
   for (const tx of transactions) {
+    // Format date to MM/DD/YYYY
+    const date = new Date(tx.date)
+    const formattedDate = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()}`
+
     const row = [
-      tx.id,
-      tx.budgetMonth,
-      tx.categoryId,
-      categoryMap.get(tx.categoryId) || '',
+      formattedDate,
       tx.amount,
-      tx.description,
-      tx.date,
-      tx.createdAt
+      tx.card || '',
+      categoryMap.get(tx.categoryId) || '',
+      tx.description
     ]
     lines.push(row.map(escapeCSVField).join(','))
   }
@@ -230,10 +228,11 @@ export function parseBudgetsCSV(csvContent: string): ParseBudgetsResult {
 
 export interface ParsedTransaction {
   budgetMonth: string
-  categoryId: string
+  categoryName: string
   amount: number
   description: string
   date: string
+  card?: string
 }
 
 export interface ParseTransactionsResult {
@@ -242,7 +241,7 @@ export interface ParseTransactionsResult {
 }
 
 // Parse CSV content for transactions
-export function parseTransactionsCSV(csvContent: string): ParseTransactionsResult {
+export function parseTransactionsCSV(csvContent: string, categories: Category[]): ParseTransactionsResult {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
   const errors: ParseError[] = []
   const transactions: ParsedTransaction[] = []
@@ -255,22 +254,21 @@ export function parseTransactionsCSV(csvContent: string): ParseTransactionsResul
   const headers = parseCSVLine(lines[0])
   const budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
   const categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
+  const categoryNameIdx = headers.findIndex((h) => h.toLowerCase() === 'category')
   const amountIdx = headers.findIndex((h) => h.toLowerCase() === 'amount')
   const descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'description')
   const dateIdx = headers.findIndex((h) => h.toLowerCase() === 'date')
+  const cardIdx = headers.findIndex((h) => h.toLowerCase() === 'card')
 
   // Validate required headers
-  if (budgetMonthIdx === -1) {
-    errors.push({ row: 1, field: 'budgetMonth', message: 'Missing required column: budgetMonth' })
-  }
-  if (categoryIdIdx === -1) {
-    errors.push({ row: 1, field: 'categoryId', message: 'Missing required column: categoryId' })
-  }
   if (amountIdx === -1) {
     errors.push({ row: 1, field: 'amount', message: 'Missing required column: amount' })
   }
   if (dateIdx === -1) {
     errors.push({ row: 1, field: 'date', message: 'Missing required column: date' })
+  }
+  if (categoryIdIdx === -1 && categoryNameIdx === -1) {
+    errors.push({ row: 1, field: 'category', message: 'Missing required column: categoryId or category' })
   }
 
   if (errors.length > 0) {
@@ -282,9 +280,44 @@ export function parseTransactionsCSV(csvContent: string): ParseTransactionsResul
     const values = parseCSVLine(lines[i])
     const rowNum = i + 1
 
-    // Validate budgetMonth format (YYYY-MM)
-    const budgetMonth = values[budgetMonthIdx]
-    if (!budgetMonth || !/^\d{4}-\d{2}$/.test(budgetMonth)) {
+    // Parse amount
+    const amount = parseFloat(values[amountIdx])
+    if (isNaN(amount)) {
+      errors.push({ row: rowNum, field: 'amount', message: 'Invalid amount' })
+      continue
+    }
+
+    // Parse date
+    const dateStr = values[dateIdx]
+    if (!dateStr) {
+      errors.push({ row: rowNum, field: 'date', message: 'Missing date' })
+      continue
+    }
+    let parsedDate: Date
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      // ISO format
+      parsedDate = new Date(dateStr)
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
+      // MM/DD/YYYY format
+      const [month, day, year] = dateStr.split('/').map(Number)
+      parsedDate = new Date(year, month - 1, day)
+    } else {
+      errors.push({ row: rowNum, field: 'date', message: 'Invalid date format (expected MM/DD/YYYY or YYYY-MM-DD)' })
+      continue
+    }
+    if (isNaN(parsedDate.getTime())) {
+      errors.push({ row: rowNum, field: 'date', message: 'Invalid date' })
+      continue
+    }
+    const isoDate = parsedDate.toISOString().split('T')[0]
+
+    // Determine budgetMonth
+    let budgetMonth = budgetMonthIdx !== -1 ? values[budgetMonthIdx] : null
+    if (!budgetMonth) {
+      // Infer from date
+      budgetMonth = `${parsedDate.getFullYear()}-${(parsedDate.getMonth() + 1).toString().padStart(2, '0')}`
+    }
+    if (!/^\d{4}-\d{2}$/.test(budgetMonth)) {
       errors.push({
         row: rowNum,
         field: 'budgetMonth',
@@ -293,31 +326,31 @@ export function parseTransactionsCSV(csvContent: string): ParseTransactionsResul
       continue
     }
 
-    // Parse amount
-    const amount = parseFloat(values[amountIdx])
-    if (isNaN(amount)) {
-      errors.push({ row: rowNum, field: 'amount', message: 'Invalid amount' })
+    // Determine categoryName
+    let categoryName = ''
+    if (categoryNameIdx !== -1) {
+      categoryName = values[categoryNameIdx]?.trim() || ''
+    } else if (categoryIdIdx !== -1) {
+      const categoryId = values[categoryIdIdx]?.trim()
+      if (categoryId) {
+        const cat = categories.find(c => c.id === categoryId)
+        categoryName = cat ? cat.name : categoryId // fallback to id if not found
+      }
+    }
+    if (!categoryName) {
+      errors.push({ row: rowNum, field: 'category', message: 'Missing category' })
       continue
     }
 
-    const categoryId = values[categoryIdIdx]
-    if (!categoryId) {
-      errors.push({ row: rowNum, field: 'categoryId', message: 'Missing categoryId' })
-      continue
-    }
-
-    const date = values[dateIdx]
-    if (!date) {
-      errors.push({ row: rowNum, field: 'date', message: 'Missing date' })
-      continue
-    }
+    const card = cardIdx !== -1 ? values[cardIdx] : undefined
 
     transactions.push({
       budgetMonth,
-      categoryId,
+      categoryName,
       amount,
       description: descriptionIdx !== -1 ? values[descriptionIdx] || '' : '',
-      date
+      date: isoDate,
+      card
     })
   }
 

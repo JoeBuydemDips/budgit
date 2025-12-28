@@ -812,8 +812,8 @@ export function SettingsView({
           <DialogHeader>
             <DialogTitle>Import Transactions</DialogTitle>
             <DialogDescription>
-              Choose whether to import transactions to a specific budget month or use the months
-              from the CSV file.
+              Import transactions from a CSV file. Expected format: Date (MM/DD/YYYY), Amount, Card (optional), Category (name), Description.
+              Unknown categories will be automatically created. Budget month will be inferred from dates if not specified.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
