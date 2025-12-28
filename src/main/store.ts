@@ -651,6 +651,51 @@ function getOrCreateUnmappedCategory(): string {
   return newCategory.id
 }
 
+// Common category name aliases for better matching
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  Groceries: ['Grocery', 'Groc', 'Food'],
+  Transportation: ['Gas', 'Fuel', 'Car', 'Auto', 'Vehicle'],
+  Housing: ['Rent', 'Mortgage', 'Home'],
+  Utilities: ['Electric', 'Electricity', 'Water', 'Gas Bill', 'Internet', 'Phone'],
+  Entertainment: ['Fun', 'Movies', 'Games'],
+  'Dining Out': ['Restaurant', 'Eat Out', 'Food Out'],
+  Savings: ['Save', 'Emergency Fund'],
+  Debt: ['Loan', 'Credit Card', 'Payment'],
+  Giving: ['Church', 'Charity', 'Donation'],
+  Wants: ['Lifestyle', 'Personal'],
+  Needs: ['Essentials', 'Necessities']
+}
+
+// Helper to find the best matching category, including aliases
+function findMatchingCategory(categoryName: string, categories: Category[]): string | null {
+  const normalizedInput = categoryName.toLowerCase().trim()
+
+  // Exact match (case-insensitive)
+  const exactMatch = categories.find((c) => c.name.toLowerCase() === normalizedInput)
+  if (exactMatch) return exactMatch.id
+
+  // Check aliases
+  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.some((alias) => alias.toLowerCase() === normalizedInput)) {
+      const category = categories.find((c) => c.name === canonical)
+      if (category) return category.id
+    }
+  }
+
+  // Fuzzy match: check if input contains category name or vice versa
+  for (const category of categories) {
+    const normalizedCategory = category.name.toLowerCase()
+    if (
+      normalizedInput.includes(normalizedCategory) ||
+      normalizedCategory.includes(normalizedInput)
+    ) {
+      return category.id
+    }
+  }
+
+  return null
+}
+
 // Import transactions from parsed CSV data
 // If targetMonth is provided, all transactions will be imported to that month regardless of the CSV budgetMonth
 export function importTransactions(
@@ -676,8 +721,8 @@ export function importTransactions(
   const newTransactions: Transaction[] = []
 
   for (const tx of transactions) {
-    // Get category - exact case-insensitive match only
-    let categoryId = categoryNameMap.get(tx.categoryName.toLowerCase())
+    // Find matching category with improved matching
+    let categoryId = findMatchingCategory(tx.categoryName, categories)
     if (!categoryId) {
       // Assign to Unmapped category
       categoryId = unmappedCategoryId
