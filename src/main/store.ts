@@ -634,6 +634,23 @@ export function importBudgets(
   }
 }
 
+// Helper to get or create the "Unmapped" category for transactions with unmatched categories
+function getOrCreateUnmappedCategory(): string {
+  const categories = store.get('categories')
+  const existing = categories.find((c) => c.name === 'Unmapped')
+  if (existing) return existing.id
+
+  const newCategory: Category = {
+    id: uuidv4(),
+    name: 'Unmapped',
+    type: 'NEEDS',
+    rolloverEnabled: false,
+    sortOrder: categories.length
+  }
+  store.set('categories', [...categories, newCategory])
+  return newCategory.id
+}
+
 // Import transactions from parsed CSV data
 // If targetMonth is provided, all transactions will be imported to that month regardless of the CSV budgetMonth
 export function importTransactions(
@@ -647,9 +664,9 @@ export function importTransactions(
   }>,
   targetMonth?: string
 ): ImportResult {
-  let categories = store.get('categories')
-  let learnedMappings = store.get('learnedMappings')
+  const categories = store.get('categories')
   const categoryNameMap = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]))
+  const unmappedCategoryId = getOrCreateUnmappedCategory()
   const existingTransactions = store.get('transactions')
 
   const errors: string[] = []
@@ -659,27 +676,11 @@ export function importTransactions(
   const newTransactions: Transaction[] = []
 
   for (const tx of transactions) {
-    // Get or create category
+    // Get category - exact case-insensitive match only
     let categoryId = categoryNameMap.get(tx.categoryName.toLowerCase())
     if (!categoryId) {
-      // Try to infer category from description if category name doesn't match
-      const inferredCategoryId = inferCategoryFromDescription(tx.description, categories, learnedMappings)
-      if (inferredCategoryId) {
-        categoryId = inferredCategoryId
-      } else {
-        // Create new category only if inference fails
-        const newCategory: Category = {
-          id: uuidv4(),
-          name: tx.categoryName || 'Uncategorized', // Use description-based name if possible?
-          type: 'NEEDS', // Default type for unknown categories
-          rolloverEnabled: false,
-          sortOrder: categories.length
-        }
-        categories = [...categories, newCategory]
-        store.set('categories', categories)
-        categoryNameMap.set(tx.categoryName.toLowerCase(), newCategory.id)
-        categoryId = newCategory.id
-      }
+      // Assign to Unmapped category
+      categoryId = unmappedCategoryId
     }
 
     // Check for duplicate (same date, category, amount, description, card)
@@ -757,24 +758,24 @@ function updateBudgetSpentForMonth(month: string): void {
 
 // Learn category mapping from user correction
 export function learnTransactionCategory(transactionId: string, categoryId: string): void {
-  const transactions = store.get("transactions")
-  const transaction = transactions.find(t => t.id === transactionId)
+  const transactions = store.get('transactions')
+  const transaction = transactions.find((t) => t.id === transactionId)
   if (!transaction) return
 
-  const categories = store.get("categories")
-  const category = categories.find(c => c.id === categoryId)
+  const categories = store.get('categories')
+  const category = categories.find((c) => c.id === categoryId)
   if (!category) return
 
   // Update the transaction's category
-  const updatedTransactions = transactions.map(t =>
+  const updatedTransactions = transactions.map((t) =>
     t.id === transactionId ? { ...t, categoryId } : t
   )
-  store.set("transactions", updatedTransactions)
+  store.set('transactions', updatedTransactions)
 
   // Learn the mapping
-  let learnedMappings = store.get("learnedMappings")
+  let learnedMappings = store.get('learnedMappings')
   learnedMappings = learnCategoryMapping(transaction.description, categoryId, learnedMappings)
-  store.set("learnedMappings", learnedMappings)
+  store.set('learnedMappings', learnedMappings)
 
   // Update budget spent amounts for affected months
   updateBudgetSpentForMonth(transaction.budgetMonth)
@@ -782,5 +783,5 @@ export function learnTransactionCategory(transactionId: string, categoryId: stri
 
 // Get learned category mappings
 export function getLearnedMappings() {
-  return store.get("learnedMappings")
+  return store.get('learnedMappings')
 }

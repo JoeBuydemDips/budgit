@@ -18,7 +18,8 @@ const budgetApi = {
 
   // Categories
   getCategories: (): Promise<Category[]> => ipcRenderer.invoke('categories:list'),
-  getLearnedMappings: (): Promise<LearnedCategoryMapping[]> => ipcRenderer.invoke('categories:getLearnedMappings'),
+  getLearnedMappings: (): Promise<LearnedCategoryMapping[]> =>
+    ipcRenderer.invoke('categories:getLearnedMappings'),
   addCategory: (category: Omit<Category, 'id'>): Promise<Category> =>
     ipcRenderer.invoke('categories:add', category),
   updateCategory: (id: string, updates: Partial<Category>): Promise<Category | null> =>

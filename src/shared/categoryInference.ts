@@ -7,20 +7,20 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'RMA TOLL': 'transportation',
   'GO CARWASH': 'transportation',
   'SOUTHWEST AIRLINES': 'personal', // Travel as personal expense
-  'EXPEDIA': 'personal',
+  EXPEDIA: 'personal',
 
   // Groceries
   'SAMS CLUB': 'groceries',
   'H-E-B GROCERY': 'groceries',
   'LA MICHOACANA AUSTIN': 'groceries',
-  'WALMART': 'groceries',
+  WALMART: 'groceries',
   'LONE STAR MARKETS': 'groceries',
   'MAMA HONO': 'groceries',
 
   // Dining Out
-  'DOORDASH': 'dining-out',
-  'MCDONALD': 'dining-out',
-  'CHIPOTLE': 'dining-out',
+  DOORDASH: 'dining-out',
+  MCDONALD: 'dining-out',
+  CHIPOTLE: 'dining-out',
   'FIVE GUYS': 'dining-out',
   'OLIVE GARDEN': 'dining-out',
   'SQ *TACOBABY': 'dining-out',
@@ -33,7 +33,7 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'STDAVIDS PARTNERSHIP': 'health',
   'HCA LOCAL HOSPITAL VISIT': 'health',
   'AUSTIN PEDIATRIC DENTI': 'health',
-  'CVS': 'health',
+  CVS: 'health',
   'AUSTIN AREA OB GYN': 'health',
   'AUSTIN FETAL MED-GT': 'health',
   'RF *AUSTIN HEALTH PA': 'health',
@@ -42,7 +42,7 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'OBHG TEXAS HOLDINGS': 'health',
   'CLINICAL PATHOLOGY LAB': 'health',
   'OCULUS PATHOLOGY': 'health',
-  'MEDFUSION': 'health',
+  MEDFUSION: 'health',
   'SOLIS WOMEN': 'health',
 
   // Insurance
@@ -50,23 +50,23 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
 
   // Entertainment
   'TRAIL OF LIGHTS': 'entertainment',
-  'NETFLIX': 'entertainment',
-  'YOUTUBE': 'entertainment',
+  NETFLIX: 'entertainment',
+  YOUTUBE: 'entertainment',
 
   // Personal/Fun
-  'AMAZON': 'personal',
-  'TARGET': 'personal',
-  'CHATGPT': 'personal',
-  'GITHUB': 'personal',
-  'MICROSOFT': 'personal',
-  'APPLE': 'personal',
+  AMAZON: 'personal',
+  TARGET: 'personal',
+  CHATGPT: 'personal',
+  GITHUB: 'personal',
+  MICROSOFT: 'personal',
+  APPLE: 'personal',
   'SPRUCE SERVICE': 'personal',
   'VCN*AUSTINVITALSTATSCTR': 'personal',
   'THECUT INC': 'personal',
   'ROUND ROCK BEAUTY SUPPLY': 'personal',
   'UNIQUE EYEBROW THREADING': 'personal',
   'WATCH GALAXY': 'personal',
-  'SHEIN': 'personal',
+  SHEIN: 'personal',
 
   // Clothing
   'CLOTHES MENTOR': 'clothing',
@@ -74,22 +74,46 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'MY COMFY PAJAMA': 'clothing',
 
   // Phone/Cable (mapped to utilities or personal)
-  'PHONE/CABLE': 'utilities', // But since no phone category, use utilities
+  'PHONE/CABLE': 'utilities' // But since no phone category, use utilities
 }
 
 // Keyword patterns for category inference
 const KEYWORD_PATTERNS: Array<{ pattern: RegExp; categoryId: string; priority: number }> = [
   // High priority exact matches
   { pattern: /\b(toll|road|highway)\b/i, categoryId: 'transportation', priority: 10 },
-  { pattern: /\b(grocery|supermarket|heb|sams|walmart|market)\b/i, categoryId: 'groceries', priority: 9 },
-  { pattern: /\b(restaurant|cafe|mcdonald|chipotle|doordash|dining)\b/i, categoryId: 'dining-out', priority: 8 },
-  { pattern: /\b(hospital|health|doctor|dentist|cvs|pharmacy|medical)\b/i, categoryId: 'health', priority: 7 },
+  {
+    pattern: /\b(grocery|supermarket|heb|sams|walmart|market)\b/i,
+    categoryId: 'groceries',
+    priority: 9
+  },
+  {
+    pattern: /\b(restaurant|cafe|mcdonald|chipotle|doordash|dining)\b/i,
+    categoryId: 'dining-out',
+    priority: 8
+  },
+  {
+    pattern: /\b(hospital|health|doctor|dentist|cvs|pharmacy|medical)\b/i,
+    categoryId: 'health',
+    priority: 7
+  },
   { pattern: /\b(insurance|casualty)\b/i, categoryId: 'insurance', priority: 6 },
-  { pattern: /\b(netflix|youtube|hulu|entertainment|movie|theater)\b/i, categoryId: 'entertainment', priority: 5 },
+  {
+    pattern: /\b(netflix|youtube|hulu|entertainment|movie|theater)\b/i,
+    categoryId: 'entertainment',
+    priority: 5
+  },
   { pattern: /\b(amazon|target|shopping|merchandise)\b/i, categoryId: 'personal', priority: 4 },
-  { pattern: /\b(clothing|clothes|dress|shirt|pants|shoes)\b/i, categoryId: 'clothing', priority: 3 },
-  { pattern: /\b(airlines|flight|travel|expedia|southwest)\b/i, categoryId: 'personal', priority: 2 },
-  { pattern: /\b(haircut|salon|beauty|spa)\b/i, categoryId: 'personal', priority: 1 },
+  {
+    pattern: /\b(clothing|clothes|dress|shirt|pants|shoes)\b/i,
+    categoryId: 'clothing',
+    priority: 3
+  },
+  {
+    pattern: /\b(airlines|flight|travel|expedia|southwest)\b/i,
+    categoryId: 'personal',
+    priority: 2
+  },
+  { pattern: /\b(haircut|salon|beauty|spa)\b/i, categoryId: 'personal', priority: 1 }
 ]
 
 // Clean merchant name for matching
@@ -113,11 +137,11 @@ export function inferCategoryFromDescription(
   const cleanDesc = cleanMerchantName(description)
 
   // First, check learned mappings (highest priority)
-  const learnedMatch = learnedMappings.find(mapping =>
-    cleanMerchantName(mapping.merchantName) === cleanDesc
+  const learnedMatch = learnedMappings.find(
+    (mapping) => cleanMerchantName(mapping.merchantName) === cleanDesc
   )
   if (learnedMatch) {
-    const categoryExists = categories.some(c => c.id === learnedMatch.categoryId)
+    const categoryExists = categories.some((c) => c.id === learnedMatch.categoryId)
     if (categoryExists) return learnedMatch.categoryId
   }
 
@@ -125,7 +149,7 @@ export function inferCategoryFromDescription(
   const merchantMatch = MERCHANT_CATEGORIES[cleanDesc]
   if (merchantMatch) {
     // Verify the category exists
-    const categoryExists = categories.some(c => c.id === merchantMatch)
+    const categoryExists = categories.some((c) => c.id === merchantMatch)
     if (categoryExists) return merchantMatch
   }
 
@@ -133,7 +157,7 @@ export function inferCategoryFromDescription(
   const sortedPatterns = KEYWORD_PATTERNS.sort((a, b) => b.priority - a.priority)
   for (const { pattern, categoryId } of sortedPatterns) {
     if (pattern.test(cleanDesc)) {
-      const categoryExists = categories.some(c => c.id === categoryId)
+      const categoryExists = categories.some((c) => c.id === categoryId)
       if (categoryExists) return categoryId
     }
   }
@@ -156,17 +180,17 @@ export function getCategorySuggestions(
 
   // Check for common patterns
   if (/\b(eat|food|drink|restaurant|cafe)\b/i.test(cleanDesc)) {
-    if (categories.some(c => c.id === 'dining-out')) suggestions.push('dining-out')
-    if (categories.some(c => c.id === 'groceries')) suggestions.push('groceries')
+    if (categories.some((c) => c.id === 'dining-out')) suggestions.push('dining-out')
+    if (categories.some((c) => c.id === 'groceries')) suggestions.push('groceries')
   }
 
   if (/\b(shop|buy|purchase)\b/i.test(cleanDesc)) {
-    if (categories.some(c => c.id === 'personal')) suggestions.push('personal')
+    if (categories.some((c) => c.id === 'personal')) suggestions.push('personal')
   }
 
   // Default fallback
   if (suggestions.length === 0) {
-    if (categories.some(c => c.id === 'personal')) suggestions.push('personal')
+    if (categories.some((c) => c.id === 'personal')) suggestions.push('personal')
   }
 
   return suggestions
@@ -180,7 +204,7 @@ export function learnCategoryMapping(
 ): LearnedCategoryMapping[] {
   const cleanName = cleanMerchantName(merchantName)
   const existingIndex = learnedMappings.findIndex(
-    mapping => cleanMerchantName(mapping.merchantName) === cleanName
+    (mapping) => cleanMerchantName(mapping.merchantName) === cleanName
   )
 
   if (existingIndex >= 0) {
@@ -204,7 +228,9 @@ export function learnCategoryMapping(
         }
       } else {
         // High confidence, don't change but could log conflict
-        console.warn(`High confidence mapping conflict for ${cleanName}: ${existing.categoryId} vs ${categoryId}`)
+        console.warn(
+          `High confidence mapping conflict for ${cleanName}: ${existing.categoryId} vs ${categoryId}`
+        )
       }
     }
   } else {
@@ -226,7 +252,7 @@ export function getLearnedMappingsForMerchant(
   learnedMappings: LearnedCategoryMapping[]
 ): LearnedCategoryMapping | null {
   const cleanName = cleanMerchantName(merchantName)
-  return learnedMappings.find(
-    mapping => cleanMerchantName(mapping.merchantName) === cleanName
-  ) || null
+  return (
+    learnedMappings.find((mapping) => cleanMerchantName(mapping.merchantName) === cleanName) || null
+  )
 }
