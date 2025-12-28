@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, Receipt, Edit3, Search, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { Category, Transaction, CategoryType, LearnedCategoryMapping } from '../../../shared/types'
+import { CATEGORY_TYPE_COLORS } from '../../../shared/types'
 import { AddTransactionDialog } from './AddTransactionDialog'
 
 const TYPE_COLORS: Record<CategoryType, string> = {
@@ -99,7 +101,7 @@ export function CategoryDetailPanel({
   }, [showAddTransactions])
 
   const categoryTransactions = transactions
-    .filter((t) => t.categoryId === category.id)
+    .filter((t) => t.categoryId === category.id && t.budgetMonth === currentMonth)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // Find uncategorized category
@@ -107,7 +109,7 @@ export function CategoryDetailPanel({
 
   // Available transactions that can be assigned to this category (from uncategorized)
   const availableTransactions = transactions
-    .filter((t) => t && t.categoryId && t.categoryId === uncategorizedCategory?.id)
+    .filter((t) => t && t.categoryId && t.categoryId === uncategorizedCategory?.id && t.budgetMonth === currentMonth)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // Filtered available transactions based on search
@@ -445,27 +447,43 @@ export function CategoryDetailPanel({
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredAvailableTransactions.map((txn) => (
-                    <div key={txn.id} className="flex items-center gap-3 p-3 hover:bg-muted/50">
-                      <Checkbox
-                        checked={selectedTransactionIds.includes(txn.id)}
-                        onCheckedChange={() => handleToggleSelect(txn.id)}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
-                          {txn.description || 'Transaction'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(txn.date)}
-                        </p>
+                  {filteredAvailableTransactions.map((txn) => {
+                    const category = categories.find((c) => c.id === txn.categoryId)
+                    return (
+                      <div key={txn.id} className="flex items-center gap-3 p-3 hover:bg-muted/50">
+                        <Checkbox
+                          checked={selectedTransactionIds.includes(txn.id)}
+                          onCheckedChange={() => handleToggleSelect(txn.id)}
+                        />
+                        {/* Description & Category */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {txn.description || 'Transaction'}
+                          </p>
+                          <Badge
+                            variant="secondary"
+                            className="mt-1 text-xs font-normal"
+                            style={{
+                              backgroundColor: category && category.name !== 'Uncategorized'
+                                ? `${CATEGORY_TYPE_COLORS[category.type]}20`
+                                : undefined,
+                              color: category && category.name !== 'Uncategorized' ? CATEGORY_TYPE_COLORS[category.type] : undefined
+                            }}
+                          >
+                            {category?.name || 'Uncategorized'}
+                          </Badge>
+                        </div>
+                        {/* Amount */}
+                        <div className="text-right flex-shrink-0">
+                          <p className={`font-semibold tabular-nums ${
+                            txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                          }`}>
+                            {txn.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(txn.amount || 0))}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-semibold tabular-nums text-red-600">
-                          -{formatCurrency(Math.abs(txn.amount || 0))}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

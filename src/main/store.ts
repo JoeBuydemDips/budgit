@@ -643,7 +643,7 @@ function getOrCreateUncategorizedCategory(): string {
   const newCategory: Category = {
     id: uuidv4(),
     name: 'Uncategorized',
-    type: 'NEEDS',
+    type: 'MISC',
     rolloverEnabled: false,
     sortOrder: categories.length
   }

@@ -283,10 +283,10 @@ export function TransactionsView({
                               variant="secondary"
                               className="mt-1 text-xs font-normal"
                               style={{
-                                backgroundColor: category
+                                backgroundColor: category && category.name !== 'Uncategorized'
                                   ? `${CATEGORY_TYPE_COLORS[category.type]}20`
                                   : undefined,
-                                color: category ? CATEGORY_TYPE_COLORS[category.type] : undefined
+                                color: category && category.name !== 'Uncategorized' ? CATEGORY_TYPE_COLORS[category.type] : undefined
                               }}
                             >
                               {category?.name || 'Uncategorized'}
