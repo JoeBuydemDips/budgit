@@ -215,8 +215,10 @@ export function BudgetSummaryPanel({
                       </div>
                       
                       {/* Amount */}
-                      <span className="text-sm font-semibold text-red-500 tabular-nums">
-                        -{formatCurrency(tx.amount)}
+                      <span className={`text-sm font-semibold tabular-nums ${
+                        tx.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {tx.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(tx.amount))}
                       </span>
                     </div>
                   )
