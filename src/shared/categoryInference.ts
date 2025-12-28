@@ -7,20 +7,20 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'RMA TOLL': 'transportation',
   'GO CARWASH': 'transportation',
   'SOUTHWEST AIRLINES': 'personal', // Travel as personal expense
-  'EXPEDIA': 'personal',
+  EXPEDIA: 'personal',
 
   // Groceries
   'SAMS CLUB': 'groceries',
   'H-E-B GROCERY': 'groceries',
   'LA MICHOACANA AUSTIN': 'groceries',
-  'WALMART': 'groceries',
+  WALMART: 'groceries',
   'LONE STAR MARKETS': 'groceries',
   'MAMA HONO': 'groceries',
 
   // Dining Out
-  'DOORDASH': 'dining-out',
-  'MCDONALD': 'dining-out',
-  'CHIPOTLE': 'dining-out',
+  DOORDASH: 'dining-out',
+  MCDONALD: 'dining-out',
+  CHIPOTLE: 'dining-out',
   'FIVE GUYS': 'dining-out',
   'OLIVE GARDEN': 'dining-out',
   'SQ *TACOBABY': 'dining-out',
@@ -33,7 +33,7 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'STDAVIDS PARTNERSHIP': 'health',
   'HCA LOCAL HOSPITAL VISIT': 'health',
   'AUSTIN PEDIATRIC DENTI': 'health',
-  'CVS': 'health',
+  CVS: 'health',
   'AUSTIN AREA OB GYN': 'health',
   'AUSTIN FETAL MED-GT': 'health',
   'RF *AUSTIN HEALTH PA': 'health',
@@ -42,7 +42,7 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'OBHG TEXAS HOLDINGS': 'health',
   'CLINICAL PATHOLOGY LAB': 'health',
   'OCULUS PATHOLOGY': 'health',
-  'MEDFUSION': 'health',
+  MEDFUSION: 'health',
   'SOLIS WOMEN': 'health',
 
   // Insurance

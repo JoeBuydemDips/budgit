@@ -460,7 +460,7 @@ export function parseTransactionsCSV(
       if (!categoryName && descriptionIdx !== -1) {
         const description = values[descriptionIdx] || ''
         const suggestions = getCategorySuggestions(description, categories)
-        
+
         if (suggestions.length > 0) {
           // Find the category by ID
           const suggestedCategory = categories.find((c) => c.id === suggestions[0])
