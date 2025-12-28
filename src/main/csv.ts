@@ -451,8 +451,8 @@ export function parseTransactionsCSV(
 
     // Determine categoryName
     let categoryName = ''
-    if (format === CsvFormat.DEBIT_CARD) {
-      // For debit cards, try to infer category from description
+    if (format === CsvFormat.DEBIT_CARD || format === CsvFormat.CREDIT_CARD) {
+      // For debit/credit cards, try to infer category from description
       if (categoryNameIdx !== -1) {
         categoryName = values[categoryNameIdx]?.trim() || ''
       }

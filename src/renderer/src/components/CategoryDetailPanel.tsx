@@ -109,7 +109,11 @@ export function CategoryDetailPanel({
 
   // Available transactions that can be assigned to this category (from uncategorized)
   const availableTransactions = transactions
-    .filter((t) => t && t.categoryId && t.categoryId === uncategorizedCategory?.id && t.budgetMonth === currentMonth)
+    .filter((t) => t && t.budgetMonth === currentMonth && (
+      !t.categoryId || 
+      t.categoryId === uncategorizedCategory?.id || 
+      !categories.find(c => c.id === t.categoryId)
+    ))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // Filtered available transactions based on search
