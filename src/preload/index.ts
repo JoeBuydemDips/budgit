@@ -120,8 +120,16 @@ const budgetApi = {
     errors: string[]
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:importCategories', options),
-  learnTransactionCategory: (transactionId: string, categoryId: string): Promise<void> =>
-    ipcRenderer.invoke('transactions:learnCategory', transactionId, categoryId)
+  parseTransactionsCSV: (
+    csvContent: string,
+    options?: {
+      format?: string
+      defaultCategoryId?: string
+    }
+  ): Promise<{
+    transactions: Array<{ budgetMonth: string; categoryName: string; amount: number; description: string; date: string; card?: string }>
+    errors: { row: number; message: string }[]
+  }> => ipcRenderer.invoke('csv:parseTransactions', csvContent, options)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

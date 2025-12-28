@@ -80,6 +80,10 @@ interface BudgetViewProps {
   onDeleteCategory: (id: string) => Promise<void>
   onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
+  onUpdateTransaction: (
+    id: string,
+    updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
+  ) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
 }
 
@@ -109,6 +113,7 @@ export function BudgetView({
   onDeleteCategory,
   onReorderCategories,
   onAddTransaction,
+  onUpdateTransaction,
   onDeleteTransaction
 }: BudgetViewProps) {
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
@@ -612,11 +617,14 @@ export function BudgetView({
           <CategoryDetailPanel
             category={selectedCategoryData}
             transactions={transactions}
+            categories={categories}
+            learnedMappings={[]}
             currentMonth={currentMonth}
             onClose={() => setSelectedCategory(null)}
-            onAddTransaction={onAddTransaction}
+            onUpdateTransaction={onUpdateTransaction}
             onDeleteTransaction={onDeleteTransaction}
             onUpdateCategory={onUpdateCategory}
+            onAddTransaction={onAddTransaction}
           />
         ) : selectedIncomeData ? (
           <IncomeDetailPanel

@@ -96,7 +96,13 @@ interface BudgetAPI {
     errors: string[]
     canceled?: boolean
   }>
-  learnTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>
+  parseTransactionsCSV: (
+    csvContent: string,
+    options?: { format?: string; defaultCategoryId?: string }
+  ) => Promise<{
+    transactions: Array<{ budgetMonth: string; categoryName: string; amount: number; description: string; date: string; card?: string }>
+    errors: { row: number; message: string }[]
+  }>
 }
 
 declare global {

@@ -146,6 +146,7 @@ function App(): React.JSX.Element {
                 onDeleteCategory={handleDeleteCategory}
                 onReorderCategories={reorderCategories}
                 onAddTransaction={handleAddTransaction}
+                onUpdateTransaction={handleUpdateTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
               />
             ) : (

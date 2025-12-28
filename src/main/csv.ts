@@ -293,7 +293,8 @@ export interface ParseTransactionsResult {
 export function parseTransactionsCSV(
   csvContent: string,
   categories: Category[],
-  format: CsvFormat = CsvFormat.BUDGIT
+  format: CsvFormat = CsvFormat.BUDGIT,
+  defaultCategoryId?: string
 ): ParseTransactionsResult {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
   const errors: ParseError[] = []
@@ -483,6 +484,12 @@ export function parseTransactionsCSV(
         if (categoryId) {
           const cat = categories.find((c) => c.id === categoryId)
           categoryName = cat ? cat.name : categoryId // fallback to id if not found
+        }
+      }
+      if (!categoryName && defaultCategoryId) {
+        const defaultCat = categories.find((c) => c.id === defaultCategoryId)
+        if (defaultCat) {
+          categoryName = defaultCat.name
         }
       }
       if (!categoryName) {

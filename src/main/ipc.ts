@@ -30,7 +30,6 @@ import {
   importBudgets,
   importTransactions,
   importCategories,
-  learnTransactionCategory,
   ImportResult,
   ImportCategoriesResult
 } from './store'
@@ -301,9 +300,25 @@ export function registerIpcHandlers(): void {
   )
 
   ipcMain.handle(
-    'transactions:learnCategory',
-    async (_, transactionId: string, categoryId: string): Promise<void> => {
-      learnTransactionCategory(transactionId, categoryId)
+    'csv:parseTransactions',
+    async (
+      _,
+      csvContent: string,
+      options?: { format?: string; defaultCategoryId?: string }
+    ): Promise<{ transactions: Array<{ budgetMonth: string; categoryName: string; amount: number; description: string; date: string; card?: string }>; errors: { row: number; message: string }[] }> => {
+      try {
+        const categories = getCategories()
+        const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
+        const parsed = parseTransactionsCSV(
+          csvContent,
+          categories,
+          format,
+          options?.defaultCategoryId
+        )
+        return { transactions: parsed.transactions, errors: parsed.errors }
+      } catch (error) {
+        return { transactions: [], errors: [{ row: 0, message: String(error) }] }
+      }
     }
   )
 

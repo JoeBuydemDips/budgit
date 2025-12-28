@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Trash2, Receipt, Edit3 } from 'lucide-react'
+import { X, Plus, Trash2, Receipt, Edit3, Search, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,8 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { cn, formatCurrency } from '@/lib/utils'
-import type { Category, Transaction, CategoryType } from '../../../shared/types'
+import type { Category, Transaction, CategoryType, LearnedCategoryMapping } from '../../../shared/types'
+import { AddTransactionDialog } from './AddTransactionDialog'
 
 const TYPE_COLORS: Record<CategoryType, string> = {
   GIVING: '#10B981',
@@ -51,68 +52,118 @@ interface CategoryDetailPanelProps {
     remaining: number
   }
   transactions: Transaction[]
+  categories: Category[]
+  learnedMappings: LearnedCategoryMapping[]
   currentMonth: string
   onClose: () => void
-  onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
+  onUpdateTransaction: (
+    id: string,
+    updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
+  ) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
   onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
+  onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
 export function CategoryDetailPanel({
   category,
   transactions,
+  categories,
+  learnedMappings,
   currentMonth,
   onClose,
-  onAddTransaction,
+  onUpdateTransaction,
   onDeleteTransaction,
-  onUpdateCategory
+  onUpdateCategory,
+  onAddTransaction
 }: CategoryDetailPanelProps): React.JSX.Element {
-  const [showQuickAdd, setShowQuickAdd] = useState(false)
-  const [amount, setAmount] = useState('')
-  const [description, setDescription] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [submitting, setSubmitting] = useState(false)
+  const [showAddTransactions, setShowAddTransactions] = useState(false)
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [assigning, setAssigning] = useState(false)
   const [editingType, setEditingType] = useState(false)
   const [typeValue, setTypeValue] = useState<CategoryType>(category.type)
+  const [showAddNewExpense, setShowAddNewExpense] = useState(false)
 
   // Update type value when category changes
   useEffect(() => {
     setTypeValue(category.type)
   }, [category.type])
 
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!showAddTransactions) {
+      setSelectedTransactionIds([])
+      setSearchQuery('')
+    }
+  }, [showAddTransactions])
+
   const categoryTransactions = transactions
     .filter((t) => t.categoryId === category.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
+  // Find uncategorized category
+  const uncategorizedCategory = categories.find((c) => c.name === 'Uncategorized')
+
+  // Available transactions that can be assigned to this category (from uncategorized)
+  const availableTransactions = transactions
+    .filter((t) => t && t.categoryId && t.categoryId === uncategorizedCategory?.id)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  // Filtered available transactions based on search
+  const filteredAvailableTransactions = availableTransactions.filter((txn) => {
+    if (!searchQuery) return true
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      txn.description.toLowerCase().includes(searchLower) ||
+      txn.amount.toString().includes(searchLower) ||
+      new Date(txn.date).toLocaleDateString().toLowerCase().includes(searchLower)
+    )
+  })
+
   const safeToSpend = category.planned + category.carryover - category.spent
-  const headerColor = TYPE_COLORS[category.type]
+  const headerColor = (TYPE_COLORS as any)[category?.type] || '#6B7280'
   const spentPercentage = category.planned > 0 
     ? Math.min((category.spent / category.planned) * 100, 100) 
     : 0
 
-  const handleQuickAdd = async (): Promise<void> => {
-    if (!amount || parseFloat(amount) <= 0) return
+  const handleAssignTransactions = async (): Promise<void> => {
+    if (selectedTransactionIds.length === 0) return
 
-    setSubmitting(true)
+    setAssigning(true)
     try {
-      await onAddTransaction({
-        amount: parseFloat(amount),
-        description: description || category.name,
-        date,
-        categoryId: category.id,
-        budgetMonth: currentMonth
-      })
-      setAmount('')
-      setDescription('')
-      setShowQuickAdd(false)
+      for (const id of selectedTransactionIds) {
+        await onUpdateTransaction(id, { categoryId: category.id })
+      }
+      setSelectedTransactionIds([])
+      setSearchQuery('')
+      setShowAddTransactions(false)
     } finally {
-      setSubmitting(false)
+      setAssigning(false)
     }
   }
 
+  const handleToggleSelect = (id: string) => {
+    setSelectedTransactionIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAll = () => {
+    setSelectedTransactionIds(filteredAvailableTransactions.map((t) => t.id))
+  }
+
+  const handleClearSelection = () => {
+    setSelectedTransactionIds([])
+  }
+
   const formatDate = (dateStr: string): string => {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    try {
+      const d = new Date(dateStr)
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    } catch {
+      return 'Invalid date'
+    }
   }
 
   return (
@@ -162,8 +213,8 @@ export function CategoryDetailPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Quick Add Button */}
-        <div className="p-4">
+        {/* Quick Add Buttons */}
+        <div className="p-4 space-y-2">
           <Button
             className="w-full h-12 gap-2 text-base font-medium"
             style={{ 
@@ -172,10 +223,18 @@ export function CategoryDetailPanel({
               borderColor: `${headerColor}30`
             }}
             variant="outline"
-            onClick={() => setShowQuickAdd(true)}
+            onClick={() => setShowAddNewExpense(true)}
           >
             <Plus className="h-5 w-5" />
-            Add Expense
+            Add New Expense
+          </Button>
+          <Button
+            className="w-full h-12 gap-2 text-base font-medium"
+            variant="outline"
+            onClick={() => setShowAddTransactions(true)}
+          >
+            <Plus className="h-5 w-5" />
+            Assign from Available
           </Button>
         </div>
 
@@ -330,83 +389,109 @@ export function CategoryDetailPanel({
         </div>
       </div>
 
-      {/* Quick Add Dialog */}
-      <Dialog open={showQuickAdd} onOpenChange={setShowQuickAdd}>
-        <DialogContent className="sm:max-w-md">
+      {/* Add New Expense Dialog */}
+      <AddTransactionDialog
+        open={showAddNewExpense}
+        onOpenChange={setShowAddNewExpense}
+        categories={categories}
+        learnedMappings={learnedMappings}
+        currentMonth={currentMonth}
+        defaultCategoryId={category.id}
+        onAddTransaction={onAddTransaction}
+      />
+
+      {/* Add Transactions Dialog */}
+      <Dialog open={showAddTransactions} onOpenChange={setShowAddTransactions}>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add Expense</DialogTitle>
+            <DialogTitle>Add Transactions to {category.name}</DialogTitle>
             <DialogDescription>
-              Track an expense for {category.name}
+              Select transactions to assign to this category
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {/* Large Amount Input */}
-            <div className="text-center">
-              <div className="relative inline-block">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-3xl text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9.]/g, '')
-                    setAmount(val)
-                  }}
-                  placeholder="0.00"
-                  className="text-center text-4xl font-bold h-16 pl-8 pr-4 w-48 border-primary/50 focus:border-primary"
-                  autoFocus
-                />
-              </div>
+          <div className="space-y-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search transactions..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
 
-            <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="date"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={category.name}
-                  />
-                </div>
+            {/* Selection Controls */}
+            {filteredAvailableTransactions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {selectedTransactionIds.length} of {filteredAvailableTransactions.length} selected
+                </span>
+                <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                  Select All
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleClearSelection}>
+                  Clear
+                </Button>
               </div>
+            )}
 
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: headerColor }}
-                  />
-                  <span className="font-medium">{category.name}</span>
+            {/* Transaction List */}
+            <div className="max-h-96 overflow-y-auto border rounded-md">
+              {filteredAvailableTransactions.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  {searchQuery ? 'No transactions match your search' : 'No available transactions to assign'}
                 </div>
+              ) : (
+                <div className="divide-y">
+                  {filteredAvailableTransactions.slice(0, 10).map((txn) => (
+                    <div key={txn.id} className="flex items-center gap-3 p-3 hover:bg-muted/50">
+                      <Checkbox
+                        checked={selectedTransactionIds.includes(txn.id)}
+                        onCheckedChange={() => handleToggleSelect(txn.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">
+                          {txn.description || 'Transaction'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(txn.date)}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-semibold tabular-nums text-red-600">
+                          -{formatCurrency(Math.abs(txn.amount || 0))}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Category Info */}
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: headerColor }}
+                />
+                <span className="font-medium">Assigning to: {category.name}</span>
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowQuickAdd(false)}>
+            <Button variant="ghost" onClick={() => setShowAddTransactions(false)}>
               Cancel
             </Button>
             <Button
-              onClick={handleQuickAdd}
-              disabled={!amount || parseFloat(amount) <= 0 || submitting}
+              onClick={handleAssignTransactions}
+              disabled={selectedTransactionIds.length === 0 || assigning}
             >
-              Track Expense
+              <Check className="h-4 w-4 mr-2" />
+              Assign {selectedTransactionIds.length} Transaction{selectedTransactionIds.length !== 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
