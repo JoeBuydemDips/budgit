@@ -70,7 +70,7 @@ export function Dashboard({
 
   // Calculate spending by day for the area chart
   const dailySpending = useMemo(() => {
-    if (!transactions.length) return []
+    if (!transactions || !transactions.length) return []
 
     const spendingByDay: Record<string, number> = {}
     
@@ -257,7 +257,7 @@ export function Dashboard({
   const isBalanced = leftToBudget === 0
 
   // Recent transactions
-  const recentTransactions = [...transactions]
+  const recentTransactions = [...(transactions || [])]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 6)
 

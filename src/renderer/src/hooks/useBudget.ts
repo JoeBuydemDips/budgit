@@ -219,9 +219,15 @@ export function useTransactions(month: string) {
 
   const refresh = useCallback(async () => {
     // Don't set loading=true during refresh to prevent scroll reset
-    const txns = await window.api.getTransactions(month)
-    setTransactions(txns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
-    setLoading(false)
+    try {
+      const txns = await window.api.getTransactions(month)
+      setTransactions(txns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
+    } catch (err) {
+      console.error('Failed to fetch transactions for month', month, err)
+      setTransactions([])
+    } finally {
+      setLoading(false)
+    }
   }, [month])
 
   // Reset loading when month changes
@@ -232,24 +238,39 @@ export function useTransactions(month: string) {
 
   const addTransaction = useCallback(
     async (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
-      await window.api.addTransaction(transaction)
-      await refresh()
+      try {
+        await window.api.addTransaction(transaction)
+        await refresh()
+      } catch (err) {
+        console.error('Failed to add transaction', err)
+        throw err
+      }
     },
     [refresh]
   )
 
   const updateTransaction = useCallback(
     async (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
-      await window.api.updateTransaction(id, updates)
-      await refresh()
+      try {
+        await window.api.updateTransaction(id, updates)
+        await refresh()
+      } catch (err) {
+        console.error('Failed to update transaction', id, err)
+        throw err
+      }
     },
     [refresh]
   )
 
   const deleteTransaction = useCallback(
     async (id: string) => {
-      await window.api.deleteTransaction(id)
-      await refresh()
+      try {
+        await window.api.deleteTransaction(id)
+        await refresh()
+      } catch (err) {
+        console.error('Failed to delete transaction', id, err)
+        throw err
+      }
     },
     [refresh]
   )
