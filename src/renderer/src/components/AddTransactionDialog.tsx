@@ -45,6 +45,7 @@ export function AddTransactionDialog({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
   const [categorySuggestions, setCategorySuggestions] = useState<string[]>([])
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -57,39 +58,60 @@ export function AddTransactionDialog({
   }, [open, defaultCategoryId])
 
   // Update category suggestions when description changes
+  // Track renders for debugging potential loops
+  const renderCountRef = (globalThis as any).__addTxnRenderCount ??= { count: 0 }
+  renderCountRef.count += 1
+  if (renderCountRef.count > 50) {
+    console.warn('AddTransactionDialog render count exceeded 50 — possible render loop')
+  }
+
   useEffect(() => {
     if (description.trim()) {
-      const suggestions = getCategorySuggestions(description, categories, learnedMappings)
-      setCategorySuggestions(suggestions)
-      // Auto-select first suggestion if no category selected
-      if (!categoryId && suggestions.length > 0) {
-        setCategoryId(suggestions[0])
+      try {
+        const suggestions = getCategorySuggestions(description, categories || [], learnedMappings)
+        setCategorySuggestions(suggestions)
+        // Auto-select first suggestion if no category selected
+        if (!categoryId && suggestions.length > 0 && suggestions[0] !== categoryId) {
+          setCategoryId(suggestions[0])
+        }
+      } catch (err) {
+        console.error('Error computing category suggestions', err)
+        setCategorySuggestions([])
       }
     } else {
       setCategorySuggestions([])
     }
-  }, [description, categories, learnedMappings, categoryId])
+  }, [description, categories, learnedMappings])
 
   const handleSave = async () => {
-    if (!amount || !categoryId) return
+    if (!amount || !categoryId || saving) return
 
     setSaving(true)
-    await onAddTransaction({
-      amount: parseFloat(amount),
-      categoryId,
-      description,
-      date: new Date(date).toISOString(),
-      budgetMonth: currentMonth
-    })
-    setSaving(false)
+    setErrorMessage(null)
 
-    // Reset form
-    setAmount('')
-    setCategoryId('')
-    setDescription('')
-    setDate(new Date().toISOString().split('T')[0])
-    setCategorySuggestions([])
-    onOpenChange(false)
+    try {
+      await onAddTransaction({
+        amount: parseFloat(amount),
+        categoryId,
+        description,
+        date: new Date(date).toISOString(),
+        budgetMonth: currentMonth
+      })
+
+      // Reset form only on success
+      setAmount('')
+      setCategoryId('')
+      setDescription('')
+      setDate(new Date().toISOString().split('T')[0])
+      setCategorySuggestions([])
+
+      onOpenChange(false)
+    } catch (err: any) {
+      console.error('Failed to add transaction', err)
+      setErrorMessage(err?.message || 'Failed to add transaction')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -99,6 +121,8 @@ export function AddTransactionDialog({
           <DialogTitle>Add Expense</DialogTitle>
           <DialogDescription>Record a new expense to track your spending</DialogDescription>
         </DialogHeader>
+
+        {errorMessage && <p className="text-sm text-destructive mb-2">{errorMessage}</p>}
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -148,7 +172,7 @@ export function AddTransactionDialog({
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
+                {(categories || []).map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
                   </SelectItem>

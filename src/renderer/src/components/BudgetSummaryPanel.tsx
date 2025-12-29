@@ -51,7 +51,7 @@ export function BudgetSummaryPanel({
   const hoveredData = activeIndex !== null ? chartData[activeIndex] : null
 
   // Recent transactions (last 10)
-  const recentTransactions = [...transactions]
+  const recentTransactions = [...(transactions || [])]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 10)
 

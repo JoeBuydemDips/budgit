@@ -15,6 +15,7 @@ import {
   getCurrentMonthKey
 } from '@/hooks/useBudget'
 import { BudgetManagerDialog } from '@/components/BudgetManagerDialog'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 function App(): React.JSX.Element {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard')
@@ -121,6 +122,7 @@ function App(): React.JSX.Element {
           onOpenBudgets={() => setShowBudgetManager(true)}
         />
 
+        <ErrorBoundary>
         <div className="flex flex-1 flex-col relative">
           <Header
             currentMonth={currentMonth}
@@ -182,6 +184,7 @@ function App(): React.JSX.Element {
             )}
           </main>
         </div>
+        </ErrorBoundary>
       </div>
 
       <BudgetManagerDialog
