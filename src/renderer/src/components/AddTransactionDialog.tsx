@@ -34,7 +34,7 @@ export function AddTransactionDialog({
   open,
   onOpenChange,
   categories,
-  learnedMappings = [],
+  learnedMappings,
   currentMonth,
   defaultCategoryId,
   onAddTransaction
@@ -58,22 +58,11 @@ export function AddTransactionDialog({
   }, [open, defaultCategoryId])
 
   // Update category suggestions when description changes
-  // Track renders for debugging potential loops
-  const renderCountRef = (globalThis as any).__addTxnRenderCount ??= { count: 0 }
-  renderCountRef.count += 1
-  if (renderCountRef.count > 50) {
-    console.warn('AddTransactionDialog render count exceeded 50 — possible render loop')
-  }
-
   useEffect(() => {
     if (description.trim()) {
       try {
-        const suggestions = getCategorySuggestions(description, categories || [], learnedMappings)
+        const suggestions = getCategorySuggestions(description, categories || [], learnedMappings ?? [])
         setCategorySuggestions(suggestions)
-        // Auto-select first suggestion if no category selected
-        if (!categoryId && suggestions.length > 0 && suggestions[0] !== categoryId) {
-          setCategoryId(suggestions[0])
-        }
       } catch (err) {
         console.error('Error computing category suggestions', err)
         setCategorySuggestions([])
