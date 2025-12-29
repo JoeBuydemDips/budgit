@@ -53,7 +53,8 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   NEEDS: 'Essentials',
   WANTS: 'Lifestyle',
   DEBT: 'Debt',
-  FOOD: 'Food'
+  FOOD: 'Food',
+  MISC: 'Miscellaneous'
 }
 
 export function Dashboard({
@@ -117,7 +118,8 @@ export function Dashboard({
       NEEDS: { planned: 0, spent: 0 },
       WANTS: { planned: 0, spent: 0 },
       DEBT: { planned: 0, spent: 0 },
-      FOOD: { planned: 0, spent: 0 }
+      FOOD: { planned: 0, spent: 0 },
+      MISC: { planned: 0, spent: 0 }
     }
 
     categories.forEach((cat) => {

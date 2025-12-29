@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   Category,
+  LearnedCategoryMapping,
   AppSettings,
   Transaction,
   Budget,
@@ -17,6 +18,8 @@ const budgetApi = {
 
   // Categories
   getCategories: (): Promise<Category[]> => ipcRenderer.invoke('categories:list'),
+  getLearnedMappings: (): Promise<LearnedCategoryMapping[]> =>
+    ipcRenderer.invoke('categories:getLearnedMappings'),
   addCategory: (category: Omit<Category, 'id'>): Promise<Category> =>
     ipcRenderer.invoke('categories:add', category),
   updateCategory: (id: string, updates: Partial<Category>): Promise<Category | null> =>
@@ -100,6 +103,7 @@ const budgetApi = {
   }> => ipcRenderer.invoke('csv:importBudgets', options),
   importTransactionsCSV: (options?: {
     targetMonth?: string
+    format?: string
   }): Promise<{
     success: boolean
     imported: number
@@ -115,7 +119,24 @@ const budgetApi = {
     updated: number
     errors: string[]
     canceled?: boolean
-  }> => ipcRenderer.invoke('csv:importCategories', options)
+  }> => ipcRenderer.invoke('csv:importCategories', options),
+  parseTransactionsCSV: (
+    csvContent: string,
+    options?: {
+      format?: string
+      defaultCategoryId?: string
+    }
+  ): Promise<{
+    transactions: Array<{
+      budgetMonth: string
+      categoryName: string
+      amount: number
+      description: string
+      date: string
+      card?: string
+    }>
+    errors: { row: number; message: string }[]
+  }> => ipcRenderer.invoke('csv:parseTransactions', csvContent, options)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, Trash2, Search, Receipt } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Receipt, CheckSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -50,6 +51,35 @@ export function TransactionsView({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
+  const [showBulkMapDialog, setShowBulkMapDialog] = useState(false)
+  const [bulkMapCategory, setBulkMapCategory] = useState<string>('')
+
+  const uncategorizedCategory = categories.find((c) => c.name === 'Uncategorized')
+
+  const handleSelectAll = () => {
+    setSelectedTransactions(filteredTransactions.map((t) => t.id))
+  }
+
+  const handleClearSelection = () => {
+    setSelectedTransactions([])
+  }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedTransactions((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }
+
+  const handleBulkMap = async () => {
+    if (!bulkMapCategory || selectedTransactions.length === 0) return
+    for (const id of selectedTransactions) {
+      await onUpdateTransaction(id, { categoryId: bulkMapCategory })
+    }
+    setSelectedTransactions([])
+    setShowBulkMapDialog(false)
+    setBulkMapCategory('')
+  }
 
   // Filter transactions
   const filteredTransactions = transactions.filter((txn) => {
@@ -59,7 +89,7 @@ export function TransactionsView({
       const searchLower = searchQuery.toLowerCase()
       return (
         txn.description.toLowerCase().includes(searchLower) ||
-        category?.name.toLowerCase().includes(searchLower)
+        (category?.name || 'Uncategorized').toLowerCase().includes(searchLower)
       )
     }
     return true
@@ -147,6 +177,45 @@ export function TransactionsView({
         </CardContent>
       </Card>
 
+      {(selectedTransactions.length > 0 || uncategorizedCategory) && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedTransactions.length > 0 && (
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedTransactions.length} selected
+                  </span>
+                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                    Select All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleClearSelection}>
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowBulkMapDialog(true)}
+                    disabled={!bulkMapCategory && selectedTransactions.length === 0}
+                  >
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                    Bulk Map Category
+                  </Button>
+                </>
+              )}
+              {uncategorizedCategory && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setFilterCategory(uncategorizedCategory.id)}
+                >
+                  Show Uncategorized ({transactions.filter((t) => t.categoryId === uncategorizedCategory.id).length})
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary */}
       <div className="flex items-center justify-between px-6">
         <span className="text-sm text-muted-foreground">
@@ -154,7 +223,9 @@ export function TransactionsView({
           {filteredTransactions.length !== 1 ? 's' : ''}
         </span>
         <span className="text-sm font-medium">
-          Total: <span className="text-red-600">{formatCurrency(totalSpent)}</span>
+          Total: <span className={totalSpent >= 0 ? 'text-red-600' : 'text-green-600'}>
+            {formatCurrency(totalSpent)}
+          </span>
         </span>
       </div>
 
@@ -198,6 +269,11 @@ export function TransactionsView({
                       <div key={txn.id}>
                         {index > 0 && <Separator className="my-2" />}
                         <div className="flex items-center gap-4 py-2 group">
+                          <Checkbox
+                            checked={selectedTransactions.includes(txn.id)}
+                            onCheckedChange={() => handleToggleSelect(txn.id)}
+                            className="mt-0.5"
+                          />
                           {/* Description & Category */}
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">
@@ -207,10 +283,10 @@ export function TransactionsView({
                               variant="secondary"
                               className="mt-1 text-xs font-normal"
                               style={{
-                                backgroundColor: category
+                                backgroundColor: category && category.name !== 'Uncategorized'
                                   ? `${CATEGORY_TYPE_COLORS[category.type]}20`
                                   : undefined,
-                                color: category ? CATEGORY_TYPE_COLORS[category.type] : undefined
+                                color: category && category.name !== 'Uncategorized' ? CATEGORY_TYPE_COLORS[category.type] : undefined
                               }}
                             >
                               {category?.name || 'Uncategorized'}
@@ -219,8 +295,10 @@ export function TransactionsView({
 
                           {/* Amount */}
                           <div className="text-right">
-                            <p className="font-semibold text-red-600 tabular-nums">
-                              -{formatCurrency(txn.amount)}
+                            <p className={`font-semibold tabular-nums ${
+                              txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              {txn.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(txn.amount))}
                             </p>
                           </div>
 
@@ -253,6 +331,49 @@ export function TransactionsView({
           ))}
         </div>
       )}
+
+      {/* Bulk Map Dialog */}
+      <Dialog open={showBulkMapDialog} onOpenChange={setShowBulkMapDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Map Transactions</DialogTitle>
+            <DialogDescription>
+              Assign a category to {selectedTransactions.length} selected transaction
+              {selectedTransactions.length !== 1 ? 's' : ''}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-category">Category</Label>
+              <Select value={bulkMapCategory} onValueChange={setBulkMapCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories
+                    .filter((c) => c.name !== 'Uncategorized')
+                    .map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkMapDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkMap}
+              disabled={!bulkMapCategory}
+            >
+              Map Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Transaction Dialog */}
       <TransactionDialog

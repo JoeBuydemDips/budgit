@@ -4,7 +4,8 @@ import type {
   Category,
   Transaction,
   CategoryAllocation,
-  IncomeSource
+  IncomeSource,
+  LearnedCategoryMapping
 } from '../../../shared/types'
 
 export function useBudgetIndex() {
@@ -261,4 +262,23 @@ export function useTransactions(month: string) {
     updateTransaction,
     deleteTransaction
   }
+}
+
+// Hook for learned category mappings
+export function useLearnedMappings() {
+  const [learnedMappings, setLearnedMappings] = useState<LearnedCategoryMapping[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const mappings = await window.api.getLearnedMappings()
+    setLearnedMappings(mappings)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return { learnedMappings, loading, refresh }
 }

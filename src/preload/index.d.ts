@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   Category,
+  LearnedCategoryMapping,
   AppSettings,
   Transaction,
   Budget,
@@ -15,6 +16,7 @@ interface BudgetAPI {
 
   // Categories
   getCategories: () => Promise<Category[]>
+  getLearnedMappings: () => Promise<LearnedCategoryMapping[]>
   addCategory: (category: Omit<Category, 'id'>) => Promise<Category>
   updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
   deleteCategory: (id: string) => Promise<boolean>
@@ -80,7 +82,7 @@ interface BudgetAPI {
     errors: string[]
     canceled?: boolean
   }>
-  importTransactionsCSV: (options?: { targetMonth?: string }) => Promise<{
+  importTransactionsCSV: (options?: { targetMonth?: string; format?: string }) => Promise<{
     success: boolean
     imported: number
     skipped: number
@@ -93,6 +95,20 @@ interface BudgetAPI {
     updated: number
     errors: string[]
     canceled?: boolean
+  }>
+  parseTransactionsCSV: (
+    csvContent: string,
+    options?: { format?: string; defaultCategoryId?: string }
+  ) => Promise<{
+    transactions: Array<{
+      budgetMonth: string
+      categoryName: string
+      amount: number
+      description: string
+      date: string
+      card?: string
+    }>
+    errors: { row: number; message: string }[]
   }>
 }
 

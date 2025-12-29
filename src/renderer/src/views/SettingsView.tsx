@@ -45,6 +45,8 @@ interface SettingsViewProps {
   categories: Category[]
   onRefreshCategories: () => Promise<void>
   onRefreshBudgets: () => Promise<void>
+  onRefreshBudget: () => Promise<void>
+  onRefreshTransactions: () => Promise<void>
 }
 
 interface ImportExportFeedback {
@@ -61,13 +63,16 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'NEEDS', label: 'Essentials' },
   { value: 'WANTS', label: 'Lifestyle' },
   { value: 'DEBT', label: 'Debt' },
-  { value: 'FOOD', label: 'Food' }
+  { value: 'FOOD', label: 'Food' },
+  { value: 'MISC', label: 'Miscellaneous' }
 ]
 
 export function SettingsView({
   categories,
   onRefreshCategories,
-  onRefreshBudgets
+  onRefreshBudgets,
+  onRefreshBudget,
+  onRefreshTransactions
 }: SettingsViewProps): React.JSX.Element {
   const { theme, setTheme } = useTheme()
   const [showAddCategory, setShowAddCategory] = useState(false)
@@ -88,6 +93,7 @@ export function SettingsView({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [targetMonth, setTargetMonth] = useState<string>('')
+  const [csvFormat, setCsvFormat] = useState<string>('budgit')
 
   // Load budgets when export/import dialog opens
   useEffect(() => {
@@ -806,17 +812,40 @@ export function SettingsView({
       {/* Import Transactions Dialog */}
       <Dialog
         open={importDialogType === 'transactions'}
-        onOpenChange={(open) => !open && setImportDialogType(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setImportDialogType(null)
+            setCsvFormat('budgit')
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Import Transactions</DialogTitle>
             <DialogDescription>
-              Choose whether to import transactions to a specific budget month or use the months
-              from the CSV file.
+              Import transactions from a CSV file. Expected format: Date (MM/DD/YYYY), Amount, Card (optional), Category (name), Description.
+              Unknown categories will be automatically created. Budget month will be inferred from dates if not specified.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>CSV Format</Label>
+              <Select value={csvFormat} onValueChange={setCsvFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="budgit">Budgit Format</SelectItem>
+                  <SelectItem value="credit_card">Credit Card Statement</SelectItem>
+                  <SelectItem value="debit_card">Debit Card Statement</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {csvFormat === 'budgit' && 'Standard Budgit CSV format with Date, Amount, Category, Description columns'}
+                {csvFormat === 'credit_card' && 'Credit card statement: negative amounts become positive income'}
+                {csvFormat === 'debit_card' && 'Debit card statement: Transaction Type column determines income/expense'}
+              </p>
+            </div>
             <div className="space-y-2">
               <Label>Target Budget Month</Label>
               <Select value={targetMonth} onValueChange={setTargetMonth}>
@@ -852,12 +881,22 @@ export function SettingsView({
                 setImportExportFeedback(null)
                 setImportDialogType(null)
                 try {
-                  const options =
-                    targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
-                  const result = await window.api.importTransactionsCSV(options)
+                  const options: { targetMonth?: string; format?: string } = {}
+                  if (targetMonth && targetMonth !== 'csv') {
+                    options.targetMonth = targetMonth
+                  }
+                  if (csvFormat && csvFormat !== 'budgit') {
+                    options.format = csvFormat
+                  }
+                  const result = await window.api.importTransactionsCSV(Object.keys(options).length > 0 ? options : undefined)
                   if (result.canceled) {
                     // User cancelled
                   } else if (result.success) {
+                    // Refresh data after import
+                    await onRefreshCategories()
+                    await onRefreshBudget()
+                    await onRefreshBudgets()
+                    await onRefreshTransactions()
                     setImportExportFeedback({
                       type: 'success',
                       message: `Imported ${result.imported} transactions${result.skipped > 0 ? `, skipped ${result.skipped} duplicates` : ''}`

@@ -10,6 +10,7 @@ import {
   DEFAULT_SETTINGS,
   CategoryAllocation
 } from '../shared/types'
+import { learnCategoryMapping } from '../shared/categoryInference'
 
 // Create the store with schema defaults
 const store = new Store<StoreSchema>({
@@ -18,7 +19,8 @@ const store = new Store<StoreSchema>({
     categories: DEFAULT_CATEGORIES,
     budgets: [],
     transactions: [],
-    settings: DEFAULT_SETTINGS
+    settings: DEFAULT_SETTINGS,
+    learnedMappings: []
   }
 })
 
@@ -632,20 +634,84 @@ export function importBudgets(
   }
 }
 
+// Helper to get or create the "Uncategorized" category for transactions with unmatched categories
+function getOrCreateUncategorizedCategory(): string {
+  const categories = store.get('categories')
+  const existing = categories.find((c) => c.name === 'Uncategorized')
+  if (existing) return existing.id
+
+  const newCategory: Category = {
+    id: uuidv4(),
+    name: 'Uncategorized',
+    type: 'MISC',
+    rolloverEnabled: false,
+    sortOrder: categories.length
+  }
+  store.set('categories', [...categories, newCategory])
+  return newCategory.id
+}
+
+// Common category name aliases for better matching
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  Groceries: ['Grocery', 'Groc', 'Food'],
+  Transportation: ['Gas', 'Fuel', 'Car', 'Auto', 'Vehicle'],
+  Housing: ['Rent', 'Mortgage', 'Home'],
+  Utilities: ['Electric', 'Electricity', 'Water', 'Gas Bill', 'Internet', 'Phone'],
+  Entertainment: ['Fun', 'Movies', 'Games'],
+  'Dining Out': ['Restaurant', 'Eat Out', 'Food Out'],
+  Savings: ['Save', 'Emergency Fund'],
+  Debt: ['Loan', 'Credit Card', 'Payment'],
+  Giving: ['Church', 'Charity', 'Donation'],
+  Wants: ['Lifestyle', 'Personal'],
+  Needs: ['Essentials', 'Necessities'],
+  Miscellaneous: ['Misc', 'Other', 'Various', 'Sundry']
+}
+
+// Helper to find the best matching category, including aliases
+function findMatchingCategory(categoryName: string, categories: Category[]): string | null {
+  const normalizedInput = categoryName.toLowerCase().trim()
+
+  // Exact match (case-insensitive)
+  const exactMatch = categories.find((c) => c.name.toLowerCase() === normalizedInput)
+  if (exactMatch) return exactMatch.id
+
+  // Check aliases
+  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
+    if (aliases.some((alias) => alias.toLowerCase() === normalizedInput)) {
+      const category = categories.find((c) => c.name === canonical)
+      if (category) return category.id
+    }
+  }
+
+  // Fuzzy match: check if input contains category name or vice versa
+  for (const category of categories) {
+    const normalizedCategory = category.name.toLowerCase()
+    if (
+      normalizedInput.includes(normalizedCategory) ||
+      normalizedCategory.includes(normalizedInput)
+    ) {
+      return category.id
+    }
+  }
+
+  return null
+}
+
 // Import transactions from parsed CSV data
 // If targetMonth is provided, all transactions will be imported to that month regardless of the CSV budgetMonth
 export function importTransactions(
   transactions: Array<{
     budgetMonth: string
-    categoryId: string
+    categoryName: string
     amount: number
     description: string
     date: string
+    card?: string
   }>,
   targetMonth?: string
 ): ImportResult {
   const categories = store.get('categories')
-  const categoryIds = new Set(categories.map((c) => c.id))
+  const uncategorizedCategoryId = getOrCreateUncategorizedCategory()
   const existingTransactions = store.get('transactions')
 
   const errors: string[] = []
@@ -655,20 +721,55 @@ export function importTransactions(
   const newTransactions: Transaction[] = []
 
   for (const tx of transactions) {
-    // Validate category exists
-    if (!categoryIds.has(tx.categoryId)) {
-      errors.push(`Unknown category ID: ${tx.categoryId} for transaction on ${tx.date}`)
-      skipped++
-      continue
+    // Find matching category with improved matching
+    let categoryId = findMatchingCategory(tx.categoryName, categories)
+
+    // For income transactions (positive amounts), prioritize income categories
+    if (!categoryId && tx.amount > 0) {
+      // This is an income transaction - try to match against income categories
+      const incomeCategories = categories.filter(
+        (cat) =>
+          cat.name.toLowerCase().includes('income') ||
+          cat.name.toLowerCase().includes('salary') ||
+          cat.name.toLowerCase().includes('payroll') ||
+          cat.name.toLowerCase().includes('freelance') ||
+          cat.name.toLowerCase().includes('dividend') ||
+          cat.name.toLowerCase().includes('interest') ||
+          cat.name.toLowerCase().includes('investment')
+      )
+
+      // Try fuzzy matching against income categories
+      for (const incomeCat of incomeCategories) {
+        const normalizedDesc = tx.description.toLowerCase()
+        const normalizedCatName = incomeCat.name.toLowerCase()
+
+        if (
+          normalizedDesc.includes(normalizedCatName) ||
+          normalizedCatName.includes(normalizedDesc) ||
+          // Check for common income keywords in description
+          (normalizedDesc.includes('deposit') && normalizedCatName.includes('salary')) ||
+          (normalizedDesc.includes('payroll') && normalizedCatName.includes('salary')) ||
+          (normalizedDesc.includes('direct deposit') && normalizedCatName.includes('salary'))
+        ) {
+          categoryId = incomeCat.id
+          break
+        }
+      }
     }
 
-    // Check for duplicate (same date, category, amount, description)
+    if (!categoryId) {
+      // Assign to Uncategorized category for manual assignment
+      categoryId = uncategorizedCategoryId
+    }
+
+    // Check for duplicate (same date, category, amount, description, card)
     const isDuplicate = existingTransactions.some(
       (existing) =>
         existing.date === tx.date &&
-        existing.categoryId === tx.categoryId &&
+        existing.categoryId === categoryId &&
         existing.amount === tx.amount &&
-        existing.description === tx.description
+        existing.description === tx.description &&
+        existing.card === tx.card
     )
 
     if (isDuplicate) {
@@ -679,11 +780,12 @@ export function importTransactions(
     const newTx: Transaction = {
       id: uuidv4(),
       budgetMonth: targetMonth || tx.budgetMonth,
-      categoryId: tx.categoryId,
+      categoryId,
       amount: tx.amount,
       description: tx.description,
       date: tx.date,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      card: tx.card
     }
 
     newTransactions.push(newTx)
@@ -731,4 +833,34 @@ function updateBudgetSpentForMonth(month: string): void {
     updatedAt: new Date().toISOString()
   }
   store.set('budgets', budgets)
+}
+
+// Learn category mapping from user correction
+export function learnTransactionCategory(transactionId: string, categoryId: string): void {
+  const transactions = store.get('transactions')
+  const transaction = transactions.find((t) => t.id === transactionId)
+  if (!transaction) return
+
+  const categories = store.get('categories')
+  const category = categories.find((c) => c.id === categoryId)
+  if (!category) return
+
+  // Update the transaction's category
+  const updatedTransactions = transactions.map((t) =>
+    t.id === transactionId ? { ...t, categoryId } : t
+  )
+  store.set('transactions', updatedTransactions)
+
+  // Learn the mapping
+  let learnedMappings = store.get('learnedMappings')
+  learnedMappings = learnCategoryMapping(transaction.description, categoryId, learnedMappings)
+  store.set('learnedMappings', learnedMappings)
+
+  // Update budget spent amounts for affected months
+  updateBudgetSpentForMonth(transaction.budgetMonth)
+}
+
+// Get learned category mappings
+export function getLearnedMappings() {
+  return store.get('learnedMappings')
 }

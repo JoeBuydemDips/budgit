@@ -4,6 +4,7 @@ import {
   getSettings,
   updateSettings,
   getCategories,
+  getLearnedMappings,
   addCategory,
   updateCategory,
   deleteCategory,
@@ -38,7 +39,8 @@ import {
   generateCategoriesCSV,
   parseBudgetsCSV,
   parseTransactionsCSV,
-  parseCategoriesCSV
+  parseCategoriesCSV,
+  CsvFormat
 } from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
 
@@ -55,6 +57,10 @@ export function registerIpcHandlers(): void {
   // ============== Categories ==============
   ipcMain.handle('categories:list', () => {
     return getCategories()
+  })
+
+  ipcMain.handle('categories:getLearnedMappings', () => {
+    return getLearnedMappings()
   })
 
   ipcMain.handle('categories:add', (_, category: Omit<Category, 'id'>) => {
@@ -256,7 +262,7 @@ export function registerIpcHandlers(): void {
     'csv:importTransactions',
     async (
       _,
-      options?: { targetMonth?: string }
+      options?: { targetMonth?: string; format?: string }
     ): Promise<ImportResult & { canceled?: boolean }> => {
       const window = BrowserWindow.getFocusedWindow()
       if (!window) return { success: false, imported: 0, skipped: 0, errors: ['No active window'] }
@@ -273,7 +279,9 @@ export function registerIpcHandlers(): void {
 
       try {
         const csvContent = await readFile(result.filePaths[0], 'utf-8')
-        const parsed = parseTransactionsCSV(csvContent)
+        const categories = getCategories()
+        const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
+        const parsed = parseTransactionsCSV(csvContent, categories, format)
 
         if (parsed.errors.length > 0) {
           return {
@@ -287,6 +295,39 @@ export function registerIpcHandlers(): void {
         return importTransactions(parsed.transactions, options?.targetMonth)
       } catch (error) {
         return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'csv:parseTransactions',
+    async (
+      _,
+      csvContent: string,
+      options?: { format?: string; defaultCategoryId?: string }
+    ): Promise<{
+      transactions: Array<{
+        budgetMonth: string
+        categoryName: string
+        amount: number
+        description: string
+        date: string
+        card?: string
+      }>
+      errors: { row: number; message: string }[]
+    }> => {
+      try {
+        const categories = getCategories()
+        const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
+        const parsed = parseTransactionsCSV(
+          csvContent,
+          categories,
+          format,
+          options?.defaultCategoryId
+        )
+        return { transactions: parsed.transactions, errors: parsed.errors }
+      } catch (error) {
+        return { transactions: [], errors: [{ row: 0, message: String(error) }] }
       }
     }
   )
