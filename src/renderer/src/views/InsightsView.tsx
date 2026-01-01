@@ -64,6 +64,14 @@ const STARTER_QUESTIONS = [
   }
 ]
 
+// Helper to get time-of-day greeting
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good Morning'
+  if (hour < 17) return 'Good Afternoon'
+  return 'Good Evening'
+}
+
 // Helper to group sessions by date
 function groupSessionsByDate(sessions: ChatSession[]): Record<string, ChatSession[]> {
   const groups: Record<string, ChatSession[]> = {
@@ -472,42 +480,101 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 md:px-8 lg:px-12">
-              <div className="mx-auto flex max-w-4xl flex-col gap-3">
+              <div
+                className={cn(
+                  'mx-auto max-w-4xl',
+                  showStarterQuestions ? 'flex h-full flex-col' : 'flex flex-col gap-4'
+                )}
+              >
                 {showStarterQuestions ? (
-                  <div className="flex flex-1 flex-col items-center justify-center py-8">
-                    <div className="w-full max-w-3xl space-y-6 text-center">
-                      <div className="space-y-3">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/15 to-primary/25">
-                          <Sparkles className="h-7 w-7 text-primary" />
+                  <div className="flex flex-1 flex-col items-center justify-center">
+                    <div className="w-full max-w-2xl space-y-6">
+                      {/* Logo and Greeting */}
+                      <div className="text-center">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 via-primary/30 to-primary/50 shadow-lg shadow-primary/25">
+                          <Sparkles className="h-8 w-8 text-primary" />
                         </div>
-                        <h2 className="text-xl font-semibold md:text-2xl">
-                          What should we tackle?
-                        </h2>
-                        <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                          Ask anything about your budgets and spending
+                        <h1 className="text-2xl font-semibold md:text-3xl">
+                          {getGreeting()}
+                        </h1>
+                        <p className="mt-1 text-2xl font-semibold md:text-3xl">
+                          What&apos;s on <span className="text-primary">your budget?</span>
                         </p>
                       </div>
 
-                      <div className="grid w-full grid-cols-2 gap-2 md:gap-3 lg:grid-cols-4">
-                        {STARTER_QUESTIONS.map((q) => (
-                          <button
-                            key={q.title}
-                            onClick={() => handleStarterClick(q.title)}
-                            className="group flex flex-col items-center gap-2 rounded-xl border border-muted/60 bg-muted/30 p-3 text-center transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm md:p-4"
-                          >
-                            <div className="rounded-lg bg-muted p-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-                              <q.icon className="h-4 w-4 md:h-5 md:w-5" />
-                            </div>
-                            <div className="space-y-0.5">
-                              <p className="text-xs font-medium leading-tight md:text-sm">
+                      {/* Input Box - Centered and prominent */}
+                      <form onSubmit={handleSubmit}>
+                        <div className="relative rounded-2xl border border-muted-foreground/20 bg-card shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+                          <div className="flex items-start gap-3 px-4 pt-4 pb-14">
+                            <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                            <textarea
+                              ref={inputRef}
+                              value={inputValue}
+                              onChange={(e) => setInputValue(e.target.value)}
+                              onKeyDown={handleKeyDown}
+                              placeholder="Ask Budgit anything about your money..."
+                              disabled={isLoading}
+                              rows={2}
+                              className="w-full resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            />
+                          </div>
+                          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 gap-1.5 rounded-lg text-xs"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Attach
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Attach file</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="submit"
+                                  size="icon"
+                                  disabled={!inputValue.trim() || isLoading}
+                                  className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-30"
+                                >
+                                  {isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ArrowUp className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Send message</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      </form>
+
+                      {/* Get Started Section */}
+                      <div className="space-y-4 pt-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Get started with an example below
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                          {STARTER_QUESTIONS.map((q) => (
+                            <button
+                              key={q.title}
+                              onClick={() => handleStarterClick(q.title)}
+                              className="group flex min-h-[100px] flex-col justify-between rounded-xl border bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-md"
+                            >
+                              <p className="text-sm font-medium leading-snug">
                                 {q.title}
                               </p>
-                              <p className="hidden text-[10px] text-muted-foreground md:block">
-                                {q.description}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
+                              <div className="mt-3 flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                <q.icon className="h-4 w-4" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -571,8 +638,10 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
               </div>
             </div>
 
-            <div className="border-t bg-card/70 px-4 py-4 md:px-8 lg:px-12">
-              <div className="mx-auto max-w-4xl">
+            {/* Bottom Input - Only show when in conversation mode */}
+            {!showStarterQuestions && (
+              <div className="border-t bg-card/70 px-4 py-4 md:px-8 lg:px-12">
+                <div className="mx-auto max-w-4xl">
                 <form onSubmit={handleSubmit}>
                   <div className="relative rounded-2xl border border-muted-foreground/20 bg-muted/30 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
                     <textarea
@@ -624,6 +693,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                 </p>
               </div>
             </div>
+            )}
           </section>
 
           {/* History Sidebar */}
