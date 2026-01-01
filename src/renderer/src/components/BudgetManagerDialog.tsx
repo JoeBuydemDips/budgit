@@ -94,10 +94,14 @@ export function BudgetManagerDialog({
                 <p className="text-sm text-muted-foreground">Active Month</p>
                 <p className="text-xl font-semibold">{formatMonth(parseMonthKey(currentMonth))}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => {
-                onSelectMonth(currentMonth)
-                onOpenChange(false)
-              }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onSelectMonth(currentMonth)
+                  onOpenChange(false)
+                }}
+              >
                 Open
               </Button>
             </div>
@@ -183,8 +187,10 @@ export function BudgetManagerDialog({
                     return (
                       <div
                         key={budget.id}
-                        className={cn('flex items-center justify-between gap-3 p-4',
-                          isActive && 'bg-muted/60')}
+                        className={cn(
+                          'flex items-center justify-between gap-3 p-4',
+                          isActive && 'bg-muted/60'
+                        )}
                       >
                         <div className="space-y-1">
                           <p className="font-medium leading-none">

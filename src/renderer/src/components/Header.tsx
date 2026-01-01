@@ -11,7 +11,13 @@ interface HeaderProps {
   showMonthNav?: boolean
 }
 
-export function Header({ currentMonth, onPreviousMonth, onNextMonth, onOpenBudgets, showMonthNav = true }: HeaderProps) {
+export function Header({
+  currentMonth,
+  onPreviousMonth,
+  onNextMonth,
+  onOpenBudgets,
+  showMonthNav = true
+}: HeaderProps) {
   const monthDate = parseMonthKey(currentMonth)
 
   return (

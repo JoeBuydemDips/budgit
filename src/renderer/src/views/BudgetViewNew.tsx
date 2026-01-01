@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronUp, Trash2, Sparkles, Copy, RefreshCcw, GripVertical, X } from 'lucide-react'
+import {
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Sparkles,
+  Copy,
+  RefreshCcw,
+  GripVertical,
+  X
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -97,7 +107,15 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   MISC: 'Miscellaneous'
 }
 
-const CATEGORY_TYPE_ORDER: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT', 'MISC']
+const CATEGORY_TYPE_ORDER: CategoryType[] = [
+  'GIVING',
+  'SAVINGS',
+  'NEEDS',
+  'FOOD',
+  'WANTS',
+  'DEBT',
+  'MISC'
+]
 
 export function BudgetView({
   budget,
@@ -320,7 +338,8 @@ export function BudgetView({
           planned: allocation?.planned || 0,
           spent: allocation?.spent || 0,
           carryover: allocation?.carryover || 0,
-          remaining: (allocation?.planned || 0) + (allocation?.carryover || 0) - (allocation?.spent || 0)
+          remaining:
+            (allocation?.planned || 0) + (allocation?.carryover || 0) - (allocation?.spent || 0)
         }
       })
     const groupPlanned = typeCats.reduce((sum, c) => sum + c.planned, 0)
@@ -352,9 +371,7 @@ export function BudgetView({
 
   // Find selected category data for detail panel
   const selectedCategoryData = selectedCategory
-    ? groupedCategories
-        .flatMap((g) => g.categories)
-        .find((c) => c.id === selectedCategory)
+    ? groupedCategories.flatMap((g) => g.categories).find((c) => c.id === selectedCategory)
     : null
 
   // Find selected income source data for detail panel
@@ -376,7 +393,10 @@ export function BudgetView({
     setNewIncome('')
   }
 
-  const handleUpdateIncomeSource = async (id: string, updates: Partial<IncomeSource>): Promise<void> => {
+  const handleUpdateIncomeSource = async (
+    id: string,
+    updates: Partial<IncomeSource>
+  ): Promise<void> => {
     const updated = incomeSources.map((s) => (s.id === id ? { ...s, ...updates } : s))
     await onUpdateIncomeSources(updated)
   }
@@ -419,103 +439,16 @@ export function BudgetView({
         <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4 md:pb-8 pt-4 space-y-6">
           {/* Income Section */}
           <Card>
-          <Collapsible open={expandedGroups['INCOME']} onOpenChange={() => toggleGroup('INCOME')}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-8 rounded-full bg-green-500" />
-                    <div>
-                      <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        Income for {formatMonth(parseMonthKey(currentMonth)).split(' ')[0]}
-                        {expandedGroups['INCOME'] ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </CardTitle>
-                    </div>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-28 text-right pr-2">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Planned</p>
-                      <p className="font-semibold">{formatCurrency(budget.incomeTotal)}</p>
-                    </div>
-                    <div className="w-28 text-right">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Received</p>
-                      <p className="font-semibold">{formatCurrency(totalReceived)}</p>
-                    </div>
-                    <div className="w-12" />
-                  </div>
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0 pb-3 px-0 space-y-0">
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleIncomeDragEnd}
-                  modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-                  measuring={{
-                    droppable: {
-                      strategy: MeasuringStrategy.Always
-                    }
-                  }}
-                >
-                  <SortableContext
-                    items={incomeSources.map((s) => s.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {incomeSources.map((source) => (
-                      <SortableIncomeRow
-                        key={source.id}
-                        source={source}
-                        canDelete={incomeSources.length > 1}
-                        isSelected={selectedIncomeSource === source.id}
-                        onSelect={() => {
-                          setSelectedIncomeSource(source.id)
-                          setSelectedCategory(null)
-                        }}
-                        onUpdate={(updates) => handleUpdateIncomeSource(source.id, updates)}
-                        onDelete={() => handleDeleteIncomeSource(source.id)}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-primary hover:text-primary/80 ml-6 mt-2"
-                  onClick={() => setShowAddIncomeDialog(true)}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Income
-                </Button>
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-
-        {/* Category Groups */}
-        {groupedCategories.map((group) => (
-          <Card key={group.type}>
-            <Collapsible
-              open={expandedGroups[group.type]}
-              onOpenChange={() => toggleGroup(group.type)}
-            >
+            <Collapsible open={expandedGroups['INCOME']} onOpenChange={() => toggleGroup('INCOME')}>
               <CollapsibleTrigger asChild>
                 <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-1.5 h-8 rounded-full"
-                        style={{ backgroundColor: group.color }}
-                      />
+                      <div className="w-1.5 h-8 rounded-full bg-green-500" />
                       <div>
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
-                          {group.label}
-                          {expandedGroups[group.type] ? (
+                          Income for {formatMonth(parseMonthKey(currentMonth)).split(' ')[0]}
+                          {expandedGroups['INCOME'] ? (
                             <ChevronUp className="h-4 w-4 text-muted-foreground" />
                           ) : (
                             <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -525,19 +458,16 @@ export function BudgetView({
                     </div>
                     <div className="flex items-center">
                       <div className="w-28 text-right pr-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Planned</p>
-                        <p className="font-semibold">{formatCurrency(group.planned)}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                          Planned
+                        </p>
+                        <p className="font-semibold">{formatCurrency(budget.incomeTotal)}</p>
                       </div>
                       <div className="w-28 text-right">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Spent</p>
-                        <p
-                          className={cn(
-                            'font-semibold',
-                            group.spent > 0 ? 'text-primary' : 'text-green-600'
-                          )}
-                        >
-                          {formatCurrency(group.spent)}
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                          Received
                         </p>
+                        <p className="font-semibold">{formatCurrency(totalReceived)}</p>
                       </div>
                       <div className="w-12" />
                     </div>
@@ -546,68 +476,166 @@ export function BudgetView({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="pt-0 pb-3 px-0 space-y-0">
-                  {group.categories.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center italic">
-                      No categories yet
-                    </p>
-                  ) : (
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={(event) => handleDragEnd(event, group.type)}
-                      modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-                      measuring={{
-                        droppable: {
-                          strategy: MeasuringStrategy.Always
-                        }
-                      }}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleIncomeDragEnd}
+                    modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                    measuring={{
+                      droppable: {
+                        strategy: MeasuringStrategy.Always
+                      }
+                    }}
+                  >
+                    <SortableContext
+                      items={incomeSources.map((s) => s.id)}
+                      strategy={verticalListSortingStrategy}
                     >
-                      <SortableContext
-                        items={group.categories.map((c) => c.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {group.categories.map((cat) => (
-                          <SortableCategoryRow
-                            key={cat.id}
-                            category={cat}
-                            isSelected={selectedCategory === cat.id}
-                            onSelect={() => {
-                              setSelectedCategory(cat.id)
-                              setSelectedIncomeSource(null)
-                            }}
-                            onUpdateName={async (name) => {
-                              await onUpdateCategory(cat.id, { name })
-                            }}
-                            onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
-                            onToggleRollover={async (enabled) => {
-                              await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
-                            }}
-                            onDelete={() => {
-                              setCategoryToDelete(cat)
-                              setShowDeleteCategoryDialog(true)
-                            }}
-                          />
-                        ))}
-                      </SortableContext>
-                    </DndContext>
-                  )}
+                      {incomeSources.map((source) => (
+                        <SortableIncomeRow
+                          key={source.id}
+                          source={source}
+                          canDelete={incomeSources.length > 1}
+                          isSelected={selectedIncomeSource === source.id}
+                          onSelect={() => {
+                            setSelectedIncomeSource(source.id)
+                            setSelectedCategory(null)
+                          }}
+                          onUpdate={(updates) => handleUpdateIncomeSource(source.id, updates)}
+                          onDelete={() => handleDeleteIncomeSource(source.id)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-primary hover:text-primary/80 ml-6 mt-2"
-                    onClick={() => {
-                      setNewCategoryType(group.type)
-                      setShowAddCategoryDialog(true)
-                    }}
+                    onClick={() => setShowAddIncomeDialog(true)}
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Add Item
+                    Add Income
                   </Button>
                 </CardContent>
               </CollapsibleContent>
             </Collapsible>
           </Card>
-        ))}
+
+          {/* Category Groups */}
+          {groupedCategories.map((group) => (
+            <Card key={group.type}>
+              <Collapsible
+                open={expandedGroups[group.type]}
+                onOpenChange={() => toggleGroup(group.type)}
+              >
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-1.5 h-8 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                        <div>
+                          <CardTitle className="text-base font-semibold flex items-center gap-2">
+                            {group.label}
+                            {expandedGroups[group.type] ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </CardTitle>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-28 text-right pr-2">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                            Planned
+                          </p>
+                          <p className="font-semibold">{formatCurrency(group.planned)}</p>
+                        </div>
+                        <div className="w-28 text-right">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                            Spent
+                          </p>
+                          <p
+                            className={cn(
+                              'font-semibold',
+                              group.spent > 0 ? 'text-primary' : 'text-green-600'
+                            )}
+                          >
+                            {formatCurrency(group.spent)}
+                          </p>
+                        </div>
+                        <div className="w-12" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0 pb-3 px-0 space-y-0">
+                    {group.categories.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center italic">
+                        No categories yet
+                      </p>
+                    ) : (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleDragEnd(event, group.type)}
+                        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                        measuring={{
+                          droppable: {
+                            strategy: MeasuringStrategy.Always
+                          }
+                        }}
+                      >
+                        <SortableContext
+                          items={group.categories.map((c) => c.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {group.categories.map((cat) => (
+                            <SortableCategoryRow
+                              key={cat.id}
+                              category={cat}
+                              isSelected={selectedCategory === cat.id}
+                              onSelect={() => {
+                                setSelectedCategory(cat.id)
+                                setSelectedIncomeSource(null)
+                              }}
+                              onUpdateName={async (name) => {
+                                await onUpdateCategory(cat.id, { name })
+                              }}
+                              onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
+                              onToggleRollover={async (enabled) => {
+                                await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
+                              }}
+                              onDelete={() => {
+                                setCategoryToDelete(cat)
+                                setShowDeleteCategoryDialog(true)
+                              }}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-primary hover:text-primary/80 ml-6 mt-2"
+                      onClick={() => {
+                        setNewCategoryType(group.type)
+                        setShowAddCategoryDialog(true)
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Item
+                    </Button>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          ))}
         </div>
       </div>
 
@@ -753,10 +781,7 @@ export function BudgetView({
             <Button variant="outline" onClick={() => setShowAddIncomeDialog(false)}>
               Cancel
             </Button>
-            <Button
-              disabled={!newIncomeName || !newIncome}
-              onClick={handleAddIncomeSource}
-            >
+            <Button disabled={!newIncomeName || !newIncome} onClick={handleAddIncomeSource}>
               Add Income
             </Button>
           </DialogFooter>
@@ -873,7 +898,9 @@ export function BudgetView({
           <DialogHeader>
             <DialogTitle>Delete Category</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will remove the category and all its allocations from all budgets. This action cannot be undone.
+              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will
+              remove the category and all its allocations from all budgets. This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -932,15 +959,20 @@ function SortableIncomeRow(props: Omit<IncomeRowProps, 'dragHandleProps'>): Reac
 
   return (
     <div ref={setNodeRef} style={style}>
-      <IncomeRow
-        {...props}
-        dragHandleProps={{ attributes, listeners }}
-      />
+      <IncomeRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
 }
 
-function IncomeRow({ source, canDelete, isSelected, onSelect, onUpdate, onDelete, dragHandleProps }: IncomeRowProps) {
+function IncomeRow({
+  source,
+  canDelete,
+  isSelected,
+  onSelect,
+  onUpdate,
+  onDelete,
+  dragHandleProps
+}: IncomeRowProps) {
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState(source.name)
   const [editingPlanned, setEditingPlanned] = useState(false)
@@ -1138,10 +1170,7 @@ function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): 
 
   return (
     <div ref={setNodeRef} style={style}>
-      <CategoryRow
-        {...props}
-        dragHandleProps={{ attributes, listeners }}
-      />
+      <CategoryRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
 }
@@ -1245,7 +1274,11 @@ function CategoryRow({
               ? 'text-primary hover:text-primary/80'
               : 'text-muted-foreground/40 hover:text-muted-foreground'
           )}
-          title={category.rolloverEnabled ? 'Rollover enabled - click to disable' : 'Click to enable rollover'}
+          title={
+            category.rolloverEnabled
+              ? 'Rollover enabled - click to disable'
+              : 'Click to enable rollover'
+          }
         >
           <RefreshCcw className="h-3.5 w-3.5" />
         </button>
@@ -1285,10 +1318,7 @@ function CategoryRow({
         </div>
         <div className="w-28 text-right">
           <span
-            className={cn(
-              'font-medium',
-              category.spent > 0 ? 'text-primary' : 'text-green-600'
-            )}
+            className={cn('font-medium', category.spent > 0 ? 'text-primary' : 'text-green-600')}
           >
             {formatCurrency(category.spent)}
           </span>
@@ -1320,16 +1350,21 @@ interface IncomeDetailPanelProps {
   onUpdate: (updates: Partial<IncomeSource>) => void
 }
 
-function IncomeDetailPanel({ incomeSource, onClose, onUpdate }: IncomeDetailPanelProps): React.JSX.Element {
+function IncomeDetailPanel({
+  incomeSource,
+  onClose,
+  onUpdate
+}: IncomeDetailPanelProps): React.JSX.Element {
   const [editingPlanned, setEditingPlanned] = useState(false)
   const [editingReceived, setEditingReceived] = useState(false)
   const [plannedValue, setPlannedValue] = useState(incomeSource.planned.toString())
   const [receivedValue, setReceivedValue] = useState(incomeSource.received.toString())
 
   const remaining = incomeSource.planned - incomeSource.received
-  const receivedPercentage = incomeSource.planned > 0 
-    ? Math.min((incomeSource.received / incomeSource.planned) * 100, 100) 
-    : 0
+  const receivedPercentage =
+    incomeSource.planned > 0
+      ? Math.min((incomeSource.received / incomeSource.planned) * 100, 100)
+      : 0
 
   const handleSavePlanned = () => {
     const value = parseFloat(plannedValue) || 0
@@ -1352,7 +1387,7 @@ function IncomeDetailPanel({ incomeSource, onClose, onUpdate }: IncomeDetailPane
       {/* Green Header for Income */}
       <div
         className="relative px-6 pt-6 pb-8 text-white"
-        style={{ 
+        style={{
           background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
         }}
       >
@@ -1369,14 +1404,15 @@ function IncomeDetailPanel({ incomeSource, onClose, onUpdate }: IncomeDetailPane
           <div>
             <h2 className="text-2xl font-bold">{incomeSource.name}</h2>
             <p className="text-white/70 text-sm mt-0.5">
-              {formatCurrency(incomeSource.received)} of {formatCurrency(incomeSource.planned)} received
+              {formatCurrency(incomeSource.received)} of {formatCurrency(incomeSource.planned)}{' '}
+              received
             </p>
           </div>
-          
+
           {/* Progress bar */}
           <div className="space-y-2">
             <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-white rounded-full transition-all duration-300"
                 style={{ width: `${receivedPercentage}%` }}
               />
@@ -1385,9 +1421,7 @@ function IncomeDetailPanel({ incomeSource, onClose, onUpdate }: IncomeDetailPane
 
           <div className="flex items-baseline justify-between pt-2">
             <span className="text-white/70 text-sm">Remaining</span>
-            <span className="text-3xl font-bold tracking-tight">
-              {formatCurrency(remaining)}
-            </span>
+            <span className="text-3xl font-bold tracking-tight">{formatCurrency(remaining)}</span>
           </div>
         </div>
       </div>
@@ -1399,7 +1433,9 @@ function IncomeDetailPanel({ incomeSource, onClose, onUpdate }: IncomeDetailPane
           <Label className="text-sm text-muted-foreground">Expected Amount</Label>
           {editingPlanned ? (
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
               <Input
                 type="text"
                 inputMode="decimal"
@@ -1432,7 +1468,9 @@ function IncomeDetailPanel({ incomeSource, onClose, onUpdate }: IncomeDetailPane
           <Label className="text-sm text-muted-foreground">Received Amount</Label>
           {editingReceived ? (
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
               <Input
                 type="text"
                 inputMode="decimal"

@@ -368,7 +368,9 @@ export function BudgetView({
           <DialogHeader>
             <DialogTitle>Delete Category</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will remove the category and all its allocations from all budgets. This action cannot be undone.
+              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will
+              remove the category and all its allocations from all budgets. This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -395,9 +397,7 @@ export function BudgetView({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Category</DialogTitle>
-            <DialogDescription>
-              Create a new category to track your spending.
-            </DialogDescription>
+            <DialogDescription>Create a new category to track your spending.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

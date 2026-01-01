@@ -87,16 +87,19 @@ export function BudgetSummaryPanel({
                     onMouseLeave={() => setActiveIndex(null)}
                   >
                     {chartData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
+                      <Cell
+                        key={`cell-${index}`}
                         fill={entry.color}
                         onMouseEnter={() => setActiveIndex(index)}
-                        style={{ 
+                        style={{
                           cursor: 'pointer',
                           transform: activeIndex === index ? 'scale(1.08)' : 'scale(1)',
                           transformOrigin: 'center',
                           transition: 'transform 0.2s ease, filter 0.2s ease',
-                          filter: activeIndex === index ? 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))' : 'none'
+                          filter:
+                            activeIndex === index
+                              ? 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))'
+                              : 'none'
                         }}
                       />
                     ))}
@@ -107,13 +110,13 @@ export function BudgetSummaryPanel({
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 {hoveredData ? (
                   <>
-                    <span 
+                    <span
                       className="text-[10px] font-medium uppercase tracking-wide transition-all duration-200"
                       style={{ color: hoveredData.color }}
                     >
                       {hoveredData.name}
                     </span>
-                    <span 
+                    <span
                       className="text-lg font-bold transition-all duration-200"
                       style={{ color: hoveredData.color }}
                     >
@@ -122,7 +125,9 @@ export function BudgetSummaryPanel({
                   </>
                 ) : (
                   <>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Income</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                      Income
+                    </span>
                     <span className="text-lg font-bold">{formatCurrency(incomeTotal)}</span>
                   </>
                 )}
@@ -165,7 +170,9 @@ export function BudgetSummaryPanel({
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Left to Budget</span>
                 <Badge
-                  variant={leftToBudget === 0 ? 'success' : leftToBudget > 0 ? 'warning' : 'destructive'}
+                  variant={
+                    leftToBudget === 0 ? 'success' : leftToBudget > 0 ? 'warning' : 'destructive'
+                  }
                   className="text-sm"
                 >
                   {formatCurrency(leftToBudget)}
@@ -181,9 +188,7 @@ export function BudgetSummaryPanel({
                   <Receipt className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <p className="font-medium">No transactions yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Add expenses to see them here
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Add expenses to see them here</p>
               </div>
             ) : (
               <div className="space-y-1">
@@ -200,25 +205,29 @@ export function BudgetSummaryPanel({
                         className="w-1 h-10 rounded-full flex-shrink-0"
                         style={{ backgroundColor: categoryColor }}
                       />
-                      
+
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
                           {tx.description || category?.name || 'Expense'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {category?.name} • {new Date(tx.date).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
+                          {category?.name} •{' '}
+                          {new Date(tx.date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
                           })}
                         </p>
                       </div>
-                      
+
                       {/* Amount */}
-                      <span className={`text-sm font-semibold tabular-nums ${
-                        tx.amount >= 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        {tx.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(tx.amount))}
+                      <span
+                        className={`text-sm font-semibold tabular-nums ${
+                          tx.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                        }`}
+                      >
+                        {tx.amount >= 0 ? '-' : '+'}
+                        {formatCurrency(Math.abs(tx.amount))}
                       </span>
                     </div>
                   )

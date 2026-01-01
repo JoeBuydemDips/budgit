@@ -208,7 +208,8 @@ export function TransactionsView({
                   size="sm"
                   onClick={() => setFilterCategory(uncategorizedCategory.id)}
                 >
-                  Show Uncategorized ({transactions.filter((t) => t.categoryId === uncategorizedCategory.id).length})
+                  Show Uncategorized (
+                  {transactions.filter((t) => t.categoryId === uncategorizedCategory.id).length})
                 </Button>
               )}
             </div>
@@ -223,7 +224,8 @@ export function TransactionsView({
           {filteredTransactions.length !== 1 ? 's' : ''}
         </span>
         <span className="text-sm font-medium">
-          Total: <span className={totalSpent >= 0 ? 'text-red-600' : 'text-green-600'}>
+          Total:{' '}
+          <span className={totalSpent >= 0 ? 'text-red-600' : 'text-green-600'}>
             {formatCurrency(totalSpent)}
           </span>
         </span>
@@ -276,17 +278,19 @@ export function TransactionsView({
                           />
                           {/* Description & Category */}
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">
-                              {txn.description || 'Expense'}
-                            </p>
+                            <p className="font-medium truncate">{txn.description || 'Expense'}</p>
                             <Badge
                               variant="secondary"
                               className="mt-1 text-xs font-normal"
                               style={{
-                                backgroundColor: category && category.name !== 'Uncategorized'
-                                  ? `${CATEGORY_TYPE_COLORS[category.type]}20`
-                                  : undefined,
-                                color: category && category.name !== 'Uncategorized' ? CATEGORY_TYPE_COLORS[category.type] : undefined
+                                backgroundColor:
+                                  category && category.name !== 'Uncategorized'
+                                    ? `${CATEGORY_TYPE_COLORS[category.type]}20`
+                                    : undefined,
+                                color:
+                                  category && category.name !== 'Uncategorized'
+                                    ? CATEGORY_TYPE_COLORS[category.type]
+                                    : undefined
                               }}
                             >
                               {category?.name || 'Uncategorized'}
@@ -295,10 +299,13 @@ export function TransactionsView({
 
                           {/* Amount */}
                           <div className="text-right">
-                            <p className={`font-semibold tabular-nums ${
-                              txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
-                            }`}>
-                              {txn.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(txn.amount))}
+                            <p
+                              className={`font-semibold tabular-nums ${
+                                txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                              }`}
+                            >
+                              {txn.amount >= 0 ? '-' : '+'}
+                              {formatCurrency(Math.abs(txn.amount))}
                             </p>
                           </div>
 
@@ -365,10 +372,7 @@ export function TransactionsView({
             <Button variant="outline" onClick={() => setShowBulkMapDialog(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleBulkMap}
-              disabled={!bulkMapCategory}
-            >
+            <Button onClick={handleBulkMap} disabled={!bulkMapCategory}>
               Map Category
             </Button>
           </DialogFooter>

@@ -1,4 +1,13 @@
-import { LayoutDashboard, PiggyBank, Receipt, Settings, PanelLeftOpen, PanelLeftClose, Wallet, Sparkles } from 'lucide-react'
+import {
+  LayoutDashboard,
+  PiggyBank,
+  Receipt,
+  Settings,
+  PanelLeftOpen,
+  PanelLeftClose,
+  Wallet,
+  Sparkles
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -25,7 +34,13 @@ const navItems: {
   { id: 'settings', label: 'Settings', icon: Settings }
 ]
 
-export function Navigation({ currentView, onViewChange, collapsed, onToggleCollapse, onOpenBudgets }: NavigationProps) {
+export function Navigation({
+  currentView,
+  onViewChange,
+  collapsed,
+  onToggleCollapse,
+  onOpenBudgets
+}: NavigationProps) {
   return (
     <>
       {/* Desktop sidebar */}
@@ -35,28 +50,48 @@ export function Navigation({ currentView, onViewChange, collapsed, onToggleColla
           collapsed ? 'md:w-20' : 'md:w-64'
         )}
       >
-        <div className={cn("flex items-center px-4 py-6", collapsed ? "justify-center" : "justify-between")}>
-          <div className={cn('flex items-center gap-2 font-bold text-xl tracking-tight text-primary', collapsed && 'sr-only')}>
+        <div
+          className={cn(
+            'flex items-center px-4 py-6',
+            collapsed ? 'justify-center' : 'justify-between'
+          )}
+        >
+          <div
+            className={cn(
+              'flex items-center gap-2 font-bold text-xl tracking-tight text-primary',
+              collapsed && 'sr-only'
+            )}
+          >
             <Wallet className="h-6 w-6" />
             Budgit
           </div>
           {collapsed && <Wallet className="h-6 w-6 text-primary" />}
-          
+
           {!collapsed && (
-            <Button variant="ghost" size="icon" onClick={onToggleCollapse} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
               <PanelLeftClose className="h-4 w-4" />
               <span className="sr-only">Collapse sidebar</span>
             </Button>
           )}
         </div>
-        
+
         {collapsed && (
-             <div className="flex justify-center pb-4">
-                <Button variant="ghost" size="icon" onClick={onToggleCollapse} className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                  <PanelLeftOpen className="h-4 w-4" />
-                  <span className="sr-only">Expand sidebar</span>
-                </Button>
-             </div>
+          <div className="flex justify-center pb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+              <span className="sr-only">Expand sidebar</span>
+            </Button>
+          </div>
         )}
 
         <nav className="flex-1 space-y-2 px-3">
@@ -74,7 +109,9 @@ export function Navigation({ currentView, onViewChange, collapsed, onToggleColla
                   )}
                   onClick={() => onViewChange(id)}
                 >
-                  <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                  <Icon
+                    className={cn('h-5 w-5', isActive ? 'text-primary' : 'text-muted-foreground')}
+                  />
                   {!collapsed && <span>{label}</span>}
                 </Button>
               )
@@ -82,7 +119,9 @@ export function Navigation({ currentView, onViewChange, collapsed, onToggleColla
               return collapsed ? (
                 <Tooltip key={id} delayDuration={0}>
                   <TooltipTrigger asChild>{button}</TooltipTrigger>
-                  <TooltipContent side="right" className="font-medium">{label}</TooltipContent>
+                  <TooltipContent side="right" className="font-medium">
+                    {label}
+                  </TooltipContent>
                 </Tooltip>
               ) : (
                 button
@@ -93,16 +132,16 @@ export function Navigation({ currentView, onViewChange, collapsed, onToggleColla
 
         <div className="p-4 mt-auto">
           {collapsed ? (
-             <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="w-full" onClick={onOpenBudgets}>
-                        <Settings className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Manage Budgets</TooltipContent>
-                </Tooltip>
-             </TooltipProvider>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="w-full" onClick={onOpenBudgets}>
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Manage Budgets</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : (
             <Button variant="outline" className="w-full gap-2" onClick={onOpenBudgets}>
               <Settings className="h-4 w-4" />
@@ -116,21 +155,23 @@ export function Navigation({ currentView, onViewChange, collapsed, onToggleColla
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/80 backdrop-blur-lg md:hidden">
         <div className="flex h-16 items-center justify-around px-2">
           {navItems.map(({ id, label, icon: Icon }) => {
-             const isActive = currentView === id
-             return (
-                <Button
-                  key={id}
-                  variant="ghost"
-                  className={cn(
-                    'flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl transition-colors', 
-                    isActive ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'
-                  )}
-                  onClick={() => onViewChange(id)}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[10px] font-medium">{label}</span>
-                </Button>
-             )
+            const isActive = currentView === id
+            return (
+              <Button
+                key={id}
+                variant="ghost"
+                className={cn(
+                  'flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl transition-colors',
+                  isActive
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => onViewChange(id)}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{label}</span>
+              </Button>
+            )
           })}
         </div>
       </nav>

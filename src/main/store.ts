@@ -916,7 +916,8 @@ export function saveChatMessage(sessionId: string, message: ChatMessage): void {
     // Clean up title: remove question words and limit length
     let title = message.content.trim()
     // Strip leading question words for cleaner titles
-    const questionWords = /^(where|what|how|why|can|is|are|do|does|would|could|should|when|who|which)\s+/i
+    const questionWords =
+      /^(where|what|how|why|can|is|are|do|does|would|could|should|when|who|which)\s+/i
     title = title.replace(questionWords, '')
     // Capitalize first letter
     title = title.charAt(0).toUpperCase() + title.slice(1)

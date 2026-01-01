@@ -17,11 +17,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -138,7 +134,8 @@ export function SettingsView({
 
     const searchLower = searchTerm.toLowerCase()
     const categoryName = category.name.toLowerCase()
-    const categoryTypeLabel = CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
+    const categoryTypeLabel =
+      CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
 
     return categoryName.includes(searchLower) || categoryTypeLabel.includes(searchLower)
   })
@@ -292,19 +289,12 @@ export function SettingsView({
                 >
                   Yes, clear
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setClearHistoryConfirm(false)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setClearHistoryConfirm(false)}>
                   Cancel
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                onClick={() => setClearHistoryConfirm(true)}
-              >
+              <Button variant="outline" onClick={() => setClearHistoryConfirm(true)}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear Chat History
               </Button>
@@ -326,7 +316,11 @@ export function SettingsView({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddCategory(true)}
+                    className="w-full sm:w-auto"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Category
                   </Button>
@@ -341,62 +335,62 @@ export function SettingsView({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search categories by name or type..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search categories by name or type..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-          <div className="space-y-2">
-            {filteredCategories.map((category, index) => (
-              <div key={category.id}>
-                {index > 0 && <Separator className="my-2" />}
-                <div className="flex items-center justify-between py-2 group">
-                  <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
-                    <div>
-                      <p className="font-medium">{category.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {CATEGORY_TYPES.find((t) => t.value === category.type)?.label}
-                        {category.rolloverEnabled && ' • Rollover enabled'}
-                      </p>
+              <div className="space-y-2">
+                {filteredCategories.map((category, index) => (
+                  <div key={category.id}>
+                    {index > 0 && <Separator className="my-2" />}
+                    <div className="flex items-center justify-between py-2 group">
+                      <div className="flex items-center gap-3">
+                        <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
+                        <div>
+                          <p className="font-medium">{category.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {CATEGORY_TYPES.find((t) => t.value === category.type)?.label}
+                            {category.rolloverEnabled && ' • Rollover enabled'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingCategory(category)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => setDeleteConfirm(category.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingCategory(category)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-600 hover:text-red-700"
-                      onClick={() => setDeleteConfirm(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                ))}
+                {filteredCategories.length === 0 && searchTerm.trim() && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No categories found matching "{searchTerm}"</p>
+                    <p className="text-sm">Try searching by category name or type</p>
                   </div>
-                </div>
+                )}
               </div>
-            ))}
-            {filteredCategories.length === 0 && searchTerm.trim() && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No categories found matching "{searchTerm}"</p>
-                <p className="text-sm">Try searching by category name or type</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
+            </CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
@@ -507,7 +501,8 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Import Data</Label>
             <p className="text-sm text-muted-foreground">
-              Import budgets, transactions, or categories from CSV files. Duplicate transactions will be skipped.
+              Import budgets, transactions, or categories from CSV files. Duplicate transactions
+              will be skipped.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
@@ -588,7 +583,8 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Clean Up Orphaned Allocations</Label>
             <p className="text-sm text-muted-foreground">
-              Remove budget allocations for categories that no longer exist. This fixes calculation errors from previous bugs.
+              Remove budget allocations for categories that no longer exist. This fixes calculation
+              errors from previous bugs.
             </p>
             <Button
               variant="outline"
@@ -929,8 +925,7 @@ export function SettingsView({
                 setImportExportFeedback(null)
                 setImportDialogType(null)
                 try {
-                  const options =
-                    targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
+                  const options = targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
                   const result = await window.api.importBudgetsCSV(options)
                   if (result.canceled) {
                     // User cancelled
@@ -979,8 +974,9 @@ export function SettingsView({
           <DialogHeader>
             <DialogTitle>Import Transactions</DialogTitle>
             <DialogDescription>
-              Import transactions from a CSV file. Expected format: Date (MM/DD/YYYY), Amount, Card (optional), Category (name), Description.
-              Unknown categories will be automatically created. Budget month will be inferred from dates if not specified.
+              Import transactions from a CSV file. Expected format: Date (MM/DD/YYYY), Amount, Card
+              (optional), Category (name), Description. Unknown categories will be automatically
+              created. Budget month will be inferred from dates if not specified.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -997,9 +993,12 @@ export function SettingsView({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {csvFormat === 'budgit' && 'Standard Budgit CSV format with Date, Amount, Category, Description columns'}
-                {csvFormat === 'credit_card' && 'Credit card statement: negative amounts become positive income'}
-                {csvFormat === 'debit_card' && 'Debit card statement: Transaction Type column determines income/expense'}
+                {csvFormat === 'budgit' &&
+                  'Standard Budgit CSV format with Date, Amount, Category, Description columns'}
+                {csvFormat === 'credit_card' &&
+                  'Credit card statement: negative amounts become positive income'}
+                {csvFormat === 'debit_card' &&
+                  'Debit card statement: Transaction Type column determines income/expense'}
               </p>
             </div>
             <div className="space-y-2">
@@ -1044,7 +1043,9 @@ export function SettingsView({
                   if (csvFormat && csvFormat !== 'budgit') {
                     options.format = csvFormat
                   }
-                  const result = await window.api.importTransactionsCSV(Object.keys(options).length > 0 ? options : undefined)
+                  const result = await window.api.importTransactionsCSV(
+                    Object.keys(options).length > 0 ? options : undefined
+                  )
                   if (result.canceled) {
                     // User cancelled
                   } else if (result.success) {

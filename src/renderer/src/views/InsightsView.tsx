@@ -23,6 +23,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 import type {
   Budget,
@@ -160,6 +162,16 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
     }
   }, [editingSessionId])
 
+  // Create new chat session handler - defined early so it can be used in loadData
+  const createNewSession = useCallback(async (): Promise<void> => {
+    const newSession = await window.api.createSession()
+    setSessions((prev) => [...prev, newSession])
+    setCurrentSessionId(newSession.id)
+    setMessages([])
+    setStreamingContent('')
+    setError(null)
+  }, [])
+
   // Load sessions and settings on mount
   useEffect(() => {
     if (sessionsLoadedRef.current) return
@@ -184,7 +196,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
           setMessages(session.messages)
         } else {
           // Session was deleted, create new
-          await handleNewChat()
+          await createNewSession()
         }
       } else if (loadedSessions.length > 0) {
         // Use most recent session
@@ -194,11 +206,11 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
         await window.api.setCurrentSession(recent.id)
       } else {
         // Create first session
-        await handleNewChat()
+        await createNewSession()
       }
     }
     loadData()
-  }, [])
+  }, [createNewSession])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -288,14 +300,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
     sendMessage(question)
   }
 
-  const handleNewChat = async (): Promise<void> => {
-    const newSession = await window.api.createSession()
-    setSessions((prev) => [...prev, newSession])
-    setCurrentSessionId(newSession.id)
-    setMessages([])
-    setStreamingContent('')
-    setError(null)
-  }
+  const handleNewChat = createNewSession
 
   const handleSelectSession = async (sessionId: string): Promise<void> => {
     const session = await window.api.getSession(sessionId)
@@ -371,8 +376,8 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
           <Card className="bg-muted/50 border-dashed">
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground mb-4">
-                To start chatting with Budgit, you'll need to add your Claude API key in Settings.
-                Your key is stored locally and never shared.
+                To start chatting with Budgit, you&apos;ll need to add your Claude API key in
+                Settings. Your key is stored locally and never shared.
               </p>
               <Button onClick={onNavigateToSettings} className="gap-2">
                 <Settings className="h-4 w-4" />
@@ -398,271 +403,328 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   const groupedSessions = groupSessionsByDate(sessions.slice().reverse())
 
   return (
-    <div className="flex h-full">
-      {/* Main chat area - Now on left (primary position) */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+    <TooltipProvider delayDuration={300}>
+      <div className="flex h-full flex-col bg-gradient-to-b from-background via-background to-muted/20">
+        {/* Compact Header Bar */}
+        <header className="flex items-center justify-between border-b bg-card/60 px-4 py-2.5 backdrop-blur-sm md:px-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shadow-md">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="font-semibold">Budgit</h1>
-              <p className="text-xs text-muted-foreground">Your AI Budget Assistant</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hover:bg-muted/50"
-            title={sidebarCollapsed ? 'Show chat history (⌘\\)' : 'Hide chat history (⌘\\)'}
-          >
-            {sidebarCollapsed ? (
-              <PanelRight className="h-4 w-4" />
-            ) : (
-              <PanelRightClose className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="max-w-3xl mx-auto space-y-4">
-            {showStarterQuestions ? (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
-                <div className="text-center space-y-2">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <Sparkles className="h-8 w-8 text-primary" />
-                  </div>
-                  <h2 className="text-2xl font-semibold">Good {getGreeting()}</h2>
-                  <p className="text-muted-foreground">
-                    What's on <span className="text-primary font-medium">your mind?</span>
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
-                  {STARTER_QUESTIONS.map((q) => (
-                    <button
-                      key={q.title}
-                      onClick={() => handleStarterClick(q.title)}
-                      className="flex items-start gap-4 p-5 rounded-xl border bg-card hover:bg-muted/50 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group"
-                    >
-                      <div className="p-2.5 rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
-                        <q.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{q.title}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{q.description}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+            <div className="relative">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary/80 to-primary/60 shadow-md">
+                <Sparkles className="h-4 w-4 text-primary-foreground" />
               </div>
-            ) : (
-              <>
-                {messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} />
-                ))}
-
-              {streamingContent && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-4 w-4 text-primary-foreground" />
-                  </div>
-                  <div className="flex-1 bg-muted/50 dark:bg-muted rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]">
-                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-2">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
-                    </div>
-                    <span className="inline-block w-2 h-4 bg-primary/50 animate-pulse ml-0.5" />
-                  </div>
-                </div>
-              )}
-
-              {isLoading && !streamingContent && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-4 w-4 text-primary-foreground" />
-                  </div>
-                  <div className="bg-muted/50 dark:bg-muted rounded-2xl rounded-tl-md px-4 py-3">
-                    <div className="flex gap-1">
-                      <span
-                        className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
-                        style={{ animationDelay: '0ms' }}
-                      />
-                      <span
-                        className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
-                        style={{ animationDelay: '150ms' }}
-                      />
-                      <span
-                        className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce"
-                        style={{ animationDelay: '300ms' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {error && (
-                <div className="flex justify-center">
-                  <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-2 text-sm">
-                    {error}
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </>
-          )}
+              <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 animate-pulse rounded-full bg-emerald-400 ring-2 ring-background" />
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-sm font-semibold leading-tight">Budgit AI</h1>
+              <p className="text-xs text-muted-foreground">Context: {contextMonths} months</p>
+            </div>
           </div>
-        </div>
-
-        {/* Input area */}
-        <div className="border-t p-4 md:p-6">
-          <div className="max-w-3xl mx-auto">
-            <form onSubmit={handleSubmit} className="flex gap-3">
-              <div className="flex-1 relative">
-                <Input
-                  ref={inputRef}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ask Budgit a question..."
-                  disabled={isLoading}
-                  className="py-6 px-4 rounded-xl bg-muted/50 border-muted-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                />
-              </div>
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!inputValue.trim() || isLoading}
-                className="h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
-              </Button>
-            </form>
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              Budgit uses your budget data to provide personalized insights
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Sidebar - Now on right side with smoother animations */}
-      <div
-        className={cn(
-          'border-l bg-muted/5 overflow-hidden transition-all duration-300 ease-in-out',
-          sidebarCollapsed ? 'w-0 opacity-0' : 'w-72 opacity-100'
-        )}
-      >
-        <div
-          className={cn(
-            'flex flex-col h-full w-72 transition-transform duration-300 ease-in-out',
-            sidebarCollapsed ? 'translate-x-full' : 'translate-x-0'
-          )}
-        >
-          <div className="p-4 border-b">
-            <Button onClick={handleNewChat} className="w-full gap-2 shadow-sm hover:shadow-md transition-all" size="default">
-              <MessageSquarePlus className="h-4 w-4" />
-              New Chat
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={handleNewChat}>
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">New chat</span>
             </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarCollapsed((prev) => !prev)}
+                  className="h-8 w-8"
+                >
+                  {sidebarCollapsed ? (
+                    <PanelRight className="h-4 w-4" />
+                  ) : (
+                    <PanelRightClose className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {sidebarCollapsed ? 'Show history' : 'Hide history'}{' '}
+                <kbd className="ml-1 text-[10px] opacity-60">⌘\</kbd>
+              </TooltipContent>
+            </Tooltip>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-4">
-            {Object.entries(groupedSessions).map(([group, groupSessions]) =>
-              groupSessions.length > 0 ? (
-                <div key={group} className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                    {group}
-                  </p>
-                  {groupSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      onClick={() => !editingSessionId && handleSelectSession(session.id)}
-                      className={cn(
-                        'w-full text-left px-3 py-2.5 rounded-lg text-sm group hover:bg-muted/50 transition-all cursor-pointer',
-                        session.id === currentSessionId && 'bg-primary/10 hover:bg-primary/15 border border-primary/20'
-                      )}
-                    >
-                      {editingSessionId === session.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            ref={editInputRef}
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={handleRenameKeyDown}
-                            onBlur={handleSaveRename}
-                            className="h-7 text-sm px-2"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 flex-shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSaveRename()
-                            }}
-                          >
-                            <Check className="h-3 w-3 text-primary" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 flex-shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCancelRename()
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
+        </header>
+
+        {/* Main Content Area */}
+        <div className="flex min-h-0 flex-1 gap-0">
+          {/* Chat Section */}
+          <section className="flex min-h-0 flex-1 flex-col border-r bg-card/50">
+            <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2 md:px-6">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="font-medium">Conversation</span>
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Live
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 md:px-8 lg:px-12">
+              <div className="mx-auto flex max-w-4xl flex-col gap-3">
+                {showStarterQuestions ? (
+                  <div className="flex flex-1 flex-col items-center justify-center py-8">
+                    <div className="w-full max-w-3xl space-y-6 text-center">
+                      <div className="space-y-3">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/15 to-primary/25">
+                          <Sparkles className="h-7 w-7 text-primary" />
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="truncate font-medium">{session.title}</p>
-                          </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleStartRename(session)
-                              }}
-                              title="Rename"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteSession(session.id)
-                              }}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                        <h2 className="text-xl font-semibold md:text-2xl">
+                          What should we tackle?
+                        </h2>
+                        <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                          Ask anything about your budgets and spending
+                        </p>
+                      </div>
+
+                      <div className="grid w-full grid-cols-2 gap-2 md:gap-3 lg:grid-cols-4">
+                        {STARTER_QUESTIONS.map((q) => (
+                          <button
+                            key={q.title}
+                            onClick={() => handleStarterClick(q.title)}
+                            className="group flex flex-col items-center gap-2 rounded-xl border border-muted/60 bg-muted/30 p-3 text-center transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm md:p-4"
+                          >
+                            <div className="rounded-lg bg-muted p-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                              <q.icon className="h-4 w-4 md:h-5 md:w-5" />
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-medium leading-tight md:text-sm">
+                                {q.title}
+                              </p>
+                              <p className="hidden text-[10px] text-muted-foreground md:block">
+                                {q.description}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : null
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((message) => (
+                      <MessageBubble key={message.id} message={message} />
+                    ))}
+
+                    {streamingContent && (
+                      <div className="flex gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary shadow-md">
+                          <Sparkles className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                        <div className="max-w-[90%] flex-1 rounded-2xl rounded-tl-md bg-muted/60 px-4 py-3 shadow-sm">
+                          <div className="prose prose-sm max-w-none text-sm prose-p:my-2 prose-li:my-0 prose-p:leading-relaxed dark:prose-invert">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {streamingContent}
+                            </ReactMarkdown>
+                          </div>
+                          <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-primary/50" />
+                        </div>
+                      </div>
+                    )}
+
+                    {isLoading && !streamingContent && (
+                      <div className="flex gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary shadow-md">
+                          <Sparkles className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                        <div className="rounded-2xl rounded-tl-md bg-muted/60 px-4 py-3">
+                          <div className="flex gap-1">
+                            <span
+                              className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"
+                              style={{ animationDelay: '0ms' }}
+                            />
+                            <span
+                              className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"
+                              style={{ animationDelay: '150ms' }}
+                            />
+                            <span
+                              className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"
+                              style={{ animationDelay: '300ms' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="flex justify-center">
+                        <div className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                          {error}
+                        </div>
+                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t bg-card/70 px-4 py-3 md:px-8 lg:px-12">
+              <div className="mx-auto max-w-4xl">
+                <form onSubmit={handleSubmit} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      ref={inputRef}
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      placeholder="Ask Budgit anything about your money..."
+                      disabled={isLoading}
+                      className="h-11 flex-1 rounded-xl border-muted-foreground/20 bg-muted/40 px-4 text-sm shadow-inner focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!inputValue.trim() || isLoading}
+                        className="h-11 w-11 rounded-xl bg-primary shadow-md transition-all hover:shadow-lg"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Send message</TooltipContent>
+                  </Tooltip>
+                </form>
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                  Budgit uses your budget data to provide personalized insights
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* History Sidebar */}
+          <aside
+            className={cn(
+              'hidden flex-col border-l bg-card/60 transition-all duration-300 md:flex',
+              sidebarCollapsed
+                ? 'w-0 overflow-hidden opacity-0'
+                : 'w-72 opacity-100 lg:w-80 xl:w-96'
             )}
-          </div>
+          >
+            <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+              <div>
+                <p className="text-xs font-medium">History</p>
+                <p className="text-[10px] text-muted-foreground">Previous conversations</p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleNewChat}>
+                    <MessageSquarePlus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New chat</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto px-2 py-3">
+              {Object.entries(groupedSessions).map(([group, groupSessions]) =>
+                groupSessions.length > 0 ? (
+                  <div key={group} className="space-y-1">
+                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                      {group}
+                    </p>
+                    {groupSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        onClick={() => !editingSessionId && handleSelectSession(session.id)}
+                        className={cn(
+                          'group w-full cursor-pointer rounded-lg border border-transparent px-2.5 py-2 text-left text-sm transition-all hover:bg-muted/60',
+                          session.id === currentSessionId && 'border-primary/30 bg-primary/10'
+                        )}
+                      >
+                        {editingSessionId === session.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              ref={editInputRef}
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              onKeyDown={handleRenameKeyDown}
+                              onBlur={handleSaveRename}
+                              className="h-7 px-2 text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSaveRename()
+                              }}
+                            >
+                              <Check className="h-3 w-3 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCancelRename()
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium">{session.title}</p>
+                            </div>
+                            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleStartRename(session)
+                                    }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Rename</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteSession(session.id)
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null
+              )}
+            </div>
+          </aside>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
 
@@ -670,42 +732,35 @@ function MessageBubble({ message }: { message: ChatMessage }): React.JSX.Element
   const isUser = message.role === 'user'
 
   return (
-    <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
+    <div className={cn('flex gap-2.5', isUser && 'flex-row-reverse')}>
       <div
         className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
           isUser ? 'bg-secondary' : 'bg-gradient-to-br from-primary/80 to-primary'
         )}
       >
         {isUser ? (
-          <User className="h-4 w-4 text-secondary-foreground" />
+          <User className="h-3.5 w-3.5 text-secondary-foreground" />
         ) : (
-          <Sparkles className="h-4 w-4 text-primary-foreground" />
+          <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
         )}
       </div>
       <div
         className={cn(
-          'rounded-2xl px-4 py-3 max-w-[85%]',
+          'max-w-[90%] rounded-2xl px-3.5 py-2.5',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-tr-md'
-            : 'bg-muted/50 dark:bg-muted rounded-tl-md'
+            ? 'rounded-tr-md bg-primary text-primary-foreground'
+            : 'rounded-tl-md bg-muted/50 dark:bg-muted'
         )}
       >
         {isUser ? (
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
         ) : (
-          <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-2 prose-p:text-foreground prose-headings:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+          <div className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0 prose-p:leading-relaxed prose-headings:mb-1.5 prose-headings:mt-2.5 prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
         )}
       </div>
     </div>
   )
-}
-
-function getGreeting(): string {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Morning'
-  if (hour < 17) return 'Afternoon'
-  return 'Evening'
 }
