@@ -10,7 +10,10 @@ import {
   XCircle,
   Search,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Sparkles
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,7 +42,7 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { formatMonth, parseMonthKey } from '@/lib/utils'
-import type { Budget, Category, CategoryType } from '../../../shared/types'
+import type { Budget, Category, CategoryType, AiContextMonths } from '../../../shared/types'
 
 interface SettingsViewProps {
   categories: Category[]
@@ -95,12 +98,28 @@ export function SettingsView({
   const [targetMonth, setTargetMonth] = useState<string>('')
   const [csvFormat, setCsvFormat] = useState<string>('budgit')
 
+  // AI Assistant settings
+  const [claudeApiKey, setClaudeApiKey] = useState('')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [aiContextMonths, setAiContextMonths] = useState<AiContextMonths>(3)
+  const [aiSettingsLoaded, setAiSettingsLoaded] = useState(false)
+  const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false)
+
   // Load budgets when export/import dialog opens
   useEffect(() => {
     if (exportDialogType === 'budgets' || importDialogType) {
       window.api.getBudgets().then(setBudgets)
     }
   }, [exportDialogType, importDialogType])
+
+  // Load AI settings on mount
+  useEffect(() => {
+    window.api.getSettings().then((settings) => {
+      setClaudeApiKey(settings.claudeApiKey || '')
+      setAiContextMonths(settings.aiContextMonths || 3)
+      setAiSettingsLoaded(true)
+    })
+  }, [])
 
   // Auto-dismiss feedback after 5 seconds
   useEffect(() => {
@@ -153,6 +172,143 @@ export function SettingsView({
                 <SelectItem value="system">System</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* AI Assistant */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle>AI Assistant</CardTitle>
+              <CardDescription>Configure Budgit, your AI-powered budget assistant</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* API Key */}
+          <div className="space-y-2">
+            <Label htmlFor="claude-api-key">Claude API Key</Label>
+            <p className="text-sm text-muted-foreground">
+              Get your API key from{' '}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                console.anthropic.com
+              </a>
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="claude-api-key"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={claudeApiKey}
+                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  placeholder="sk-ant-..."
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await window.api.updateSettings({ claudeApiKey })
+                  setImportExportFeedback({
+                    type: 'success',
+                    message: 'API key saved successfully'
+                  })
+                }}
+                disabled={!aiSettingsLoaded}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+
+          {/* Context Depth */}
+          <div className="space-y-2">
+            <Label htmlFor="context-months">Context Depth</Label>
+            <p className="text-sm text-muted-foreground">
+              How many months of budget data to include when chatting with Budgit
+            </p>
+            <Select
+              value={String(aiContextMonths)}
+              onValueChange={async (value) => {
+                const months = value === 'all' ? 'all' : (parseInt(value) as AiContextMonths)
+                setAiContextMonths(months)
+                await window.api.updateSettings({ aiContextMonths: months })
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Last 1 month</SelectItem>
+                <SelectItem value="3">Last 3 months</SelectItem>
+                <SelectItem value="6">Last 6 months</SelectItem>
+                <SelectItem value="12">Last 12 months</SelectItem>
+                <SelectItem value="all">All data</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Clear Chat History */}
+          <div className="space-y-2">
+            <Label>Chat History</Label>
+            <p className="text-sm text-muted-foreground">
+              Clear your conversation history with Budgit
+            </p>
+            {clearHistoryConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Are you sure?</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={async () => {
+                    await window.api.clearChatHistory()
+                    setClearHistoryConfirm(false)
+                    setImportExportFeedback({
+                      type: 'success',
+                      message: 'Chat history cleared'
+                    })
+                  }}
+                >
+                  Yes, clear
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setClearHistoryConfirm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setClearHistoryConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Chat History
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

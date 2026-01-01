@@ -8,7 +8,8 @@ import {
   AppSettings,
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
-  CategoryAllocation
+  CategoryAllocation,
+  ChatMessage
 } from '../shared/types'
 import { learnCategoryMapping } from '../shared/categoryInference'
 
@@ -20,7 +21,8 @@ const store = new Store<StoreSchema>({
     budgets: [],
     transactions: [],
     settings: DEFAULT_SETTINGS,
-    learnedMappings: []
+    learnedMappings: [],
+    chatHistory: []
   }
 })
 
@@ -863,4 +865,19 @@ export function learnTransactionCategory(transactionId: string, categoryId: stri
 // Get learned category mappings
 export function getLearnedMappings() {
   return store.get('learnedMappings')
+}
+
+// ============== Chat History ==============
+export function getChatHistory(): ChatMessage[] {
+  return store.get('chatHistory') || []
+}
+
+export function saveChatMessage(message: ChatMessage): void {
+  const history = store.get('chatHistory') || []
+  history.push(message)
+  store.set('chatHistory', history)
+}
+
+export function clearChatHistory(): void {
+  store.set('chatHistory', [])
 }

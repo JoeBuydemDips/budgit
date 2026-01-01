@@ -1,4 +1,4 @@
-import { LayoutDashboard, PiggyBank, Receipt, Settings, PanelLeftOpen, PanelLeftClose, Wallet, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, PiggyBank, Receipt, Settings, PanelLeftOpen, PanelLeftClose, Wallet, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -21,7 +21,7 @@ const navItems: {
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'budget', label: 'Budget', icon: PiggyBank },
   { id: 'transactions', label: 'Transactions', icon: Receipt },
-  { id: 'insights', label: 'Insights', icon: TrendingUp },
+  { id: 'insights', label: 'Budgit', icon: Sparkles },
   { id: 'settings', label: 'Settings', icon: Settings }
 ]
 

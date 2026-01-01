@@ -175,7 +175,11 @@ function App(): React.JSX.Element {
                 />
               )}
               {currentView === 'insights' && (
-                <InsightsView budgets={budgets} categories={categories} />
+                <InsightsView
+                  budgets={budgets}
+                  categories={categories}
+                  onNavigateToSettings={() => setCurrentView('settings')}
+                />
               )}
               {currentView === 'settings' && (
                 <SettingsView categories={categories} onRefreshCategories={refreshCategories} onRefreshBudgets={refreshBudgets} onRefreshBudget={refreshBudget} onRefreshTransactions={refreshTransactions} />

@@ -6,7 +6,9 @@ import type {
   Transaction,
   Budget,
   CategoryAllocation,
-  IncomeSource
+  IncomeSource,
+  ChatMessage,
+  AiContextMonths
 } from '../shared/types'
 
 interface BudgetAPI {
@@ -110,6 +112,18 @@ interface BudgetAPI {
     }>
     errors: { row: number; message: string }[]
   }>
+
+  // AI Chat
+  getChatHistory: () => Promise<ChatMessage[]>
+  saveChatMessage: (message: ChatMessage) => Promise<void>
+  clearChatHistory: () => Promise<void>
+  sendChatMessage: (
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    contextMonths: AiContextMonths
+  ) => void
+  onChatStreamChunk: (callback: (data: { text: string }) => void) => () => void
+  onChatStreamEnd: (callback: () => void) => () => void
+  onChatStreamError: (callback: (data: { error: string }) => void) => () => void
 }
 
 declare global {
