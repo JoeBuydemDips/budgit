@@ -81,7 +81,8 @@ export interface StoreSchema {
   transactions: Transaction[]
   settings: AppSettings
   learnedMappings: LearnedCategoryMapping[]
-  chatHistory: ChatMessage[]
+  chatSessions: ChatSession[]
+  currentSessionId: string | null
 }
 
 // Default categories following EveryDollar / zero-based budgeting principles
@@ -138,6 +139,9 @@ export interface ChatMessage {
 }
 
 export interface ChatSession {
+  id: string
+  title: string // Auto-generated from first message
   messages: ChatMessage[]
+  createdAt: string // ISO date
   lastUpdated: string // ISO date
 }

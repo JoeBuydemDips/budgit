@@ -8,6 +8,7 @@ import type {
   CategoryAllocation,
   IncomeSource,
   ChatMessage,
+  ChatSession,
   AiContextMonths
 } from '../shared/types'
 
@@ -114,9 +115,14 @@ interface BudgetAPI {
   }>
 
   // AI Chat
-  getChatHistory: () => Promise<ChatMessage[]>
-  saveChatMessage: (message: ChatMessage) => Promise<void>
-  clearChatHistory: () => Promise<void>
+  getSessions: () => Promise<ChatSession[]>
+  getCurrentSessionId: () => Promise<string | null>
+  createSession: () => Promise<ChatSession>
+  getSession: (sessionId: string) => Promise<ChatSession | null>
+  setCurrentSession: (sessionId: string) => Promise<void>
+  saveChatMessage: (sessionId: string, message: ChatMessage) => Promise<void>
+  deleteSession: (sessionId: string) => Promise<void>
+  clearAllSessions: () => Promise<void>
   sendChatMessage: (
     messages: { role: 'user' | 'assistant'; content: string }[],
     contextMonths: AiContextMonths

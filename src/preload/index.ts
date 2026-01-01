@@ -8,6 +8,7 @@ import type {
   Budget,
   CategoryAllocation,
   ChatMessage,
+  ChatSession,
   AiContextMonths
 } from '../shared/types'
 
@@ -141,10 +142,18 @@ const budgetApi = {
   }> => ipcRenderer.invoke('csv:parseTransactions', csvContent, options),
 
   // AI Chat
-  getChatHistory: (): Promise<ChatMessage[]> => ipcRenderer.invoke('ai:getChatHistory'),
-  saveChatMessage: (message: ChatMessage): Promise<void> =>
-    ipcRenderer.invoke('ai:saveChatMessage', message),
-  clearChatHistory: (): Promise<void> => ipcRenderer.invoke('ai:clearChatHistory'),
+  getSessions: (): Promise<ChatSession[]> => ipcRenderer.invoke('ai:getSessions'),
+  getCurrentSessionId: (): Promise<string | null> => ipcRenderer.invoke('ai:getCurrentSessionId'),
+  createSession: (): Promise<ChatSession> => ipcRenderer.invoke('ai:createSession'),
+  getSession: (sessionId: string): Promise<ChatSession | null> =>
+    ipcRenderer.invoke('ai:getSession', sessionId),
+  setCurrentSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke('ai:setCurrentSession', sessionId),
+  saveChatMessage: (sessionId: string, message: ChatMessage): Promise<void> =>
+    ipcRenderer.invoke('ai:saveChatMessage', sessionId, message),
+  deleteSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke('ai:deleteSession', sessionId),
+  clearAllSessions: (): Promise<void> => ipcRenderer.invoke('ai:clearAllSessions'),
   sendChatMessage: (
     messages: { role: 'user' | 'assistant'; content: string }[],
     contextMonths: AiContextMonths

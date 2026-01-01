@@ -33,9 +33,14 @@ import {
   importCategories,
   ImportResult,
   ImportCategoriesResult,
-  getChatHistory,
+  getChatSessions,
+  getCurrentSessionId,
+  createChatSession,
+  getChatSession,
+  setCurrentSession,
   saveChatMessage,
-  clearChatHistory
+  deleteChatSession,
+  clearAllChatSessions
 } from './store'
 import {
   generateBudgetsCSV,
@@ -47,7 +52,7 @@ import {
   CsvFormat
 } from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
-import type { ChatMessage, AiContextMonths } from '../shared/types'
+import type { ChatMessage, ChatSession, AiContextMonths } from '../shared/types'
 
 export function registerIpcHandlers(): void {
   // ============== Settings ==============
@@ -403,16 +408,36 @@ export function registerIpcHandlers(): void {
   )
 
   // ============== AI Chat ==============
-  ipcMain.handle('ai:getChatHistory', () => {
-    return getChatHistory()
+  ipcMain.handle('ai:getSessions', () => {
+    return getChatSessions()
   })
 
-  ipcMain.handle('ai:saveChatMessage', (_, message: ChatMessage) => {
-    saveChatMessage(message)
+  ipcMain.handle('ai:getCurrentSessionId', () => {
+    return getCurrentSessionId()
   })
 
-  ipcMain.handle('ai:clearChatHistory', () => {
-    clearChatHistory()
+  ipcMain.handle('ai:createSession', () => {
+    return createChatSession()
+  })
+
+  ipcMain.handle('ai:getSession', (_, sessionId: string) => {
+    return getChatSession(sessionId)
+  })
+
+  ipcMain.handle('ai:setCurrentSession', (_, sessionId: string) => {
+    setCurrentSession(sessionId)
+  })
+
+  ipcMain.handle('ai:saveChatMessage', (_, sessionId: string, message: ChatMessage) => {
+    saveChatMessage(sessionId, message)
+  })
+
+  ipcMain.handle('ai:deleteSession', (_, sessionId: string) => {
+    deleteChatSession(sessionId)
+  })
+
+  ipcMain.handle('ai:clearAllSessions', () => {
+    clearAllChatSessions()
   })
 
   // Streaming chat handler

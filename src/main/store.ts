@@ -9,7 +9,8 @@ import {
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
   CategoryAllocation,
-  ChatMessage
+  ChatMessage,
+  ChatSession
 } from '../shared/types'
 import { learnCategoryMapping } from '../shared/categoryInference'
 
@@ -22,7 +23,8 @@ const store = new Store<StoreSchema>({
     transactions: [],
     settings: DEFAULT_SETTINGS,
     learnedMappings: [],
-    chatHistory: []
+    chatSessions: [],
+    currentSessionId: null
   }
 })
 
@@ -867,17 +869,68 @@ export function getLearnedMappings() {
   return store.get('learnedMappings')
 }
 
-// ============== Chat History ==============
-export function getChatHistory(): ChatMessage[] {
-  return store.get('chatHistory') || []
+// ============== Chat Sessions ==============
+export function getChatSessions(): ChatSession[] {
+  return store.get('chatSessions') || []
 }
 
-export function saveChatMessage(message: ChatMessage): void {
-  const history = store.get('chatHistory') || []
-  history.push(message)
-  store.set('chatHistory', history)
+export function getCurrentSessionId(): string | null {
+  return store.get('currentSessionId')
 }
 
-export function clearChatHistory(): void {
-  store.set('chatHistory', [])
+export function createChatSession(): ChatSession {
+  const session: ChatSession = {
+    id: uuidv4(),
+    title: 'New Chat',
+    messages: [],
+    createdAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString()
+  }
+  const sessions = store.get('chatSessions') || []
+  sessions.push(session)
+  store.set('chatSessions', sessions)
+  store.set('currentSessionId', session.id)
+  return session
+}
+
+export function getChatSession(sessionId: string): ChatSession | null {
+  const sessions = store.get('chatSessions') || []
+  return sessions.find((s) => s.id === sessionId) || null
+}
+
+export function setCurrentSession(sessionId: string): void {
+  store.set('currentSessionId', sessionId)
+}
+
+export function saveChatMessage(sessionId: string, message: ChatMessage): void {
+  const sessions = store.get('chatSessions') || []
+  const sessionIndex = sessions.findIndex((s) => s.id === sessionId)
+  
+  if (sessionIndex === -1) return
+  
+  sessions[sessionIndex].messages.push(message)
+  sessions[sessionIndex].lastUpdated = new Date().toISOString()
+  
+  // Update title from first user message if still "New Chat"
+  if (sessions[sessionIndex].title === 'New Chat' && message.role === 'user') {
+    sessions[sessionIndex].title = message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
+  }
+  
+  store.set('chatSessions', sessions)
+}
+
+export function deleteChatSession(sessionId: string): void {
+  const sessions = store.get('chatSessions') || []
+  const filtered = sessions.filter((s) => s.id !== sessionId)
+  store.set('chatSessions', filtered)
+  
+  // If we deleted the current session, clear it
+  if (store.get('currentSessionId') === sessionId) {
+    store.set('currentSessionId', null)
+  }
+}
+
+export function clearAllChatSessions(): void {
+  store.set('chatSessions', [])
+  store.set('currentSessionId', null)
 }

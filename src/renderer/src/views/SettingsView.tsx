@@ -282,7 +282,7 @@ export function SettingsView({
                   variant="destructive"
                   size="sm"
                   onClick={async () => {
-                    await window.api.clearChatHistory()
+                    await window.api.clearAllSessions()
                     setClearHistoryConfirm(false)
                     setImportExportFeedback({
                       type: 'success',
