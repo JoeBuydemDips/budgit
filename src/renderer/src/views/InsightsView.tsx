@@ -23,6 +23,14 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -112,6 +120,37 @@ function groupSessionsByDate(sessions: ChatSession[]): Record<string, ChatSessio
   return groups
 }
 
+// Helper to format relative time
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  // For older dates, show the date
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+// Helper to format exact time for tooltip
+function formatExactTime(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
 export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React.JSX.Element {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -125,6 +164,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
+  const [deleteConfirmSession, setDeleteConfirmSession] = useState<ChatSession | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -340,6 +380,13 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
       } else {
         await handleNewChat()
       }
+    }
+  }
+
+  const handleConfirmDelete = async (): Promise<void> => {
+    if (deleteConfirmSession) {
+      await handleDeleteSession(deleteConfirmSession.id)
+      setDeleteConfirmSession(null)
     }
   }
 
@@ -742,7 +789,13 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                               value={editingTitle}
                               onChange={(e) => setEditingTitle(e.target.value)}
                               onKeyDown={handleRenameKeyDown}
-                              onBlur={handleSaveRename}
+                              onBlur={(e) => {
+                                // Only save on blur if not clicking the action buttons
+                                const relatedTarget = e.relatedTarget as HTMLElement
+                                if (!relatedTarget?.closest('[data-rename-action]')) {
+                                  handleSaveRename()
+                                }
+                              }}
                               className="h-7 px-2 text-xs"
                               onClick={(e) => e.stopPropagation()}
                             />
@@ -750,6 +803,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 flex-shrink-0"
+                              data-rename-action="save"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleSaveRename()
@@ -761,6 +815,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 flex-shrink-0"
+                              data-rename-action="cancel"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleCancelRename()
@@ -773,6 +828,16 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                           <div className="flex items-center gap-2">
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-xs font-medium">{session.title}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="cursor-default text-[10px] text-muted-foreground">
+                                    {formatRelativeTime(session.lastUpdated)}
+                                  </p>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" align="start">
+                                  {formatExactTime(session.lastUpdated)}
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                             <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                               <Tooltip>
@@ -799,7 +864,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                                     className="h-6 w-6 hover:text-destructive"
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      handleDeleteSession(session.id)
+                                      setDeleteConfirmSession(session)
                                     }}
                                   >
                                     <Trash2 className="h-3 w-3" />
@@ -818,6 +883,26 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
             </div>
           </aside>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteConfirmSession} onOpenChange={(open) => !open && setDeleteConfirmSession(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete conversation?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete &quot;{deleteConfirmSession?.title}&quot;? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setDeleteConfirmSession(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   )
