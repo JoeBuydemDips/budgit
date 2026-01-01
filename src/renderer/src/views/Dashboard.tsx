@@ -30,15 +30,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import type { Budget, Category, Transaction } from '../../../shared/types'
+import type { BudgetWithComputed, Category, Transaction } from '../../../shared/types'
 import { CATEGORY_TYPE_COLORS, type CategoryType } from '../../../shared/types'
 
 interface DashboardProps {
-  budget:
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
+  budget: BudgetWithComputed | null
   categories: Category[]
   transactions: Transaction[]
   loading: boolean

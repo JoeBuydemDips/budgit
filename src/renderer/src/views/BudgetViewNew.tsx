@@ -55,13 +55,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
-import type {
-  Budget,
-  Category,
-  CategoryType,
-  Transaction,
-  IncomeSource
-} from '../../../shared/types'
+import type { BudgetWithComputed, Category, CategoryType, Transaction, IncomeSource } from '../../../shared/types'
 
 // Import colors directly
 const TYPE_COLORS: Record<CategoryType, string> = {
@@ -75,11 +69,7 @@ const TYPE_COLORS: Record<CategoryType, string> = {
 }
 
 interface BudgetViewProps {
-  budget:
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
+  budget: BudgetWithComputed | null
   categories: Category[]
   transactions: Transaction[]
   loading: boolean

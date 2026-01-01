@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   Category,
+  BudgetWithComputed,
   LearnedCategoryMapping,
   AppSettings,
   Transaction,
@@ -31,12 +32,7 @@ interface BudgetAPI {
   getBudget: (month: string) => Promise<Budget | null>
   getBudgets: () => Promise<Budget[]>
   getBudgetsWithSpent: () => Promise<Budget[]>
-  getBudgetWithSpent: (month: string) => Promise<
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
-  >
+  getBudgetWithSpent: (month: string) => Promise<BudgetWithComputed | null>
   createBudget: (month: string, incomeTotal: number, copyFromMonth?: string) => Promise<Budget>
   updateBudget: (
     month: string,

@@ -6,6 +6,7 @@ import {
   Transaction,
   Category,
   AppSettings,
+  BudgetWithComputed,
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
   CategoryAllocation,
@@ -444,23 +445,46 @@ function updateBudgetSpent(month: string): void {
 }
 
 // ============== Computed helpers ==============
-export function getBudgetWithSpent(month: string):
-  | (Budget & {
-      computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-    })
-  | null {
+function getUncategorizedCategoryIds(): Set<string> {
+  const categories = store.get('categories')
+  return new Set(
+    categories
+      .filter((c) => c.name.toLowerCase().includes('uncategorized'))
+      .map((c) => c.id)
+  )
+}
+
+export function getBudgetWithSpent(month: string): BudgetWithComputed | null {
   const budget = getBudgetByMonth(month)
   if (!budget) return null
 
   const transactions = getTransactionsByMonth(month)
+  const categories = store.get('categories')
+  const categoryById = new Map(categories.map((c) => [c.id, c]))
+  const uncategorizedCategoryIds = getUncategorizedCategoryIds()
 
   const spentByCategory: Record<string, number> = {}
-  transactions.forEach((t) => {
-    spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
-  })
+  const totals = transactions.reduce(
+    (acc, t) => {
+      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
+
+      acc.totalSpentAll += t.amount
+
+      const category = t.categoryId ? categoryById.get(t.categoryId) : undefined
+      const isUncategorized =
+        !category || uncategorizedCategoryIds.has(t.categoryId) || t.categoryId === ''
+
+      if (isUncategorized) {
+        acc.uncategorizedSpent += t.amount
+      } else {
+        acc.totalSpentCategorized += t.amount
+      }
+      return acc
+    },
+    { totalSpentAll: 0, totalSpentCategorized: 0, uncategorizedSpent: 0 }
+  )
 
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
-  const totalSpent = Object.values(spentByCategory).reduce((sum, s) => sum + s, 0)
   const leftToBudget = budget.incomeTotal - totalPlanned
 
   const available: Record<string, number> = {}
@@ -476,7 +500,10 @@ export function getBudgetWithSpent(month: string):
       spent: spentByCategory[a.categoryId] || 0
     })),
     computed: {
-      totalSpent,
+      totalSpent: totals.totalSpentCategorized,
+      totalSpentCategorized: totals.totalSpentCategorized,
+      totalSpentAll: totals.totalSpentAll,
+      uncategorizedSpent: totals.uncategorizedSpent,
       leftToBudget,
       available
     }

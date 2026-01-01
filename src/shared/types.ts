@@ -47,6 +47,18 @@ export interface Budget {
   updatedAt: string
 }
 
+// Budget with derived aggregates calculated from transactions
+export interface BudgetWithComputed extends Budget {
+  computed: {
+    totalSpent: number // Categorized spend only (excludes Uncategorized)
+    totalSpentCategorized: number
+    totalSpentAll: number
+    uncategorizedSpent: number
+    leftToBudget: number
+    available: Record<string, number>
+  }
+}
+
 export interface Transaction {
   id: string
   budgetMonth: string // Format: YYYY-MM

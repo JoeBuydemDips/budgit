@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   Category,
+  BudgetWithComputed,
   LearnedCategoryMapping,
   AppSettings,
   Transaction,
@@ -41,12 +42,7 @@ const budgetApi = {
   getBudgetsWithSpent: (): Promise<Budget[]> => ipcRenderer.invoke('budget:listWithSpent'),
   getBudgetWithSpent: (
     month: string
-  ): Promise<
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
-  > => ipcRenderer.invoke('budget:getWithSpent', month),
+  ): Promise<BudgetWithComputed | null> => ipcRenderer.invoke('budget:getWithSpent', month),
   createBudget: (month: string, incomeTotal: number, copyFromMonth?: string): Promise<Budget> =>
     ipcRenderer.invoke('budget:create', month, incomeTotal, copyFromMonth),
   updateBudget: (
