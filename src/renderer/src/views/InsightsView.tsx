@@ -19,7 +19,8 @@ import {
   Check,
   X,
   Plus,
-  ArrowUp
+  ArrowUp,
+  Paperclip
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -165,12 +166,14 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [deleteConfirmSession, setDeleteConfirmSession] = useState<ChatSession | null>(null)
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const sessionsLoadedRef = useRef(false)
   const streamingMessageIdRef = useRef<string | null>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Responsive auto-collapse for smaller screens
   useEffect(() => {
@@ -313,16 +316,24 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
       if (!content.trim() || isLoading || !currentSessionId) return
 
       setError(null)
+      
+      // Build message content with optional file attachment
+      let messageContent = content.trim()
+      if (attachedFile) {
+        messageContent = `${messageContent}\n\n---\n**Attached CSV file: ${attachedFile.name}**\n\`\`\`csv\n${attachedFile.content}\n\`\`\``
+      }
+      
       const userMessage: ChatMessage = {
         id: uuidv4(),
         role: 'user',
-        content: content.trim(),
+        content: messageContent,
         timestamp: new Date().toISOString()
       }
 
       setMessages((prev) => [...prev, userMessage])
       await window.api.saveChatMessage(currentSessionId, userMessage)
       setInputValue('')
+      setAttachedFile(null) // Clear attachment after sending
       setIsLoading(true)
       setStreamingContent('')
       streamingMessageIdRef.current = uuidv4()
@@ -337,8 +348,51 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
 
       window.api.sendChatMessage(messageHistory, contextMonths)
     },
-    [messages, isLoading, contextMonths, currentSessionId]
+    [messages, isLoading, contextMonths, currentSessionId, attachedFile]
   )
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      setError('Only CSV files are supported')
+      return
+    }
+
+    // Validate file size (max 500KB to avoid token limits)
+    if (file.size > 500 * 1024) {
+      setError('File too large. Maximum size is 500KB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event): void => {
+      const content = event.target?.result as string
+      // Limit to first 100 rows to avoid overwhelming context
+      const lines = content.split('\n')
+      const truncatedContent = lines.slice(0, 101).join('\n')
+      const wasTruncated = lines.length > 101
+      
+      setAttachedFile({
+        name: file.name + (wasTruncated ? ` (first 100 rows of ${lines.length})` : ''),
+        content: truncatedContent
+      })
+      setError(null)
+    }
+    reader.onerror = (): void => {
+      setError('Failed to read file')
+    }
+    reader.readAsText(file)
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleRemoveAttachment = (): void => {
+    setAttachedFile(null)
+  }
 
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
@@ -468,6 +522,14 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full flex-col bg-gradient-to-b from-background via-background to-muted/20">
+        {/* Hidden file input - placed here so it's always available */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
         {/* Compact Header Bar */}
         <header className="flex items-center justify-between border-b bg-card/60 px-4 py-2.5 backdrop-blur-sm md:px-6">
           <div className="flex items-center gap-3">
@@ -566,20 +628,40 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                             />
                           </div>
                           <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 gap-1.5 rounded-lg text-xs"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                  Attach
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Attach file</TooltipContent>
-                            </Tooltip>
+                            <div className="flex items-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 rounded-lg text-xs"
+                                    onClick={() => fileInputRef.current?.click()}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Attach
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Attach CSV file</TooltipContent>
+                              </Tooltip>
+                              {attachedFile && (
+                                <div className="flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1">
+                                  <Paperclip className="h-3 w-3 text-muted-foreground" />
+                                  <span className="max-w-[150px] truncate text-xs text-muted-foreground">
+                                    {attachedFile.name}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-4 w-4 p-0 hover:bg-transparent"
+                                    onClick={handleRemoveAttachment}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -701,6 +783,26 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                       rows={3}
                       className="w-full resize-none bg-transparent px-4 pt-4 pb-12 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
+                    {/* Attachment preview above input */}
+                    {attachedFile && (
+                      <div className="absolute -top-8 left-3 right-3">
+                        <div className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1">
+                          <Paperclip className="h-3 w-3 text-muted-foreground" />
+                          <span className="max-w-[200px] truncate text-xs text-muted-foreground">
+                            {attachedFile.name}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 p-0 hover:bg-transparent"
+                            onClick={handleRemoveAttachment}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -709,11 +811,12 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                            onClick={() => fileInputRef.current?.click()}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Attach file</TooltipContent>
+                        <TooltipContent>Attach CSV file</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
