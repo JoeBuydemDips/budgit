@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Send,
   Sparkles,
@@ -60,15 +62,23 @@ export function InsightsView({
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const historyLoadedRef = useRef(false)
+  const streamingMessageIdRef = useRef<string | null>(null)
 
-  // Load chat history and settings on mount
+  // Load chat history and settings on mount (only once)
   useEffect(() => {
+    if (historyLoadedRef.current) return
+    historyLoadedRef.current = true
     const loadData = async (): Promise<void> => {
       const [history, settings] = await Promise.all([
         window.api.getChatHistory(),
         window.api.getSettings()
       ])
-      setMessages(history)
+      // Deduplicate messages by ID (just in case)
+      const uniqueMessages = Array.from(
+        new Map(history.map((msg) => [msg.id, msg])).values()
+      )
+      setMessages(uniqueMessages)
       setHasApiKey(!!settings.claudeApiKey)
       setContextMonths(settings.aiContextMonths || 3)
     }
@@ -87,16 +97,20 @@ export function InsightsView({
     })
 
     const unsubEnd = window.api.onChatStreamEnd(() => {
+      // Only process if we have a streaming message and haven't saved it yet
+      if (!streamingMessageIdRef.current) return
+      
       setStreamingContent((prev) => {
-        if (prev) {
+        if (prev && streamingMessageIdRef.current) {
           const assistantMessage: ChatMessage = {
-            id: uuidv4(),
+            id: streamingMessageIdRef.current,
             role: 'assistant',
             content: prev,
             timestamp: new Date().toISOString()
           }
           setMessages((msgs) => [...msgs, assistantMessage])
           window.api.saveChatMessage(assistantMessage)
+          streamingMessageIdRef.current = null // Clear to prevent duplicates
         }
         return ''
       })
@@ -133,6 +147,7 @@ export function InsightsView({
       setInputValue('')
       setIsLoading(true)
       setStreamingContent('')
+      streamingMessageIdRef.current = uuidv4() // Generate ID for the incoming message
 
       // Build message history for context
       const messageHistory = [...messages, userMessage].map((m) => ({
@@ -159,6 +174,7 @@ export function InsightsView({
     setMessages([])
     setStreamingContent('')
     setError(null)
+    historyLoadedRef.current = true // Keep it loaded (just empty now)
   }
 
   // API key not configured state
@@ -274,7 +290,9 @@ export function InsightsView({
                   <Sparkles className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <div className="flex-1 bg-muted rounded-2xl rounded-tl-md px-4 py-3 max-w-[85%]">
-                  <p className="text-sm whitespace-pre-wrap">{streamingContent}</p>
+                  <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
+                  </div>
                   <span className="inline-block w-2 h-4 bg-primary/50 animate-pulse ml-0.5" />
                 </div>
               </div>
@@ -371,7 +389,13 @@ function MessageBubble({ message }: { message: ChatMessage }): React.JSX.Element
             : 'bg-muted rounded-tl-md'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        {isUser ? (
+          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   )
