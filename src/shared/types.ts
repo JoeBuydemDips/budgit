@@ -62,7 +62,11 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   currency: string
   currencySymbol: string
+  claudeApiKey: string
+  aiContextMonths: AiContextMonths
 }
+
+export type AiContextMonths = 1 | 3 | 6 | 12 | 'all'
 
 export interface LearnedCategoryMapping {
   merchantName: string
@@ -77,6 +81,8 @@ export interface StoreSchema {
   transactions: Transaction[]
   settings: AppSettings
   learnedMappings: LearnedCategoryMapping[]
+  chatSessions: ChatSession[]
+  currentSessionId: string | null
 }
 
 // Default categories following EveryDollar / zero-based budgeting principles
@@ -119,5 +125,23 @@ export const DEFAULT_CATEGORIES: Category[] = [
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   currency: 'USD',
-  currencySymbol: '$'
+  currencySymbol: '$',
+  claudeApiKey: '',
+  aiContextMonths: 3
+}
+
+// AI Chat types
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string // ISO date
+}
+
+export interface ChatSession {
+  id: string
+  title: string // Auto-generated from first message
+  messages: ChatMessage[]
+  createdAt: string // ISO date
+  lastUpdated: string // ISO date
 }

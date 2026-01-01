@@ -293,7 +293,7 @@ export function BudgetView({
             </p>
           ) : (
             <p>
-              You're over budget by <strong>{formatCurrency(Math.abs(leftToBudget))}</strong>.
+              You&apos;re over budget by <strong>{formatCurrency(Math.abs(leftToBudget))}</strong>.
               Reduce some category amounts.
             </p>
           )}
@@ -330,7 +330,7 @@ export function BudgetView({
           <CardContent className="space-y-4">
             {group.categories.length === 0 && (
               <div className="text-center py-4 text-sm text-muted-foreground italic">
-                No categories yet. Click "Add {group.label}" to start.
+                No categories yet. Click &quot;Add {group.label}&quot; to start.
               </div>
             )}
             {group.categories.map((cat, index) => (
@@ -368,7 +368,9 @@ export function BudgetView({
           <DialogHeader>
             <DialogTitle>Delete Category</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will remove the category and all its allocations from all budgets. This action cannot be undone.
+              Are you sure you want to permanently delete &quot;{categoryToDelete?.name}&quot;? This
+              will remove the category and all its allocations from all budgets. This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -395,9 +397,7 @@ export function BudgetView({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Category</DialogTitle>
-            <DialogDescription>
-              Create a new category to track your spending.
-            </DialogDescription>
+            <DialogDescription>Create a new category to track your spending.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

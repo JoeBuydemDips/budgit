@@ -41,7 +41,9 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
       return (
         <div className="p-8">
           <h2 className="text-lg font-bold mb-2">Something went wrong</h2>
-          <p className="text-sm text-muted-foreground mb-4">An unexpected error occurred. Please try again.</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            An unexpected error occurred. Please try again.
+          </p>
 
           {isDev && this.state.error && (
             <div className="mb-4">
@@ -53,7 +55,9 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
                 Copy Error
               </Button>
               {this.state.showDetails && (
-                <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto">{this.state.error.stack}</pre>
+                <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto">
+                  {this.state.error.stack}
+                </pre>
               )}
             </div>
           )}

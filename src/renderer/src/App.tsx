@@ -22,7 +22,14 @@ function App(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
-  const { categories, refresh: refreshCategories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories()
+  const {
+    categories,
+    refresh: refreshCategories,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    reorderCategories
+  } = useCategories()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
@@ -70,7 +77,9 @@ function App(): React.JSX.Element {
   }
 
   // Wrap budget update functions to also refresh the budgets index for Insights
-  const handleUpdateIncomeSources = async (incomeSources: Parameters<typeof updateIncomeSources>[0]) => {
+  const handleUpdateIncomeSources = async (
+    incomeSources: Parameters<typeof updateIncomeSources>[0]
+  ) => {
     await updateIncomeSources(incomeSources)
     await refreshBudgets() // Keep insights in sync
   }
@@ -123,67 +132,78 @@ function App(): React.JSX.Element {
         />
 
         <ErrorBoundary>
-        <div className="flex flex-1 flex-col relative">
-          <Header
-            currentMonth={currentMonth}
-            onPreviousMonth={goToPreviousMonth}
-            onNextMonth={goToNextMonth}
-            onOpenBudgets={() => setShowBudgetManager(true)}
-            showMonthNav={currentView !== 'insights' && currentView !== 'settings'}
-          />
-
-          <main className="flex-1 overflow-hidden">
-            {currentView === 'budget' ? (
-              <BudgetView
-                budget={budget}
-                categories={categories}
-                transactions={transactions}
-                loading={budgetLoading}
+          <div className="flex flex-1 flex-col relative">
+            {currentView !== 'insights' && (
+              <Header
                 currentMonth={currentMonth}
-                onCreateBudget={createBudget}
-                onUpdateAllocation={handleUpdateAllocation}
-                onUpdateIncomeSources={handleUpdateIncomeSources}
-                onAddCategory={addCategory}
-                onUpdateCategory={updateCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onReorderCategories={reorderCategories}
-                onAddTransaction={handleAddTransaction}
-                onUpdateTransaction={handleUpdateTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
+                onPreviousMonth={goToPreviousMonth}
+                onNextMonth={goToNextMonth}
+                onOpenBudgets={() => setShowBudgetManager(true)}
+                showMonthNav={currentView !== 'settings'}
               />
-            ) : (
-            <div className="container mx-auto max-w-7xl p-4 md:p-8 pb-24 md:pb-8 space-y-8 overflow-y-auto h-full">
-              {currentView === 'dashboard' && (
-                <Dashboard
+            )}
+
+            <main className="flex-1 overflow-hidden">
+              {currentView === 'budget' ? (
+                <BudgetView
                   budget={budget}
                   categories={categories}
                   transactions={transactions}
                   loading={budgetLoading}
                   currentMonth={currentMonth}
                   onCreateBudget={createBudget}
-                  onAddTransaction={handleAddTransaction}
-                />
-              )}
-              {currentView === 'transactions' && (
-                <TransactionsView
-                  transactions={transactions}
-                  categories={categories}
-                  currentMonth={currentMonth}
+                  onUpdateAllocation={handleUpdateAllocation}
+                  onUpdateIncomeSources={handleUpdateIncomeSources}
+                  onAddCategory={addCategory}
+                  onUpdateCategory={updateCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  onReorderCategories={reorderCategories}
                   onAddTransaction={handleAddTransaction}
                   onUpdateTransaction={handleUpdateTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
                 />
+              ) : currentView === 'insights' ? (
+                <InsightsView
+                  budgets={budgets}
+                  categories={categories}
+                  onNavigateToSettings={() => setCurrentView('settings')}
+                />
+              ) : (
+                <div className="container mx-auto max-w-7xl p-4 md:p-8 pb-24 md:pb-8 space-y-8 overflow-y-auto h-full">
+                  {currentView === 'dashboard' && (
+                    <Dashboard
+                      budget={budget}
+                      categories={categories}
+                      transactions={transactions}
+                      loading={budgetLoading}
+                      currentMonth={currentMonth}
+                      onCreateBudget={createBudget}
+                      onAddTransaction={handleAddTransaction}
+                    />
+                  )}
+                  {currentView === 'transactions' && (
+                    <TransactionsView
+                      transactions={transactions}
+                      categories={categories}
+                      currentMonth={currentMonth}
+                      onAddTransaction={handleAddTransaction}
+                      onUpdateTransaction={handleUpdateTransaction}
+                      onDeleteTransaction={handleDeleteTransaction}
+                    />
+                  )}
+                  {currentView === 'settings' && (
+                    <SettingsView
+                      categories={categories}
+                      onRefreshCategories={refreshCategories}
+                      onRefreshBudgets={refreshBudgets}
+                      onRefreshBudget={refreshBudget}
+                      onRefreshTransactions={refreshTransactions}
+                    />
+                  )}
+                </div>
               )}
-              {currentView === 'insights' && (
-                <InsightsView budgets={budgets} categories={categories} />
-              )}
-              {currentView === 'settings' && (
-                <SettingsView categories={categories} onRefreshCategories={refreshCategories} onRefreshBudgets={refreshBudgets} onRefreshBudget={refreshBudget} onRefreshTransactions={refreshTransactions} />
-              )}
-            </div>
-            )}
-          </main>
-        </div>
+            </main>
+          </div>
         </ErrorBoundary>
       </div>
 

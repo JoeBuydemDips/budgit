@@ -6,7 +6,10 @@ import type {
   AppSettings,
   Transaction,
   Budget,
-  CategoryAllocation
+  CategoryAllocation,
+  ChatMessage,
+  ChatSession,
+  AiContextMonths
 } from '../shared/types'
 
 // Budget API for renderer
@@ -136,7 +139,46 @@ const budgetApi = {
       card?: string
     }>
     errors: { row: number; message: string }[]
-  }> => ipcRenderer.invoke('csv:parseTransactions', csvContent, options)
+  }> => ipcRenderer.invoke('csv:parseTransactions', csvContent, options),
+
+  // AI Chat
+  getSessions: (): Promise<ChatSession[]> => ipcRenderer.invoke('ai:getSessions'),
+  getCurrentSessionId: (): Promise<string | null> => ipcRenderer.invoke('ai:getCurrentSessionId'),
+  createSession: (): Promise<ChatSession> => ipcRenderer.invoke('ai:createSession'),
+  getSession: (sessionId: string): Promise<ChatSession | null> =>
+    ipcRenderer.invoke('ai:getSession', sessionId),
+  setCurrentSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke('ai:setCurrentSession', sessionId),
+  saveChatMessage: (sessionId: string, message: ChatMessage): Promise<void> =>
+    ipcRenderer.invoke('ai:saveChatMessage', sessionId, message),
+  renameSession: (sessionId: string, newTitle: string): Promise<void> =>
+    ipcRenderer.invoke('ai:renameSession', sessionId, newTitle),
+  deleteSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke('ai:deleteSession', sessionId),
+  clearAllSessions: (): Promise<void> => ipcRenderer.invoke('ai:clearAllSessions'),
+  sendChatMessage: (
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    contextMonths: AiContextMonths
+  ): void => {
+    ipcRenderer.send('ai:chat-stream', { messages, contextMonths })
+  },
+  onChatStreamChunk: (callback: (data: { text: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { text: string }): void =>
+      callback(data)
+    ipcRenderer.on('ai:chat-stream-chunk', handler)
+    return () => ipcRenderer.removeListener('ai:chat-stream-chunk', handler)
+  },
+  onChatStreamEnd: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('ai:chat-stream-end', handler)
+    return () => ipcRenderer.removeListener('ai:chat-stream-end', handler)
+  },
+  onChatStreamError: (callback: (data: { error: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { error: string }): void =>
+      callback(data)
+    ipcRenderer.on('ai:chat-stream-error', handler)
+    return () => ipcRenderer.removeListener('ai:chat-stream-error', handler)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

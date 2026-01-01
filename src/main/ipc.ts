@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { writeFile, readFile } from 'fs/promises'
+import Anthropic from '@anthropic-ai/sdk'
 import {
   getSettings,
   updateSettings,
@@ -31,7 +32,16 @@ import {
   importTransactions,
   importCategories,
   ImportResult,
-  ImportCategoriesResult
+  ImportCategoriesResult,
+  getChatSessions,
+  getCurrentSessionId,
+  createChatSession,
+  getChatSession,
+  setCurrentSession,
+  saveChatMessage,
+  renameChatSession,
+  deleteChatSession,
+  clearAllChatSessions
 } from './store'
 import {
   generateBudgetsCSV,
@@ -43,6 +53,7 @@ import {
   CsvFormat
 } from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
+import type { ChatMessage, AiContextMonths } from '../shared/types'
 
 export function registerIpcHandlers(): void {
   // ============== Settings ==============
@@ -396,4 +407,190 @@ export function registerIpcHandlers(): void {
       }
     }
   )
+
+  // ============== AI Chat ==============
+  ipcMain.handle('ai:getSessions', () => {
+    return getChatSessions()
+  })
+
+  ipcMain.handle('ai:getCurrentSessionId', () => {
+    return getCurrentSessionId()
+  })
+
+  ipcMain.handle('ai:createSession', () => {
+    return createChatSession()
+  })
+
+  ipcMain.handle('ai:getSession', (_, sessionId: string) => {
+    return getChatSession(sessionId)
+  })
+
+  ipcMain.handle('ai:setCurrentSession', (_, sessionId: string) => {
+    setCurrentSession(sessionId)
+  })
+
+  ipcMain.handle('ai:saveChatMessage', (_, sessionId: string, message: ChatMessage) => {
+    saveChatMessage(sessionId, message)
+  })
+
+  ipcMain.handle('ai:renameSession', (_, sessionId: string, newTitle: string) => {
+    renameChatSession(sessionId, newTitle)
+  })
+
+  ipcMain.handle('ai:deleteSession', (_, sessionId: string) => {
+    deleteChatSession(sessionId)
+  })
+
+  ipcMain.handle('ai:clearAllSessions', () => {
+    clearAllChatSessions()
+  })
+
+  // Streaming chat handler
+  ipcMain.on(
+    'ai:chat-stream',
+    async (
+      event,
+      {
+        messages,
+        contextMonths
+      }: {
+        messages: { role: 'user' | 'assistant'; content: string }[]
+        contextMonths: AiContextMonths
+      }
+    ) => {
+      const settings = getSettings()
+      const apiKey = settings.claudeApiKey
+
+      if (!apiKey) {
+        event.sender.send('ai:chat-stream-error', { error: 'API key not configured' })
+        return
+      }
+
+      try {
+        // Build context from budget data
+        const categories = getCategories()
+        const allBudgets = getBudgetsWithSpent()
+        const allTransactions = getTransactions()
+
+        // Filter by context months
+        let filteredBudgets = allBudgets
+        let filteredTransactions = allTransactions
+
+        if (contextMonths !== 'all') {
+          const now = new Date()
+          const cutoffDate = new Date(now.getFullYear(), now.getMonth() - contextMonths, 1)
+          const cutoffMonth = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}`
+
+          filteredBudgets = allBudgets.filter((b) => b.month >= cutoffMonth)
+          filteredTransactions = allTransactions.filter((t) => t.budgetMonth >= cutoffMonth)
+        }
+
+        // Build system prompt with budget context
+        const systemPrompt = buildSystemPrompt(
+          categories,
+          filteredBudgets,
+          filteredTransactions,
+          settings.currencySymbol
+        )
+
+        const client = new Anthropic({ apiKey })
+
+        const stream = await client.messages.stream({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content
+          }))
+        })
+
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            event.sender.send('ai:chat-stream-chunk', { text: chunk.delta.text })
+          }
+        }
+
+        event.sender.send('ai:chat-stream-end', {})
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        event.sender.send('ai:chat-stream-error', { error: errorMessage })
+      }
+    }
+  )
+}
+
+// Build system prompt with budget context for Budgit AI
+function buildSystemPrompt(
+  categories: Category[],
+  budgets: ReturnType<typeof getBudgetsWithSpent>,
+  transactions: Transaction[],
+  currencySymbol: string
+): string {
+  const categoryList = categories.map((c) => `- ${c.name} (${c.type})`).join('\n')
+
+  // Summarize budgets
+  const budgetSummaries = budgets
+    .slice(-6) // Last 6 months max
+    .map((b) => {
+      const totalPlanned = b.allocations.reduce((sum, a) => sum + a.planned, 0)
+      const totalSpent = b.allocations.reduce((sum, a) => sum + a.spent, 0)
+      return `${b.month}: Income ${currencySymbol}${b.incomeTotal.toFixed(2)}, Planned ${currencySymbol}${totalPlanned.toFixed(2)}, Spent ${currencySymbol}${totalSpent.toFixed(2)}`
+    })
+    .join('\n')
+
+  // Summarize spending by category for the most recent month
+  const recentBudget = budgets[budgets.length - 1]
+  let categoryBreakdown = ''
+  if (recentBudget) {
+    categoryBreakdown = recentBudget.allocations
+      .filter((a) => a.planned > 0 || a.spent > 0)
+      .map((a) => {
+        const cat = categories.find((c) => c.id === a.categoryId)
+        return `- ${cat?.name || 'Unknown'}: Planned ${currencySymbol}${a.planned.toFixed(2)}, Spent ${currencySymbol}${a.spent.toFixed(2)}`
+      })
+      .join('\n')
+  }
+
+  // Transaction count and recent transactions
+  const recentTransactions = transactions
+    .slice(-10)
+    .map((t) => {
+      const cat = categories.find((c) => c.id === t.categoryId)
+      return `- ${t.date}: ${t.description} - ${currencySymbol}${t.amount.toFixed(2)} (${cat?.name || 'Unknown'})`
+    })
+    .join('\n')
+
+  return `You are Budgit, a friendly and knowledgeable personal finance assistant built into the Budgit budgeting app. You help users understand their spending, track their budget goals, and provide actionable financial insights.
+
+Your personality:
+- Warm, encouraging, and supportive
+- Use clear, simple language (avoid jargon)
+- Celebrate wins and be gentle with areas for improvement
+- Provide specific, actionable advice
+- Reference their actual data when answering questions
+
+The user's currency symbol is: ${currencySymbol}
+
+BUDGET CATEGORIES:
+${categoryList}
+
+MONTHLY BUDGET SUMMARIES (most recent months):
+${budgetSummaries || 'No budget data available yet.'}
+
+CURRENT MONTH CATEGORY BREAKDOWN:
+${categoryBreakdown || 'No allocations yet.'}
+
+RECENT TRANSACTIONS:
+${recentTransactions || 'No transactions recorded yet.'}
+
+When answering:
+1. Reference specific numbers from their data
+2. Identify trends (increasing/decreasing spending)
+3. Compare planned vs actual spending
+4. Highlight categories that are over or under budget
+5. Provide practical tips for improvement
+6. Be encouraging about progress
+
+If the user asks about something you don't have data for, let them know what information would help and suggest they add it to their budget.`
 }

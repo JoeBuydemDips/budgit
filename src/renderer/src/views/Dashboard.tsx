@@ -73,15 +73,15 @@ export function Dashboard({
     if (!transactions || !transactions.length) return []
 
     const spendingByDay: Record<string, number> = {}
-    
+
     // Parse the currentMonth to get the correct month/year
     const monthDate = parseMonthKey(currentMonth)
     const year = monthDate.getFullYear()
     const month = monthDate.getMonth()
-    
+
     const today = new Date()
     const startOfMonth = new Date(year, month, 1)
-    
+
     // Determine the end date: either today (if viewing current month) or end of the selected month
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
     const endOfMonth = isCurrentMonth ? today : new Date(year, month + 1, 0) // Last day of selected month
@@ -151,7 +151,7 @@ export function Dashboard({
         const planned = allocation?.planned || 0
         // If no budget set but there's spending, show as 100% (over budget)
         // If budget is set, calculate actual percentage
-        const percentage = planned > 0 ? (spent / planned) * 100 : (spent > 0 ? 100 : 0)
+        const percentage = planned > 0 ? (spent / planned) * 100 : spent > 0 ? 100 : 0
         return {
           ...cat,
           planned,
@@ -284,7 +284,9 @@ export function Dashboard({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(budget.incomeTotal)}</div>
+            <div className="text-xl lg:text-2xl font-bold">
+              {formatCurrency(budget.incomeTotal)}
+            </div>
             <div className="flex items-center gap-1 mt-1">
               <ArrowUpRight className="h-3 w-3 text-green-600" />
               <span className="text-xs text-muted-foreground">Monthly income</span>
@@ -504,12 +506,7 @@ export function Dashboard({
                       <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                   <YAxis hide />
                   <Tooltip
                     formatter={(value) => [formatCurrency(value as number), 'Spent']}
@@ -594,7 +591,11 @@ export function Dashboard({
               <CardTitle className="text-lg">Recent Transactions</CardTitle>
               <CardDescription>Latest activity</CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShowAddTransaction(true)} className="w-full sm:w-auto">
+            <Button
+              size="sm"
+              onClick={() => setShowAddTransaction(true)}
+              className="w-full sm:w-auto"
+            >
               <Plus className="h-4 w-4 mr-1" />
               Add
             </Button>
@@ -649,8 +650,13 @@ export function Dashboard({
                           })}
                         </p>
                       </div>
-                      <span className="font-medium text-sm text-red-600 flex-shrink-0">
-                        -{formatCurrency(txn.amount)}
+                      <span
+                        className={`font-semibold text-sm tabular-nums flex-shrink-0 ${
+                          txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                        }`}
+                      >
+                        {txn.amount >= 0 ? '-' : '+'}
+                        {formatCurrency(Math.abs(txn.amount))}
                       </span>
                     </div>
                   )

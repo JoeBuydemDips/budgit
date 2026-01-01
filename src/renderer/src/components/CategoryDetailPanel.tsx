@@ -20,7 +20,12 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { cn, formatCurrency } from '@/lib/utils'
-import type { Category, Transaction, CategoryType, LearnedCategoryMapping } from '../../../shared/types'
+import type {
+  Category,
+  Transaction,
+  CategoryType,
+  LearnedCategoryMapping
+} from '../../../shared/types'
 import { CATEGORY_TYPE_COLORS } from '../../../shared/types'
 import { AddTransactionDialog } from './AddTransactionDialog'
 
@@ -109,11 +114,14 @@ export function CategoryDetailPanel({
 
   // Available transactions that can be assigned to this category (from uncategorized)
   const availableTransactions = transactions
-    .filter((t) => t && t.budgetMonth === currentMonth && (
-      !t.categoryId || 
-      t.categoryId === uncategorizedCategory?.id || 
-      !categories.find(c => c.id === t.categoryId)
-    ))
+    .filter(
+      (t) =>
+        t &&
+        t.budgetMonth === currentMonth &&
+        (!t.categoryId ||
+          t.categoryId === uncategorizedCategory?.id ||
+          !categories.find((c) => c.id === t.categoryId))
+    )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // Filtered available transactions based on search
@@ -128,10 +136,9 @@ export function CategoryDetailPanel({
   })
 
   const safeToSpend = category.planned + category.carryover - category.spent
-  const headerColor = (TYPE_COLORS as any)[category?.type] || '#6B7280'
-  const spentPercentage = category.planned > 0 
-    ? Math.min((category.spent / category.planned) * 100, 100) 
-    : 0
+  const headerColor = (TYPE_COLORS as Record<string, string>)[category?.type] || '#6B7280'
+  const spentPercentage =
+    category.planned > 0 ? Math.min((category.spent / category.planned) * 100, 100) : 0
 
   const handleAssignTransactions = async (): Promise<void> => {
     if (selectedTransactionIds.length === 0) return
@@ -177,7 +184,7 @@ export function CategoryDetailPanel({
       {/* Colored Header */}
       <div
         className="relative px-6 pt-6 pb-8 text-white"
-        style={{ 
+        style={{
           background: `linear-gradient(135deg, ${headerColor} 0%, ${headerColor}dd 100%)`
         }}
       >
@@ -197,11 +204,11 @@ export function CategoryDetailPanel({
               {formatCurrency(category.spent)} of {formatCurrency(category.planned)} spent
             </p>
           </div>
-          
+
           {/* Progress bar */}
           <div className="space-y-2">
             <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-white rounded-full transition-all duration-300"
                 style={{ width: `${spentPercentage}%` }}
               />
@@ -210,9 +217,7 @@ export function CategoryDetailPanel({
 
           <div className="flex items-baseline justify-between pt-2">
             <span className="text-white/70 text-sm">Available</span>
-            <span className="text-3xl font-bold tracking-tight">
-              {formatCurrency(safeToSpend)}
-            </span>
+            <span className="text-3xl font-bold tracking-tight">{formatCurrency(safeToSpend)}</span>
           </div>
         </div>
       </div>
@@ -223,7 +228,7 @@ export function CategoryDetailPanel({
         <div className="p-4 space-y-2">
           <Button
             className="w-full h-12 gap-2 text-base font-medium"
-            style={{ 
+            style={{
               backgroundColor: `${headerColor}15`,
               color: headerColor,
               borderColor: `${headerColor}30`
@@ -351,9 +356,7 @@ export function CategoryDetailPanel({
                     <p className="font-medium text-sm truncate">
                       {tx.description || category.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(tx.date)}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDate(tx.date)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-red-500 tabular-nums">
@@ -380,9 +383,7 @@ export function CategoryDetailPanel({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Remaining Budget</p>
-            <p className="text-sm text-muted-foreground">
-              {Math.round(spentPercentage)}% spent
-            </p>
+            <p className="text-sm text-muted-foreground">{Math.round(spentPercentage)}% spent</p>
           </div>
           <span
             className={cn(
@@ -408,12 +409,13 @@ export function CategoryDetailPanel({
 
       {/* Add Transactions Dialog */}
       <Dialog open={showAddTransactions} onOpenChange={setShowAddTransactions}>
-        <DialogContent className="sm:max-w-2xl" style={{ maxHeight: '90vh', maxWidth: '90vw', overflow: 'auto', padding: '1rem' }}>
+        <DialogContent
+          className="sm:max-w-2xl"
+          style={{ maxHeight: '90vh', maxWidth: '90vw', overflow: 'auto', padding: '1rem' }}
+        >
           <DialogHeader>
             <DialogTitle>Add Transactions to {category.name}</DialogTitle>
-            <DialogDescription>
-              Select transactions to assign to this category
-            </DialogDescription>
+            <DialogDescription>Select transactions to assign to this category</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -444,10 +446,15 @@ export function CategoryDetailPanel({
             )}
 
             {/* Transaction List */}
-            <div className="max-h-64 overflow-y-auto border rounded-md" style={{ padding: '0.5rem' }}>
+            <div
+              className="max-h-64 overflow-y-auto border rounded-md"
+              style={{ padding: '0.5rem' }}
+            >
               {filteredAvailableTransactions.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  {searchQuery ? 'No transactions match your search' : 'No available transactions to assign'}
+                  {searchQuery
+                    ? 'No transactions match your search'
+                    : 'No available transactions to assign'}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -461,17 +468,19 @@ export function CategoryDetailPanel({
                         />
                         {/* Description & Category */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {txn.description || 'Transaction'}
-                          </p>
+                          <p className="font-medium truncate">{txn.description || 'Transaction'}</p>
                           <Badge
                             variant="secondary"
                             className="mt-1 text-xs font-normal"
                             style={{
-                              backgroundColor: category && category.name !== 'Uncategorized'
-                                ? `${CATEGORY_TYPE_COLORS[category.type]}20`
-                                : undefined,
-                              color: category && category.name !== 'Uncategorized' ? CATEGORY_TYPE_COLORS[category.type] : undefined
+                              backgroundColor:
+                                category && category.name !== 'Uncategorized'
+                                  ? `${CATEGORY_TYPE_COLORS[category.type]}20`
+                                  : undefined,
+                              color:
+                                category && category.name !== 'Uncategorized'
+                                  ? CATEGORY_TYPE_COLORS[category.type]
+                                  : undefined
                             }}
                           >
                             {category?.name || 'Uncategorized'}
@@ -479,10 +488,13 @@ export function CategoryDetailPanel({
                         </div>
                         {/* Amount */}
                         <div className="text-right flex-shrink-0">
-                          <p className={`font-semibold tabular-nums ${
-                            txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
-                          }`}>
-                            {txn.amount >= 0 ? '-' : '+'}{formatCurrency(Math.abs(txn.amount || 0))}
+                          <p
+                            className={`font-semibold tabular-nums ${
+                              txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                            }`}
+                          >
+                            {txn.amount >= 0 ? '-' : '+'}
+                            {formatCurrency(Math.abs(txn.amount || 0))}
                           </p>
                         </div>
                       </div>
@@ -495,10 +507,7 @@ export function CategoryDetailPanel({
             {/* Category Info */}
             <div className="bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: headerColor }}
-                />
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: headerColor }} />
                 <span className="font-medium">Assigning to: {category.name}</span>
               </div>
             </div>
@@ -513,7 +522,8 @@ export function CategoryDetailPanel({
               disabled={selectedTransactionIds.length === 0 || assigning}
             >
               <Check className="h-4 w-4 mr-2" />
-              Assign {selectedTransactionIds.length} Transaction{selectedTransactionIds.length !== 1 ? 's' : ''}
+              Assign {selectedTransactionIds.length} Transaction
+              {selectedTransactionIds.length !== 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>

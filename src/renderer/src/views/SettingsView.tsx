@@ -10,15 +10,14 @@ import {
   XCircle,
   Search,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Sparkles
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -39,7 +38,7 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { formatMonth, parseMonthKey } from '@/lib/utils'
-import type { Budget, Category, CategoryType } from '../../../shared/types'
+import type { Budget, Category, CategoryType, AiContextMonths } from '../../../shared/types'
 
 interface SettingsViewProps {
   categories: Category[]
@@ -95,12 +94,28 @@ export function SettingsView({
   const [targetMonth, setTargetMonth] = useState<string>('')
   const [csvFormat, setCsvFormat] = useState<string>('budgit')
 
+  // AI Assistant settings
+  const [claudeApiKey, setClaudeApiKey] = useState('')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [aiContextMonths, setAiContextMonths] = useState<AiContextMonths>(3)
+  const [aiSettingsLoaded, setAiSettingsLoaded] = useState(false)
+  const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false)
+
   // Load budgets when export/import dialog opens
   useEffect(() => {
     if (exportDialogType === 'budgets' || importDialogType) {
       window.api.getBudgets().then(setBudgets)
     }
   }, [exportDialogType, importDialogType])
+
+  // Load AI settings on mount
+  useEffect(() => {
+    window.api.getSettings().then((settings) => {
+      setClaudeApiKey(settings.claudeApiKey || '')
+      setAiContextMonths(settings.aiContextMonths || 3)
+      setAiSettingsLoaded(true)
+    })
+  }, [])
 
   // Auto-dismiss feedback after 5 seconds
   useEffect(() => {
@@ -119,7 +134,8 @@ export function SettingsView({
 
     const searchLower = searchTerm.toLowerCase()
     const categoryName = category.name.toLowerCase()
-    const categoryTypeLabel = CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
+    const categoryTypeLabel =
+      CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
 
     return categoryName.includes(searchLower) || categoryTypeLabel.includes(searchLower)
   })
@@ -157,6 +173,136 @@ export function SettingsView({
         </CardContent>
       </Card>
 
+      {/* AI Assistant */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle>AI Assistant</CardTitle>
+              <CardDescription>Configure Budgit, your AI-powered budget assistant</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* API Key */}
+          <div className="space-y-2">
+            <Label htmlFor="claude-api-key">Claude API Key</Label>
+            <p className="text-sm text-muted-foreground">
+              Get your API key from{' '}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                console.anthropic.com
+              </a>
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="claude-api-key"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={claudeApiKey}
+                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  placeholder="sk-ant-..."
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await window.api.updateSettings({ claudeApiKey })
+                  setImportExportFeedback({
+                    type: 'success',
+                    message: 'API key saved successfully'
+                  })
+                }}
+                disabled={!aiSettingsLoaded}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+
+          {/* Context Depth */}
+          <div className="space-y-2">
+            <Label htmlFor="context-months">Context Depth</Label>
+            <p className="text-sm text-muted-foreground">
+              How many months of budget data to include when chatting with Budgit
+            </p>
+            <Select
+              value={String(aiContextMonths)}
+              onValueChange={async (value) => {
+                const months = value === 'all' ? 'all' : (parseInt(value) as AiContextMonths)
+                setAiContextMonths(months)
+                await window.api.updateSettings({ aiContextMonths: months })
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Last 1 month</SelectItem>
+                <SelectItem value="3">Last 3 months</SelectItem>
+                <SelectItem value="6">Last 6 months</SelectItem>
+                <SelectItem value="12">Last 12 months</SelectItem>
+                <SelectItem value="all">All data</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Clear Chat History */}
+          <div className="space-y-2">
+            <Label>Chat History</Label>
+            <p className="text-sm text-muted-foreground">
+              Clear your conversation history with Budgit
+            </p>
+            {clearHistoryConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Are you sure?</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={async () => {
+                    await window.api.clearAllSessions()
+                    setClearHistoryConfirm(false)
+                    setImportExportFeedback({
+                      type: 'success',
+                      message: 'Chat history cleared'
+                    })
+                  }}
+                >
+                  Yes, clear
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setClearHistoryConfirm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" onClick={() => setClearHistoryConfirm(true)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Chat History
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Categories */}
       <Card>
         <Collapsible open={categoriesExpanded} onOpenChange={setCategoriesExpanded}>
@@ -170,7 +316,11 @@ export function SettingsView({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => setShowAddCategory(true)} className="w-full sm:w-auto">
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddCategory(true)}
+                    className="w-full sm:w-auto"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Category
                   </Button>
@@ -185,62 +335,62 @@ export function SettingsView({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search categories by name or type..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search categories by name or type..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-          <div className="space-y-2">
-            {filteredCategories.map((category, index) => (
-              <div key={category.id}>
-                {index > 0 && <Separator className="my-2" />}
-                <div className="flex items-center justify-between py-2 group">
-                  <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
-                    <div>
-                      <p className="font-medium">{category.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {CATEGORY_TYPES.find((t) => t.value === category.type)?.label}
-                        {category.rolloverEnabled && ' • Rollover enabled'}
-                      </p>
+              <div className="space-y-2">
+                {filteredCategories.map((category, index) => (
+                  <div key={category.id}>
+                    {index > 0 && <Separator className="my-2" />}
+                    <div className="flex items-center justify-between py-2 group">
+                      <div className="flex items-center gap-3">
+                        <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
+                        <div>
+                          <p className="font-medium">{category.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {CATEGORY_TYPES.find((t) => t.value === category.type)?.label}
+                            {category.rolloverEnabled && ' • Rollover enabled'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingCategory(category)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => setDeleteConfirm(category.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingCategory(category)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-600 hover:text-red-700"
-                      onClick={() => setDeleteConfirm(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                ))}
+                {filteredCategories.length === 0 && searchTerm.trim() && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No categories found matching &quot;{searchTerm}&quot;</p>
+                    <p className="text-sm">Try searching by category name or type</p>
                   </div>
-                </div>
+                )}
               </div>
-            ))}
-            {filteredCategories.length === 0 && searchTerm.trim() && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No categories found matching "{searchTerm}"</p>
-                <p className="text-sm">Try searching by category name or type</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
+            </CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
@@ -351,7 +501,8 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Import Data</Label>
             <p className="text-sm text-muted-foreground">
-              Import budgets, transactions, or categories from CSV files. Duplicate transactions will be skipped.
+              Import budgets, transactions, or categories from CSV files. Duplicate transactions
+              will be skipped.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
@@ -432,7 +583,8 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Clean Up Orphaned Allocations</Label>
             <p className="text-sm text-muted-foreground">
-              Remove budget allocations for categories that no longer exist. This fixes calculation errors from previous bugs.
+              Remove budget allocations for categories that no longer exist. This fixes calculation
+              errors from previous bugs.
             </p>
             <Button
               variant="outline"
@@ -773,8 +925,7 @@ export function SettingsView({
                 setImportExportFeedback(null)
                 setImportDialogType(null)
                 try {
-                  const options =
-                    targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
+                  const options = targetMonth && targetMonth !== 'csv' ? { targetMonth } : undefined
                   const result = await window.api.importBudgetsCSV(options)
                   if (result.canceled) {
                     // User cancelled
@@ -823,8 +974,9 @@ export function SettingsView({
           <DialogHeader>
             <DialogTitle>Import Transactions</DialogTitle>
             <DialogDescription>
-              Import transactions from a CSV file. Expected format: Date (MM/DD/YYYY), Amount, Card (optional), Category (name), Description.
-              Unknown categories will be automatically created. Budget month will be inferred from dates if not specified.
+              Import transactions from a CSV file. Expected format: Date (MM/DD/YYYY), Amount, Card
+              (optional), Category (name), Description. Unknown categories will be automatically
+              created. Budget month will be inferred from dates if not specified.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -841,9 +993,12 @@ export function SettingsView({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {csvFormat === 'budgit' && 'Standard Budgit CSV format with Date, Amount, Category, Description columns'}
-                {csvFormat === 'credit_card' && 'Credit card statement: negative amounts become positive income'}
-                {csvFormat === 'debit_card' && 'Debit card statement: Transaction Type column determines income/expense'}
+                {csvFormat === 'budgit' &&
+                  'Standard Budgit CSV format with Date, Amount, Category, Description columns'}
+                {csvFormat === 'credit_card' &&
+                  'Credit card statement: negative amounts become positive income'}
+                {csvFormat === 'debit_card' &&
+                  'Debit card statement: Transaction Type column determines income/expense'}
               </p>
             </div>
             <div className="space-y-2">
@@ -888,7 +1043,9 @@ export function SettingsView({
                   if (csvFormat && csvFormat !== 'budgit') {
                     options.format = csvFormat
                   }
-                  const result = await window.api.importTransactionsCSV(Object.keys(options).length > 0 ? options : undefined)
+                  const result = await window.api.importTransactionsCSV(
+                    Object.keys(options).length > 0 ? options : undefined
+                  )
                   if (result.canceled) {
                     // User cancelled
                   } else if (result.success) {
@@ -1024,6 +1181,7 @@ function CategoryDialog({
               checked={rolloverEnabled}
               onChange={(e) => setRolloverEnabled(e.target.checked)}
               className="h-4 w-4 rounded border-input"
+              aria-label="Enable rollover for this category"
             />
             <Label htmlFor="rollover" className="text-sm font-normal">
               Enable rollover (carry unused funds to next month)

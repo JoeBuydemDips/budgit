@@ -1,649 +1,1041 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { v4 as uuidv4 } from 'uuid'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  Legend,
-  ReferenceLine
-} from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
-import {
+  Sparkles,
+  User,
+  Settings,
+  Loader2,
+  Trash2,
   TrendingUp,
-  TrendingDown,
-  Target,
-  AlertTriangle,
-  CheckCircle2,
   PiggyBank,
-  ArrowUpRight,
-  ArrowDownRight
+  Wallet,
+  HelpCircle,
+  MessageSquarePlus,
+  PanelRightClose,
+  PanelRight,
+  Pencil,
+  Check,
+  X,
+  Plus,
+  ArrowUp,
+  Paperclip
 } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
-import type { Budget, Category, CategoryType } from '../../../shared/types'
-
-const TYPE_COLORS: Record<CategoryType, string> = {
-  GIVING: '#10B981',
-  SAVINGS: '#3B82F6',
-  NEEDS: '#8B5CF6',
-  WANTS: '#F59E0B',
-  DEBT: '#EF4444',
-  FOOD: '#06B6D4',
-  MISC: '#6B7280'
-}
-
-const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  GIVING: 'Giving',
-  SAVINGS: 'Savings',
-  NEEDS: 'Housing & Utilities',
-  WANTS: 'Lifestyle',
-  DEBT: 'Debt',
-  FOOD: 'Food',
-  MISC: 'Miscellaneous'
-}
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { cn } from '@/lib/utils'
+import type {
+  Budget,
+  Category,
+  ChatMessage,
+  ChatSession,
+  AiContextMonths
+} from '../../../shared/types'
 
 interface InsightsViewProps {
   budgets: Budget[]
   categories: Category[]
+  onNavigateToSettings?: () => void
 }
 
-// Get short month name from month key
-function getShortMonth(monthKey: string): string {
-  const [, month] = monthKey.split('-').map(Number)
-  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1]
+const STARTER_QUESTIONS = [
+  {
+    icon: TrendingUp,
+    title: 'Where is my money going?',
+    description: 'Breakdown of spending by category'
+  },
+  {
+    icon: PiggyBank,
+    title: 'Am I on track this month?',
+    description: 'Compare planned vs actual spending'
+  },
+  {
+    icon: Wallet,
+    title: 'What can I cut back on?',
+    description: 'Find opportunities to save'
+  },
+  {
+    icon: HelpCircle,
+    title: 'Summarize my spending habits',
+    description: 'Overview of your financial patterns'
+  }
+]
+
+// Helper to get time-of-day greeting
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good Morning'
+  if (hour < 17) return 'Good Afternoon'
+  return 'Good Evening'
 }
 
-export function InsightsView({
-  budgets,
-  categories
-}: InsightsViewProps): React.JSX.Element {
-  // Get last 6 months of budgets for trends (sorted oldest to newest)
-  const recentBudgets = useMemo(() => {
-    return [...budgets].sort((a, b) => a.month.localeCompare(b.month)).slice(-6)
-  }, [budgets])
+// Helper to group sessions by date
+function groupSessionsByDate(sessions: ChatSession[]): Record<string, ChatSession[]> {
+  const groups: Record<string, ChatSession[]> = {
+    Today: [],
+    Yesterday: [],
+    'This Week': [],
+    'This Month': [],
+    Older: []
+  }
 
-  // Calculate total spending by category type across all budgets
-  const spendingByType = useMemo(() => {
-    const totals: Record<CategoryType, { planned: number; spent: number }> = {
-      GIVING: { planned: 0, spent: 0 },
-      SAVINGS: { planned: 0, spent: 0 },
-      NEEDS: { planned: 0, spent: 0 },
-      WANTS: { planned: 0, spent: 0 },
-      DEBT: { planned: 0, spent: 0 },
-      FOOD: { planned: 0, spent: 0 },
-      MISC: { planned: 0, spent: 0 }
-    }
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-    budgets.forEach((budget) => {
-      budget.allocations.forEach((alloc) => {
-        const category = categories.find((c) => c.id === alloc.categoryId)
-        if (category) {
-          totals[category.type].planned += alloc.planned
-          totals[category.type].spent += alloc.spent
-        }
-      })
-    })
-
-    return Object.entries(totals)
-      .map(([type, data]) => ({
-        name: CATEGORY_TYPE_LABELS[type as CategoryType],
-        type: type as CategoryType,
-        planned: data.planned,
-        spent: data.spent,
-        color: TYPE_COLORS[type as CategoryType]
-      }))
-      .filter((item) => item.planned > 0 || item.spent > 0)
-      .sort((a, b) => b.spent - a.spent)
-  }, [budgets, categories])
-
-  const totalPlanned = spendingByType.reduce((sum, item) => sum + item.planned, 0)
-  const totalSpent = spendingByType.reduce((sum, item) => sum + item.spent, 0)
-  const totalIncome = budgets.reduce((sum, b) => sum + b.incomeTotal, 0)
-  const totalSavings = spendingByType.find((s) => s.type === 'SAVINGS')?.spent || 0
-
-  // Monthly trend data - actual spending vs income over time
-  const monthlyTrends = useMemo(() => {
-    return recentBudgets.map((budget) => {
-      const spent = budget.allocations.reduce((sum, a) => sum + a.spent, 0)
-      const planned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
-      const received = budget.incomeSources?.reduce((sum, s) => sum + s.received, 0) || 0
-      const income = budget.incomeTotal
-      
-      // Calculate actual savings from SAVINGS category allocations
-      const savings = budget.allocations.reduce((sum, a) => {
-        const cat = categories.find((c) => c.id === a.categoryId)
-        return cat?.type === 'SAVINGS' ? sum + a.spent : sum
-      }, 0)
-
-      return {
-        month: getShortMonth(budget.month),
-        monthKey: budget.month,
-        income,
-        received,
-        planned,
-        spent,
-        savings,
-        savingsRate: income > 0 ? (savings / income) * 100 : 0
-      }
-    })
-  }, [recentBudgets, categories])
-
-  // Calculate budget adherence (how well you stick to your budget)
-  const budgetAdherence = useMemo(() => {
-    if (budgets.length === 0) return { overall: 0, categories: [] }
-
-    const categoryAdherence = categories.map((cat) => {
-      let catPlanned = 0
-      let catSpent = 0
-
-      budgets.forEach((budget) => {
-        const alloc = budget.allocations.find((a) => a.categoryId === cat.id)
-        if (alloc) {
-          catPlanned += alloc.planned
-          catSpent += alloc.spent
-        }
-      })
-
-      const adherence = catPlanned > 0 ? Math.min((catSpent / catPlanned) * 100, 200) : 0
-      const overBudget = catSpent > catPlanned
-
-      return {
-        id: cat.id,
-        name: cat.name,
-        type: cat.type,
-        planned: catPlanned,
-        spent: catSpent,
-        adherence,
-        overBudget,
-        difference: catSpent - catPlanned
-      }
-    })
-
-    const overall = totalPlanned > 0 ? Math.min((totalSpent / totalPlanned) * 100, 200) : 0
-
-    return {
-      overall,
-      categories: categoryAdherence
-        .filter((c) => c.planned > 0)
-        .sort((a, b) => b.difference - a.difference)
-    }
-  }, [budgets, categories, totalPlanned, totalSpent])
-
-  // Identify spending patterns and insights
-  const insights = useMemo(() => {
-    const results: Array<{
-      type: 'success' | 'warning' | 'info'
-      title: string
-      description: string
-    }> = []
-
-    if (monthlyTrends.length < 2) {
-      results.push({
-        type: 'info',
-        title: 'Building Your History',
-        description: 'Keep tracking for at least 2 months to see spending trends and personalized insights.'
-      })
-      return results
-    }
-
-    // Savings rate trend
-    const recentSavingsRates = monthlyTrends.slice(-3).map((m) => m.savingsRate)
-    const avgSavingsRate = recentSavingsRates.reduce((a, b) => a + b, 0) / recentSavingsRates.length
-
-    if (avgSavingsRate >= 20) {
-      results.push({
-        type: 'success',
-        title: 'Strong Savings Rate',
-        description: `You're saving ${avgSavingsRate.toFixed(0)}% of your income on average. Keep it up!`
-      })
-    } else if (avgSavingsRate >= 10) {
-      results.push({
-        type: 'info',
-        title: 'Savings Rate: Room to Grow',
-        description: `You're saving ${avgSavingsRate.toFixed(0)}% of income. Aim for 20% or more.`
-      })
-    } else if (avgSavingsRate > 0) {
-      results.push({
-        type: 'warning',
-        title: 'Low Savings Rate',
-        description: `Only saving ${avgSavingsRate.toFixed(0)}% of income. Try to cut lifestyle spending.`
-      })
-    }
-
-    // Spending trend
-    if (monthlyTrends.length >= 2) {
-      const lastMonth = monthlyTrends[monthlyTrends.length - 1]
-      const prevMonth = monthlyTrends[monthlyTrends.length - 2]
-
-      if (lastMonth.spent < prevMonth.spent) {
-        const decrease = ((prevMonth.spent - lastMonth.spent) / prevMonth.spent) * 100
-        results.push({
-          type: 'success',
-          title: 'Spending Decreased',
-          description: `You spent ${decrease.toFixed(0)}% less than last month. Great progress!`
-        })
-      } else if (lastMonth.spent > prevMonth.spent * 1.1) {
-        const increase = ((lastMonth.spent - prevMonth.spent) / prevMonth.spent) * 100
-        results.push({
-          type: 'warning',
-          title: 'Spending Increased',
-          description: `Spending jumped ${increase.toFixed(0)}% vs last month. Review your recent expenses.`
-        })
-      }
-    }
-
-    // Budget adherence insight
-    const overBudgetCategories = budgetAdherence.categories.filter(
-      (c) => c.overBudget && c.difference > 50
+  sessions.forEach((session) => {
+    const sessionDate = new Date(session.lastUpdated)
+    const sessionDay = new Date(
+      sessionDate.getFullYear(),
+      sessionDate.getMonth(),
+      sessionDate.getDate()
     )
-    if (overBudgetCategories.length > 0) {
-      const worstCategory = overBudgetCategories[0]
-      results.push({
-        type: 'warning',
-        title: 'Overspending Alert',
-        description: `"${worstCategory.name}" is ${formatCurrency(worstCategory.difference)} over budget.`
-      })
-    } else if (budgetAdherence.overall <= 100 && budgetAdherence.overall > 0) {
-      results.push({
-        type: 'success',
-        title: 'Budget On Track',
-        description: "You're staying within your planned budget. Excellent discipline!"
-      })
+
+    if (sessionDay >= today) {
+      groups['Today'].push(session)
+    } else if (sessionDay >= yesterday) {
+      groups['Yesterday'].push(session)
+    } else if (sessionDay >= weekAgo) {
+      groups['This Week'].push(session)
+    } else if (sessionDay >= monthAgo) {
+      groups['This Month'].push(session)
+    } else {
+      groups['Older'].push(session)
+    }
+  })
+
+  return groups
+}
+
+// Helper to format relative time
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  // For older dates, show the date
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+// Helper to format exact time for tooltip
+function formatExactTime(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React.JSX.Element {
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [inputValue, setInputValue] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [streamingContent, setStreamingContent] = useState('')
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null)
+  const [contextMonths, setContextMonths] = useState<AiContextMonths>(3)
+  const [error, setError] = useState<string | null>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const [deleteConfirmSession, setDeleteConfirmSession] = useState<ChatSession | null>(null)
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null)
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const sessionsLoadedRef = useRef(false)
+  const streamingMessageIdRef = useRef<string | null>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Responsive auto-collapse for smaller screens
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)')
+
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList): void => {
+      if (e.matches) {
+        setSidebarCollapsed(true)
+      }
     }
 
-    // Lifestyle spending check
-    const lifestyleType = spendingByType.find((s) => s.type === 'WANTS')
-    const needsType = spendingByType.find((s) => s.type === 'NEEDS')
-    if (lifestyleType && needsType && lifestyleType.spent > needsType.spent * 0.5) {
-      results.push({
-        type: 'info',
-        title: 'Lifestyle Check',
-        description: 'Your lifestyle spending is high relative to essentials. Consider if these align with your goals.'
-      })
+    // Check on mount
+    handleMediaChange(mediaQuery)
+
+    // Listen for changes
+    mediaQuery.addEventListener('change', handleMediaChange)
+    return () => mediaQuery.removeEventListener('change', handleMediaChange)
+  }, [])
+
+  // Keyboard shortcut to toggle sidebar (Cmd/Ctrl + \)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault()
+        setSidebarCollapsed((prev) => !prev)
+      }
     }
 
-    return results.slice(0, 4) // Limit to 4 insights
-  }, [monthlyTrends, budgetAdherence, spendingByType])
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
-  // Find categories with most variance (inconsistent spending)
-  const spendingVariance = useMemo(() => {
-    if (recentBudgets.length < 3) return []
+  // Focus edit input when editing starts
+  useEffect(() => {
+    if (editingSessionId && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+  }, [editingSessionId])
 
-    return categories
-      .map((cat) => {
-        const monthlyAmounts = recentBudgets
-          .map((b) => b.allocations.find((a) => a.categoryId === cat.id)?.spent || 0)
-          .filter((a) => a > 0)
+  // Create new chat session handler - defined early so it can be used in loadData
+  const createNewSession = useCallback(async (): Promise<void> => {
+    const newSession = await window.api.createSession()
+    setSessions((prev) => [...prev, newSession])
+    setCurrentSessionId(newSession.id)
+    setMessages([])
+    setStreamingContent('')
+    setError(null)
+  }, [])
 
-        if (monthlyAmounts.length < 2) return null
+  // Load sessions and settings on mount
+  useEffect(() => {
+    if (sessionsLoadedRef.current) return
+    sessionsLoadedRef.current = true
 
-        const avg = monthlyAmounts.reduce((a, b) => a + b, 0) / monthlyAmounts.length
-        const variance = monthlyAmounts.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / monthlyAmounts.length
-        const stdDev = Math.sqrt(variance)
-        const coeffOfVariation = avg > 0 ? (stdDev / avg) * 100 : 0
+    const loadData = async (): Promise<void> => {
+      const [loadedSessions, currentId, settings] = await Promise.all([
+        window.api.getSessions(),
+        window.api.getCurrentSessionId(),
+        window.api.getSettings()
+      ])
 
-        return {
-          name: cat.name,
-          type: cat.type,
-          avg,
-          stdDev,
-          coeffOfVariation,
-          isVariable: coeffOfVariation > 30
+      setSessions(loadedSessions)
+      setHasApiKey(!!settings.claudeApiKey)
+      setContextMonths(settings.aiContextMonths || 3)
+
+      // Load current session or create new one
+      if (currentId) {
+        const session = await window.api.getSession(currentId)
+        if (session) {
+          setCurrentSessionId(currentId)
+          setMessages(session.messages)
+        } else {
+          // Session was deleted, create new
+          await createNewSession()
         }
+      } else if (loadedSessions.length > 0) {
+        // Use most recent session
+        const recent = loadedSessions[loadedSessions.length - 1]
+        setCurrentSessionId(recent.id)
+        setMessages(recent.messages)
+        await window.api.setCurrentSession(recent.id)
+      } else {
+        // Create first session
+        await createNewSession()
+      }
+    }
+    loadData()
+  }, [createNewSession])
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, streamingContent])
+
+  // Set up streaming listeners
+  useEffect(() => {
+    const unsubChunk = window.api.onChatStreamChunk(({ text }) => {
+      setStreamingContent((prev) => prev + text)
+    })
+
+    const unsubEnd = window.api.onChatStreamEnd(() => {
+      if (!streamingMessageIdRef.current || !currentSessionId) return
+
+      setStreamingContent((prev) => {
+        if (prev && streamingMessageIdRef.current && currentSessionId) {
+          const assistantMessage: ChatMessage = {
+            id: streamingMessageIdRef.current,
+            role: 'assistant',
+            content: prev,
+            timestamp: new Date().toISOString()
+          }
+          setMessages((msgs) => [...msgs, assistantMessage])
+          window.api.saveChatMessage(currentSessionId, assistantMessage)
+          streamingMessageIdRef.current = null
+
+          // Reload sessions to update titles/timestamps
+          window.api.getSessions().then(setSessions)
+        }
+        return ''
       })
-      .filter((c) => c !== null && c.avg > 50)
-      .sort((a, b) => b!.coeffOfVariation - a!.coeffOfVariation)
-      .slice(0, 5) as Array<{
-        name: string
-        type: CategoryType
-        avg: number
-        stdDev: number
-        coeffOfVariation: number
-        isVariable: boolean
-      }>
-  }, [recentBudgets, categories])
+      setIsLoading(false)
+    })
 
-  // Calculate average monthly values
-  const avgMonthlyIncome = budgets.length > 0 ? totalIncome / budgets.length : 0
-  const avgMonthlySpent = budgets.length > 0 ? totalSpent / budgets.length : 0
-  const avgMonthlySavings = budgets.length > 0 ? totalSavings / budgets.length : 0
+    const unsubError = window.api.onChatStreamError(({ error: errMsg }) => {
+      setError(errMsg)
+      setStreamingContent('')
+      setIsLoading(false)
+    })
 
-  if (budgets.length === 0) {
+    return () => {
+      unsubChunk()
+      unsubEnd()
+      unsubError()
+    }
+  }, [currentSessionId])
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim() || isLoading || !currentSessionId) return
+
+      setError(null)
+
+      // Build message content with optional file attachment
+      let messageContent = content.trim()
+      if (attachedFile) {
+        messageContent = `${messageContent}\n\n---\n**Attached CSV file: ${attachedFile.name}**\n\`\`\`csv\n${attachedFile.content}\n\`\`\``
+      }
+
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content: messageContent,
+        timestamp: new Date().toISOString()
+      }
+
+      setMessages((prev) => [...prev, userMessage])
+      await window.api.saveChatMessage(currentSessionId, userMessage)
+      setInputValue('')
+      setAttachedFile(null) // Clear attachment after sending
+      setIsLoading(true)
+      setStreamingContent('')
+      streamingMessageIdRef.current = uuidv4()
+
+      // Reload sessions to update titles
+      window.api.getSessions().then(setSessions)
+
+      const messageHistory = [...messages, userMessage].map((m) => ({
+        role: m.role,
+        content: m.content
+      }))
+
+      window.api.sendChatMessage(messageHistory, contextMonths)
+    },
+    [messages, isLoading, contextMonths, currentSessionId, attachedFile]
+  )
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      setError('Only CSV files are supported')
+      return
+    }
+
+    // Validate file size (max 500KB to avoid token limits)
+    if (file.size > 500 * 1024) {
+      setError('File too large. Maximum size is 500KB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event): void => {
+      const content = event.target?.result as string
+      // Limit to first 100 rows to avoid overwhelming context
+      const lines = content.split('\n')
+      const truncatedContent = lines.slice(0, 101).join('\n')
+      const wasTruncated = lines.length > 101
+
+      setAttachedFile({
+        name: file.name + (wasTruncated ? ` (first 100 rows of ${lines.length})` : ''),
+        content: truncatedContent
+      })
+      setError(null)
+    }
+    reader.onerror = (): void => {
+      setError('Failed to read file')
+    }
+    reader.readAsText(file)
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleRemoveAttachment = (): void => {
+    setAttachedFile(null)
+  }
+
+  const handleSubmit = (e: React.FormEvent): void => {
+    e.preventDefault()
+    sendMessage(inputValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage(inputValue)
+    }
+  }
+
+  const handleStarterClick = (question: string): void => {
+    sendMessage(question)
+  }
+
+  const handleNewChat = createNewSession
+
+  const handleSelectSession = async (sessionId: string): Promise<void> => {
+    const session = await window.api.getSession(sessionId)
+    if (session) {
+      setCurrentSessionId(sessionId)
+      setMessages(session.messages)
+      setStreamingContent('')
+      setError(null)
+      await window.api.setCurrentSession(sessionId)
+    }
+  }
+
+  const handleDeleteSession = async (sessionId: string): Promise<void> => {
+    await window.api.deleteSession(sessionId)
+    const updated = sessions.filter((s) => s.id !== sessionId)
+    setSessions(updated)
+
+    if (sessionId === currentSessionId) {
+      if (updated.length > 0) {
+        await handleSelectSession(updated[updated.length - 1].id)
+      } else {
+        await handleNewChat()
+      }
+    }
+  }
+
+  const handleConfirmDelete = async (): Promise<void> => {
+    if (deleteConfirmSession) {
+      await handleDeleteSession(deleteConfirmSession.id)
+      setDeleteConfirmSession(null)
+    }
+  }
+
+  const handleStartRename = (session: ChatSession): void => {
+    setEditingSessionId(session.id)
+    setEditingTitle(session.title)
+  }
+
+  const handleCancelRename = (): void => {
+    setEditingSessionId(null)
+    setEditingTitle('')
+  }
+
+  const handleSaveRename = async (): Promise<void> => {
+    if (!editingSessionId || !editingTitle.trim()) {
+      handleCancelRename()
+      return
+    }
+
+    await window.api.renameSession(editingSessionId, editingTitle.trim())
+    setSessions((prev) =>
+      prev.map((s) => (s.id === editingSessionId ? { ...s, title: editingTitle.trim() } : s))
+    )
+    handleCancelRename()
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveRename()
+    } else if (e.key === 'Escape') {
+      handleCancelRename()
+    }
+  }
+
+  // API key not configured state
+  if (hasApiKey === false) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <PiggyBank className="h-16 w-16 text-muted-foreground/50 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">No Budget Data Yet</h2>
-        <p className="text-muted-foreground max-w-md">
-          Create your first budget to start seeing insights about your spending patterns and financial trends.
-        </p>
+      <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto px-4">
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+            <Sparkles className="h-10 w-10 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Meet Budgit</h1>
+            <p className="text-muted-foreground text-lg">
+              Your personal AI assistant for budget insights and financial guidance
+            </p>
+          </div>
+          <Card className="bg-muted/50 border-dashed">
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground mb-4">
+                To start chatting with Budgit, you&apos;ll need to add your Claude API key in
+                Settings. Your key is stored locally and never shared.
+              </p>
+              <Button onClick={onNavigateToSettings} className="gap-2">
+                <Settings className="h-4 w-4" />
+                Go to Settings
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
+  // Loading state
+  if (hasApiKey === null) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  const showStarterQuestions = messages.length === 0 && !streamingContent
+  const groupedSessions = groupSessionsByDate(sessions.slice().reverse())
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Insights</h1>
-          <p className="text-muted-foreground">
-            Based on {budgets.length} month{budgets.length !== 1 ? 's' : ''} of data
-          </p>
-        </div>
-      </div>
-
-      {/* Key Metrics Row */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Monthly Income</p>
-                <p className="text-2xl font-bold">{formatCurrency(avgMonthlyIncome)}</p>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex h-full flex-col bg-gradient-to-b from-background via-background to-muted/20">
+        {/* Hidden file input - placed here so it's always available */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleFileSelect}
+          className="hidden"
+          aria-label="Upload CSV file"
+        />
+        {/* Compact Header Bar */}
+        <header className="flex items-center justify-between border-b bg-card/60 px-4 py-2.5 backdrop-blur-sm md:px-6">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary/80 to-primary/60 shadow-md">
+                <Sparkles className="h-4 w-4 text-primary-foreground" />
               </div>
-              <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 animate-pulse rounded-full bg-emerald-400 ring-2 ring-background" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Monthly Spent</p>
-                <p className="text-2xl font-bold">{formatCurrency(avgMonthlySpent)}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <TrendingDown className="h-5 w-5 text-blue-600" />
-              </div>
+            <div className="hidden sm:block">
+              <h1 className="text-sm font-semibold leading-tight">Budgit AI</h1>
+              <p className="text-xs text-muted-foreground">Context: {contextMonths} months</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Savings Contributions</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(avgMonthlySavings)}
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <PiggyBank className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Budget Adherence</p>
-                <p className={cn('text-2xl font-bold', budgetAdherence.overall <= 100 ? 'text-green-600' : 'text-amber-600')}>
-                  {budgetAdherence.overall.toFixed(0)}%
-                </p>
-              </div>
-              <div className={cn(
-                'h-10 w-10 rounded-full flex items-center justify-center',
-                budgetAdherence.overall <= 100 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-amber-100 dark:bg-amber-900/30'
-              )}>
-                <Target className={cn('h-5 w-5', budgetAdherence.overall <= 100 ? 'text-green-600' : 'text-amber-600')} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Smart Insights */}
-      {insights.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Smart Insights</CardTitle>
-            <CardDescription>Personalized observations based on your spending</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {insights.map((insight, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    'flex items-start gap-3 p-3 rounded-lg border',
-                    insight.type === 'success' && 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800',
-                    insight.type === 'warning' && 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800',
-                    insight.type === 'info' && 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
-                  )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={handleNewChat}>
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">New chat</span>
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarCollapsed((prev) => !prev)}
+                  className="h-8 w-8"
                 >
-                  {insight.type === 'success' && <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />}
-                  {insight.type === 'warning' && <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />}
-                  {insight.type === 'info' && <Target className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />}
-                  <div>
-                    <p className="font-medium text-sm">{insight.title}</p>
-                    <p className="text-sm text-muted-foreground">{insight.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  {sidebarCollapsed ? (
+                    <PanelRight className="h-4 w-4" />
+                  ) : (
+                    <PanelRightClose className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {sidebarCollapsed ? 'Show history' : 'Hide history'}{' '}
+                <kbd className="ml-1 text-[10px] opacity-60">⌘\</kbd>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </header>
 
-      {/* Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Spending Breakdown Pie */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Spending Breakdown</CardTitle>
-            <CardDescription>Total spending by category type</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              <div className="relative flex-shrink-0">
-                <ResponsiveContainer width={180} height={180}>
-                  <PieChart>
-                    <Pie
-                      data={spendingByType}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={2}
-                      dataKey="spent"
-                      stroke="none"
-                    >
-                      {spendingByType.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => formatCurrency(value as number)}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-lg font-bold">{formatCurrency(totalSpent)}</p>
-                  </div>
-                </div>
+        {/* Main Content Area */}
+        <div className="flex min-h-0 flex-1 gap-0">
+          {/* Chat Section */}
+          <section className="flex min-h-0 flex-1 flex-col border-r bg-card/50">
+            <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2 md:px-6">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="font-medium">Conversation</span>
               </div>
-              <div className="flex-1 space-y-2 w-full">
-                {spendingByType.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="truncate">{item.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{formatCurrency(item.spent)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(0) : 0}%)
-                      </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Live
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 md:px-8 lg:px-12">
+              <div
+                className={cn(
+                  'mx-auto max-w-4xl',
+                  showStarterQuestions ? 'flex h-full flex-col' : 'flex flex-col gap-4'
+                )}
+              >
+                {showStarterQuestions ? (
+                  <div className="flex flex-1 flex-col items-center justify-center">
+                    <div className="w-full max-w-2xl space-y-6">
+                      {/* Logo and Greeting */}
+                      <div className="text-center">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 via-primary/30 to-primary/50 shadow-lg shadow-primary/25">
+                          <Sparkles className="h-8 w-8 text-primary" />
+                        </div>
+                        <h1 className="text-2xl font-semibold md:text-3xl">{getGreeting()}</h1>
+                        <p className="mt-1 text-2xl font-semibold md:text-3xl">
+                          What&apos;s on <span className="text-primary">your budget?</span>
+                        </p>
+                      </div>
+
+                      {/* Input Box - Centered and prominent */}
+                      <form onSubmit={handleSubmit}>
+                        <div className="relative rounded-2xl border border-muted-foreground/20 bg-card shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+                          <div className="flex items-start gap-3 px-4 pt-4 pb-14">
+                            <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                            <textarea
+                              ref={inputRef}
+                              value={inputValue}
+                              onChange={(e) => setInputValue(e.target.value)}
+                              onKeyDown={handleKeyDown}
+                              placeholder="Ask Budgit anything about your money..."
+                              disabled={isLoading}
+                              rows={2}
+                              className="w-full resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            />
+                          </div>
+                          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 rounded-lg text-xs"
+                                    onClick={() => fileInputRef.current?.click()}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Attach
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Attach CSV file</TooltipContent>
+                              </Tooltip>
+                              {attachedFile && (
+                                <div className="flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1">
+                                  <Paperclip className="h-3 w-3 text-muted-foreground" />
+                                  <span className="max-w-[150px] truncate text-xs text-muted-foreground">
+                                    {attachedFile.name}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-4 w-4 p-0 hover:bg-transparent"
+                                    onClick={handleRemoveAttachment}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="submit"
+                                  size="icon"
+                                  disabled={!inputValue.trim() || isLoading}
+                                  className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-30"
+                                >
+                                  {isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ArrowUp className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Send message</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      </form>
+
+                      {/* Get Started Section */}
+                      <div className="space-y-4 pt-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Get started with an example below
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                          {STARTER_QUESTIONS.map((q) => (
+                            <button
+                              key={q.title}
+                              onClick={() => handleStarterClick(q.title)}
+                              className="group flex min-h-[100px] flex-col justify-between rounded-xl border bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-md"
+                            >
+                              <p className="text-sm font-medium leading-snug">{q.title}</p>
+                              <div className="mt-3 flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                <q.icon className="h-4 w-4" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <>
+                    {messages.map((message) => (
+                      <MessageBubble key={message.id} message={message} />
+                    ))}
+
+                    {streamingContent && (
+                      <div className="flex gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary shadow-md">
+                          <Sparkles className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                        <div className="max-w-[90%] flex-1 rounded-2xl rounded-tl-md bg-muted/60 px-4 py-3 shadow-sm">
+                          <div className="prose prose-sm max-w-none text-sm prose-p:my-2 prose-li:my-0 prose-p:leading-relaxed dark:prose-invert">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {streamingContent}
+                            </ReactMarkdown>
+                          </div>
+                          <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-primary/50" />
+                        </div>
+                      </div>
+                    )}
+
+                    {isLoading && !streamingContent && (
+                      <div className="flex gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary shadow-md">
+                          <Sparkles className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                        <div className="rounded-2xl rounded-tl-md bg-muted/60 px-4 py-3">
+                          <div className="flex gap-1">
+                            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:0ms]" />
+                            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:150ms]" />
+                            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:300ms]" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="flex justify-center">
+                        <div className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                          {error}
+                        </div>
+                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Monthly Trend Chart */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Income vs Spending Trend</CardTitle>
-            <CardDescription>Last {monthlyTrends.length} months</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {monthlyTrends.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis
-                    tick={{ fontSize: 12 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    tickFormatter={(value) => `$${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => [formatCurrency(value as number), name === 'income' ? 'Income' : 'Spent']}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="income" stroke="#10B981" strokeWidth={2} dot={{ fill: '#10B981', strokeWidth: 0, r: 4 }} name="Income" />
-                  <Line type="monotone" dataKey="spent" stroke="#3B82F6" strokeWidth={2} dot={{ fill: '#3B82F6', strokeWidth: 0, r: 4 }} name="Spent" />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground">Not enough data for trends</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Budget Adherence + Savings Rate Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Budget Adherence by Category */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Budget Adherence</CardTitle>
-            <CardDescription>How well you stick to planned amounts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {budgetAdherence.categories.slice(0, 6).map((cat) => (
-                <div key={cat.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: TYPE_COLORS[cat.type] }} />
-                      <span className="truncate max-w-[140px]">{cat.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {cat.overBudget ? (
-                        <Badge variant="destructive" className="text-xs">+{formatCurrency(cat.difference)}</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">{formatCurrency(cat.difference)}</Badge>
+            {/* Bottom Input - Only show when in conversation mode */}
+            {!showStarterQuestions && (
+              <div className="border-t bg-card/70 px-4 py-4 md:px-8 lg:px-12">
+                <div className="mx-auto max-w-4xl">
+                  <form onSubmit={handleSubmit}>
+                    <div className="relative rounded-2xl border border-muted-foreground/20 bg-muted/30 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+                      <textarea
+                        ref={inputRef}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask Budgit anything about your money..."
+                        disabled={isLoading}
+                        rows={3}
+                        className="w-full resize-none bg-transparent px-4 pt-4 pb-12 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      {/* Attachment preview above input */}
+                      {attachedFile && (
+                        <div className="absolute -top-8 left-3 right-3">
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1">
+                            <Paperclip className="h-3 w-3 text-muted-foreground" />
+                            <span className="max-w-[200px] truncate text-xs text-muted-foreground">
+                              {attachedFile.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 p-0 hover:bg-transparent"
+                              onClick={handleRemoveAttachment}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
                       )}
-                      <span className="text-xs text-muted-foreground w-12 text-right">{cat.adherence.toFixed(0)}%</span>
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Attach CSV file</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="submit"
+                              size="icon"
+                              disabled={!inputValue.trim() || isLoading}
+                              className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-30"
+                            >
+                              {isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ArrowUp className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Send message</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
-                  </div>
-                  <Progress value={Math.min(cat.adherence, 100)} className={cn('h-2', cat.overBudget && 'bg-red-100 dark:bg-red-900/30')} />
+                  </form>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                    Budgit uses your budget data to provide personalized insights
+                  </p>
                 </div>
-              ))}
-              {budgetAdherence.categories.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No budget data available</p>
+              </div>
+            )}
+          </section>
+
+          {/* History Sidebar */}
+          <aside
+            className={cn(
+              'hidden flex-col border-l bg-card/60 transition-all duration-300 md:flex',
+              sidebarCollapsed
+                ? 'w-0 overflow-hidden opacity-0'
+                : 'w-72 opacity-100 lg:w-80 xl:w-96'
+            )}
+          >
+            <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+              <div>
+                <p className="text-xs font-medium">History</p>
+                <p className="text-[10px] text-muted-foreground">Previous conversations</p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleNewChat}>
+                    <MessageSquarePlus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New chat</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto px-2 py-3">
+              {Object.entries(groupedSessions).map(([group, groupSessions]) =>
+                groupSessions.length > 0 ? (
+                  <div key={group} className="space-y-1">
+                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                      {group}
+                    </p>
+                    {groupSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        onClick={() => !editingSessionId && handleSelectSession(session.id)}
+                        className={cn(
+                          'group w-full cursor-pointer rounded-lg border border-transparent px-2.5 py-2 text-left text-sm transition-all hover:bg-muted/60',
+                          session.id === currentSessionId && 'border-primary/30 bg-primary/10'
+                        )}
+                      >
+                        {editingSessionId === session.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              ref={editInputRef}
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              onKeyDown={handleRenameKeyDown}
+                              onBlur={(e) => {
+                                // Only save on blur if not clicking the action buttons
+                                const relatedTarget = e.relatedTarget as HTMLElement
+                                if (!relatedTarget?.closest('[data-rename-action]')) {
+                                  handleSaveRename()
+                                }
+                              }}
+                              className="h-7 px-2 text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              data-rename-action="save"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSaveRename()
+                              }}
+                            >
+                              <Check className="h-3 w-3 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              data-rename-action="cancel"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCancelRename()
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium">{session.title}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="cursor-default text-[10px] text-muted-foreground">
+                                    {formatRelativeTime(session.lastUpdated)}
+                                  </p>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" align="start">
+                                  {formatExactTime(session.lastUpdated)}
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleStartRename(session)
+                                    }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Rename</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setDeleteConfirmSession(session)
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null
               )}
             </div>
-          </CardContent>
-        </Card>
+          </aside>
+        </div>
 
-        {/* Savings Rate Trend */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Savings Rate Trend</CardTitle>
-            <CardDescription>Savings category contributions as % of income</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {monthlyTrends.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis 
-                    tick={{ fontSize: 12 }} 
-                    stroke="hsl(var(--muted-foreground))" 
-                    tickFormatter={(value) => `${value}%`}
-                    domain={[0, (dataMax: number) => Math.max(dataMax + 5, 25)]}
-                  />
-                  <Tooltip
-                    formatter={(value) => [`${(value as number).toFixed(1)}%`, 'Savings Rate']}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <ReferenceLine y={20} stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" label={{ value: '20% target', position: 'right', fill: '#10B981', fontSize: 11 }} />
-                  <Bar dataKey="savingsRate" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Savings Rate" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground">Not enough data</div>
-            )}
-            <p className="text-xs text-muted-foreground text-center mt-2">Green dashed line = 20% recommended savings rate</p>
-          </CardContent>
-        </Card>
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={!!deleteConfirmSession}
+          onOpenChange={(open) => !open && setDeleteConfirmSession(null)}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete conversation?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete &quot;{deleteConfirmSession?.title}&quot;? This
+                action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setDeleteConfirmSession(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+    </TooltipProvider>
+  )
+}
 
-      {/* Variable Spending Categories */}
-      {spendingVariance.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Spending Consistency</CardTitle>
-            <CardDescription>Categories with the most variable spending month-to-month</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {spendingVariance.map((cat) => (
-                <div key={cat.name} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: TYPE_COLORS[cat.type] }} />
-                    <span className="text-sm font-medium truncate max-w-[120px]">{cat.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {cat.isVariable ? (
-                      <ArrowUpRight className="h-3 w-3 text-amber-500" />
-                    ) : (
-                      <ArrowDownRight className="h-3 w-3 text-green-500" />
-                    )}
-                    <span className="text-muted-foreground">±{formatCurrency(cat.stdDev)}/mo</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+function MessageBubble({ message }: { message: ChatMessage }): React.JSX.Element {
+  const isUser = message.role === 'user'
+
+  return (
+    <div className={cn('flex gap-2.5', isUser && 'flex-row-reverse')}>
+      <div
+        className={cn(
+          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
+          isUser ? 'bg-secondary' : 'bg-gradient-to-br from-primary/80 to-primary'
+        )}
+      >
+        {isUser ? (
+          <User className="h-3.5 w-3.5 text-secondary-foreground" />
+        ) : (
+          <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+        )}
+      </div>
+      <div
+        className={cn(
+          'max-w-[90%] rounded-2xl px-3.5 py-2.5',
+          isUser
+            ? 'rounded-tr-md bg-primary text-primary-foreground'
+            : 'rounded-tl-md bg-muted/50 dark:bg-muted'
+        )}
+      >
+        {isUser ? (
+          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+        ) : (
+          <div className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0 prose-p:leading-relaxed prose-headings:mb-1.5 prose-headings:mt-2.5 prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

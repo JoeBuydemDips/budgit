@@ -61,7 +61,11 @@ export function AddTransactionDialog({
   useEffect(() => {
     if (description.trim()) {
       try {
-        const suggestions = getCategorySuggestions(description, categories || [], learnedMappings ?? [])
+        const suggestions = getCategorySuggestions(
+          description,
+          categories || [],
+          learnedMappings ?? []
+        )
         setCategorySuggestions(suggestions)
       } catch (err) {
         console.error('Error computing category suggestions', err)
@@ -95,9 +99,9 @@ export function AddTransactionDialog({
       setCategorySuggestions([])
 
       onOpenChange(false)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to add transaction', err)
-      setErrorMessage(err?.message || 'Failed to add transaction')
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to add transaction')
     } finally {
       setSaving(false)
     }
@@ -141,14 +145,16 @@ export function AddTransactionDialog({
               <div className="flex flex-wrap gap-2 mb-2">
                 <span className="text-sm text-muted-foreground">Suggestions:</span>
                 {categorySuggestions.slice(0, 3).map((suggestionId) => {
-                  const category = categories.find(c => c.id === suggestionId)
+                  const category = categories.find((c) => c.id === suggestionId)
                   return category ? (
                     <Button
                       key={suggestionId}
                       variant="outline"
                       size="sm"
                       onClick={() => setCategoryId(suggestionId)}
-                      className={categoryId === suggestionId ? 'bg-primary text-primary-foreground' : ''}
+                      className={
+                        categoryId === suggestionId ? 'bg-primary text-primary-foreground' : ''
+                      }
                     >
                       {category.name}
                     </Button>
