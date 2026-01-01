@@ -243,7 +243,7 @@ export function Dashboard({
   }
 
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
-  const totalSpent = budget.computed.totalSpent
+  const totalSpent = budget.computed.totalSpentCategorized
   const leftToBudget = budget.computed.leftToBudget
   const remaining = totalPlanned - totalSpent
   const spentPercentage = totalPlanned > 0 ? (totalSpent / totalPlanned) * 100 : 0

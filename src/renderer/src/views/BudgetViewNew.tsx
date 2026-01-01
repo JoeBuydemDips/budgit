@@ -656,7 +656,7 @@ export function BudgetView({
           <BudgetSummaryPanel
             incomeTotal={budget.incomeTotal}
             totalPlanned={totalPlanned}
-            totalSpent={budget.computed.totalSpent}
+            totalSpent={budget.computed.totalSpentCategorized}
             leftToBudget={leftToBudget}
             categoryBreakdown={categoryBreakdown}
             transactions={transactions}

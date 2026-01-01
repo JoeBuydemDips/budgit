@@ -448,9 +448,7 @@ function updateBudgetSpent(month: string): void {
 function getUncategorizedCategoryIds(): Set<string> {
   const categories = store.get('categories')
   return new Set(
-    categories
-      .filter((c) => c.name.toLowerCase().includes('uncategorized'))
-      .map((c) => c.id)
+    categories.filter((c) => c.name.toLowerCase().includes('uncategorized')).map((c) => c.id)
   )
 }
 
