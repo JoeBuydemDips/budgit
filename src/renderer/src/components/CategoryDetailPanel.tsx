@@ -136,7 +136,7 @@ export function CategoryDetailPanel({
   })
 
   const safeToSpend = category.planned + category.carryover - category.spent
-  const headerColor = (TYPE_COLORS as any)[category?.type] || '#6B7280'
+  const headerColor = (TYPE_COLORS as Record<string, string>)[category?.type] || '#6B7280'
   const spentPercentage =
     category.planned > 0 ? Math.min((category.spent / category.planned) * 100, 100) : 0
 

@@ -316,13 +316,13 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
       if (!content.trim() || isLoading || !currentSessionId) return
 
       setError(null)
-      
+
       // Build message content with optional file attachment
       let messageContent = content.trim()
       if (attachedFile) {
         messageContent = `${messageContent}\n\n---\n**Attached CSV file: ${attachedFile.name}**\n\`\`\`csv\n${attachedFile.content}\n\`\`\``
       }
-      
+
       const userMessage: ChatMessage = {
         id: uuidv4(),
         role: 'user',
@@ -374,7 +374,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
       const lines = content.split('\n')
       const truncatedContent = lines.slice(0, 101).join('\n')
       const wasTruncated = lines.length > 101
-      
+
       setAttachedFile({
         name: file.name + (wasTruncated ? ` (first 100 rows of ${lines.length})` : ''),
         content: truncatedContent
@@ -529,6 +529,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
           accept=".csv"
           onChange={handleFileSelect}
           className="hidden"
+          aria-label="Upload CSV file"
         />
         {/* Compact Header Bar */}
         <header className="flex items-center justify-between border-b bg-card/60 px-4 py-2.5 backdrop-blur-sm md:px-6">
@@ -603,9 +604,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 via-primary/30 to-primary/50 shadow-lg shadow-primary/25">
                           <Sparkles className="h-8 w-8 text-primary" />
                         </div>
-                        <h1 className="text-2xl font-semibold md:text-3xl">
-                          {getGreeting()}
-                        </h1>
+                        <h1 className="text-2xl font-semibold md:text-3xl">{getGreeting()}</h1>
                         <p className="mt-1 text-2xl font-semibold md:text-3xl">
                           What&apos;s on <span className="text-primary">your budget?</span>
                         </p>
@@ -695,9 +694,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                               onClick={() => handleStarterClick(q.title)}
                               className="group flex min-h-[100px] flex-col justify-between rounded-xl border bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-md"
                             >
-                              <p className="text-sm font-medium leading-snug">
-                                {q.title}
-                              </p>
+                              <p className="text-sm font-medium leading-snug">{q.title}</p>
                               <div className="mt-3 flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                                 <q.icon className="h-4 w-4" />
                               </div>
@@ -736,18 +733,9 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                         </div>
                         <div className="rounded-2xl rounded-tl-md bg-muted/60 px-4 py-3">
                           <div className="flex gap-1">
-                            <span
-                              className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"
-                              style={{ animationDelay: '0ms' }}
-                            />
-                            <span
-                              className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"
-                              style={{ animationDelay: '150ms' }}
-                            />
-                            <span
-                              className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"
-                              style={{ animationDelay: '300ms' }}
-                            />
+                            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:0ms]" />
+                            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:150ms]" />
+                            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:300ms]" />
                           </div>
                         </div>
                       </div>
@@ -771,78 +759,78 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
             {!showStarterQuestions && (
               <div className="border-t bg-card/70 px-4 py-4 md:px-8 lg:px-12">
                 <div className="mx-auto max-w-4xl">
-                <form onSubmit={handleSubmit}>
-                  <div className="relative rounded-2xl border border-muted-foreground/20 bg-muted/30 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
-                    <textarea
-                      ref={inputRef}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Ask Budgit anything about your money..."
-                      disabled={isLoading}
-                      rows={3}
-                      className="w-full resize-none bg-transparent px-4 pt-4 pb-12 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    {/* Attachment preview above input */}
-                    {attachedFile && (
-                      <div className="absolute -top-8 left-3 right-3">
-                        <div className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1">
-                          <Paperclip className="h-3 w-3 text-muted-foreground" />
-                          <span className="max-w-[200px] truncate text-xs text-muted-foreground">
-                            {attachedFile.name}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 p-0 hover:bg-transparent"
-                            onClick={handleRemoveAttachment}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
+                  <form onSubmit={handleSubmit}>
+                    <div className="relative rounded-2xl border border-muted-foreground/20 bg-muted/30 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+                      <textarea
+                        ref={inputRef}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask Budgit anything about your money..."
+                        disabled={isLoading}
+                        rows={3}
+                        className="w-full resize-none bg-transparent px-4 pt-4 pb-12 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      {/* Attachment preview above input */}
+                      {attachedFile && (
+                        <div className="absolute -top-8 left-3 right-3">
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1">
+                            <Paperclip className="h-3 w-3 text-muted-foreground" />
+                            <span className="max-w-[200px] truncate text-xs text-muted-foreground">
+                              {attachedFile.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 p-0 hover:bg-transparent"
+                              onClick={handleRemoveAttachment}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
+                      )}
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Attach CSV file</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="submit"
+                              size="icon"
+                              disabled={!inputValue.trim() || isLoading}
+                              className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-30"
+                            >
+                              {isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ArrowUp className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Send message</TooltipContent>
+                        </Tooltip>
                       </div>
-                    )}
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Attach CSV file</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="submit"
-                            size="icon"
-                            disabled={!inputValue.trim() || isLoading}
-                            className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-30"
-                          >
-                            {isLoading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <ArrowUp className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Send message</TooltipContent>
-                      </Tooltip>
                     </div>
-                  </div>
-                </form>
-                <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                  Budgit uses your budget data to provide personalized insights
-                </p>
+                  </form>
+                  <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                    Budgit uses your budget data to provide personalized insights
+                  </p>
+                </div>
               </div>
-            </div>
             )}
           </section>
 
@@ -988,12 +976,16 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
         </div>
 
         {/* Delete Confirmation Dialog */}
-        <Dialog open={!!deleteConfirmSession} onOpenChange={(open) => !open && setDeleteConfirmSession(null)}>
+        <Dialog
+          open={!!deleteConfirmSession}
+          onOpenChange={(open) => !open && setDeleteConfirmSession(null)}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Delete conversation?</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete &quot;{deleteConfirmSession?.title}&quot;? This action cannot be undone.
+                Are you sure you want to delete &quot;{deleteConfirmSession?.title}&quot;? This
+                action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">

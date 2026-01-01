@@ -42,7 +42,9 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  MeasuringStrategy
+  MeasuringStrategy,
+  DraggableAttributes,
+  DraggableSyntheticListeners
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -229,7 +231,7 @@ export function BudgetView({
             </div>
             <h1 className="text-3xl font-bold">{formatMonth(parseMonthKey(currentMonth))}</h1>
             <p className="text-muted-foreground text-lg">
-              No budget set up for this month yet. Let's create one!
+              No budget set up for this month yet. Let&apos;s create one!
             </p>
           </div>
 
@@ -898,9 +900,9 @@ export function BudgetView({
           <DialogHeader>
             <DialogTitle>Delete Category</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete "{categoryToDelete?.name}"? This will
-              remove the category and all its allocations from all budgets. This action cannot be
-              undone.
+              Are you sure you want to permanently delete &quot;{categoryToDelete?.name}&quot;? This
+              will remove the category and all its allocations from all budgets. This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -935,8 +937,8 @@ interface IncomeRowProps {
   onUpdate: (updates: Partial<IncomeSource>) => void
   onDelete: () => void
   dragHandleProps?: {
-    attributes: Record<string, any>
-    listeners: any
+    attributes: DraggableAttributes
+    listeners: DraggableSyntheticListeners
   }
 }
 
@@ -1146,8 +1148,8 @@ interface CategoryRowProps {
   onToggleRollover: (enabled: boolean) => void
   onDelete: () => void
   dragHandleProps?: {
-    attributes: Record<string, any>
-    listeners: any
+    attributes: DraggableAttributes
+    listeners: DraggableSyntheticListeners
   }
 }
 

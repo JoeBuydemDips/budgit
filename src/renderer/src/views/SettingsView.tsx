@@ -385,7 +385,7 @@ export function SettingsView({
                 {filteredCategories.length === 0 && searchTerm.trim() && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No categories found matching "{searchTerm}"</p>
+                    <p>No categories found matching &quot;{searchTerm}&quot;</p>
                     <p className="text-sm">Try searching by category name or type</p>
                   </div>
                 )}
@@ -1181,6 +1181,7 @@ function CategoryDialog({
               checked={rolloverEnabled}
               onChange={(e) => setRolloverEnabled(e.target.checked)}
               className="h-4 w-4 rounded border-input"
+              aria-label="Enable rollover for this category"
             />
             <Label htmlFor="rollover" className="text-sm font-normal">
               Enable rollover (carry unused funds to next month)

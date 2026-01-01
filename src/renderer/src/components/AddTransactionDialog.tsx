@@ -99,9 +99,9 @@ export function AddTransactionDialog({
       setCategorySuggestions([])
 
       onOpenChange(false)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to add transaction', err)
-      setErrorMessage(err?.message || 'Failed to add transaction')
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to add transaction')
     } finally {
       setSaving(false)
     }
