@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
-  Send,
   Sparkles,
   User,
   Settings,
@@ -18,7 +17,9 @@ import {
   PanelRight,
   Pencil,
   Check,
-  X
+  X,
+  Plus,
+  ArrowUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -118,7 +119,7 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   const [editingTitle, setEditingTitle] = useState('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const sessionsLoadedRef = useRef(false)
   const streamingMessageIdRef = useRef<string | null>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -294,6 +295,13 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
     sendMessage(inputValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage(inputValue)
+    }
   }
 
   const handleStarterClick = (question: string): void => {
@@ -563,36 +571,53 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
               </div>
             </div>
 
-            <div className="border-t bg-card/70 px-4 py-3 md:px-8 lg:px-12">
+            <div className="border-t bg-card/70 px-4 py-4 md:px-8 lg:px-12">
               <div className="mx-auto max-w-4xl">
-                <form onSubmit={handleSubmit} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
+                <form onSubmit={handleSubmit}>
+                  <div className="relative rounded-2xl border border-muted-foreground/20 bg-muted/30 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+                    <textarea
                       ref={inputRef}
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={handleKeyDown}
                       placeholder="Ask Budgit anything about your money..."
                       disabled={isLoading}
-                      className="h-11 flex-1 rounded-xl border-muted-foreground/20 bg-muted/40 px-4 text-sm shadow-inner focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      rows={3}
+                      className="w-full resize-none bg-transparent px-4 pt-4 pb-12 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Attach file</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!inputValue.trim() || isLoading}
+                            className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-30"
+                          >
+                            {isLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ArrowUp className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Send message</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="submit"
-                        size="icon"
-                        disabled={!inputValue.trim() || isLoading}
-                        className="h-11 w-11 rounded-xl bg-primary shadow-md transition-all hover:shadow-lg"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Send message</TooltipContent>
-                  </Tooltip>
                 </form>
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">
                   Budgit uses your budget data to provide personalized insights
