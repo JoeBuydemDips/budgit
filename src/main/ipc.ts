@@ -39,6 +39,7 @@ import {
   getChatSession,
   setCurrentSession,
   saveChatMessage,
+  renameChatSession,
   deleteChatSession,
   clearAllChatSessions
 } from './store'
@@ -52,7 +53,7 @@ import {
   CsvFormat
 } from './csv'
 import type { Category, AppSettings, Transaction } from '../shared/types'
-import type { ChatMessage, ChatSession, AiContextMonths } from '../shared/types'
+import type { ChatMessage, AiContextMonths } from '../shared/types'
 
 export function registerIpcHandlers(): void {
   // ============== Settings ==============
@@ -430,6 +431,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('ai:saveChatMessage', (_, sessionId: string, message: ChatMessage) => {
     saveChatMessage(sessionId, message)
+  })
+
+  ipcMain.handle('ai:renameSession', (_, sessionId: string, newTitle: string) => {
+    renameChatSession(sessionId, newTitle)
   })
 
   ipcMain.handle('ai:deleteSession', (_, sessionId: string) => {

@@ -151,6 +151,8 @@ const budgetApi = {
     ipcRenderer.invoke('ai:setCurrentSession', sessionId),
   saveChatMessage: (sessionId: string, message: ChatMessage): Promise<void> =>
     ipcRenderer.invoke('ai:saveChatMessage', sessionId, message),
+  renameSession: (sessionId: string, newTitle: string): Promise<void> =>
+    ipcRenderer.invoke('ai:renameSession', sessionId, newTitle),
   deleteSession: (sessionId: string): Promise<void> =>
     ipcRenderer.invoke('ai:deleteSession', sessionId),
   clearAllSessions: (): Promise<void> => ipcRenderer.invoke('ai:clearAllSessions'),

@@ -905,17 +905,37 @@ export function setCurrentSession(sessionId: string): void {
 export function saveChatMessage(sessionId: string, message: ChatMessage): void {
   const sessions = store.get('chatSessions') || []
   const sessionIndex = sessions.findIndex((s) => s.id === sessionId)
-  
+
   if (sessionIndex === -1) return
-  
+
   sessions[sessionIndex].messages.push(message)
   sessions[sessionIndex].lastUpdated = new Date().toISOString()
-  
+
   // Update title from first user message if still "New Chat"
   if (sessions[sessionIndex].title === 'New Chat' && message.role === 'user') {
-    sessions[sessionIndex].title = message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
+    // Clean up title: remove question words and limit length
+    let title = message.content.trim()
+    // Strip leading question words for cleaner titles
+    const questionWords = /^(where|what|how|why|can|is|are|do|does|would|could|should|when|who|which)\s+/i
+    title = title.replace(questionWords, '')
+    // Capitalize first letter
+    title = title.charAt(0).toUpperCase() + title.slice(1)
+    // Limit to 35 characters
+    title = title.slice(0, 35) + (title.length > 35 ? '...' : '')
+    sessions[sessionIndex].title = title
   }
-  
+
+  store.set('chatSessions', sessions)
+}
+
+export function renameChatSession(sessionId: string, newTitle: string): void {
+  const sessions = store.get('chatSessions') || []
+  const sessionIndex = sessions.findIndex((s) => s.id === sessionId)
+
+  if (sessionIndex === -1) return
+
+  sessions[sessionIndex].title = newTitle
+  sessions[sessionIndex].lastUpdated = new Date().toISOString()
   store.set('chatSessions', sessions)
 }
 
@@ -923,7 +943,7 @@ export function deleteChatSession(sessionId: string): void {
   const sessions = store.get('chatSessions') || []
   const filtered = sessions.filter((s) => s.id !== sessionId)
   store.set('chatSessions', filtered)
-  
+
   // If we deleted the current session, clear it
   if (store.get('currentSessionId') === sessionId) {
     store.set('currentSessionId', null)

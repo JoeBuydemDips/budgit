@@ -121,6 +121,7 @@ interface BudgetAPI {
   getSession: (sessionId: string) => Promise<ChatSession | null>
   setCurrentSession: (sessionId: string) => Promise<void>
   saveChatMessage: (sessionId: string, message: ChatMessage) => Promise<void>
+  renameSession: (sessionId: string, newTitle: string) => Promise<void>
   deleteSession: (sessionId: string) => Promise<void>
   clearAllSessions: () => Promise<void>
   sendChatMessage: (

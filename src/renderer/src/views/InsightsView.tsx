@@ -14,7 +14,11 @@ import {
   Wallet,
   HelpCircle,
   MessageSquarePlus,
-  MoreVertical
+  PanelRightClose,
+  PanelRight,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -57,6 +61,46 @@ const STARTER_QUESTIONS = [
   }
 ]
 
+// Helper to group sessions by date
+function groupSessionsByDate(sessions: ChatSession[]): Record<string, ChatSession[]> {
+  const groups: Record<string, ChatSession[]> = {
+    Today: [],
+    Yesterday: [],
+    'This Week': [],
+    'This Month': [],
+    Older: []
+  }
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  sessions.forEach((session) => {
+    const sessionDate = new Date(session.lastUpdated)
+    const sessionDay = new Date(
+      sessionDate.getFullYear(),
+      sessionDate.getMonth(),
+      sessionDate.getDate()
+    )
+
+    if (sessionDay >= today) {
+      groups['Today'].push(session)
+    } else if (sessionDay >= yesterday) {
+      groups['Yesterday'].push(session)
+    } else if (sessionDay >= weekAgo) {
+      groups['This Week'].push(session)
+    } else if (sessionDay >= monthAgo) {
+      groups['This Month'].push(session)
+    } else {
+      groups['Older'].push(session)
+    }
+  })
+
+  return groups
+}
+
 export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React.JSX.Element {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -68,11 +112,53 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   const [contextMonths, setContextMonths] = useState<AiContextMonths>(3)
   const [error, setError] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const sessionsLoadedRef = useRef(false)
   const streamingMessageIdRef = useRef<string | null>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
+
+  // Responsive auto-collapse for smaller screens
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)')
+
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList): void => {
+      if (e.matches) {
+        setSidebarCollapsed(true)
+      }
+    }
+
+    // Check on mount
+    handleMediaChange(mediaQuery)
+
+    // Listen for changes
+    mediaQuery.addEventListener('change', handleMediaChange)
+    return () => mediaQuery.removeEventListener('change', handleMediaChange)
+  }, [])
+
+  // Keyboard shortcut to toggle sidebar (Cmd/Ctrl + \)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault()
+        setSidebarCollapsed((prev) => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // Focus edit input when editing starts
+  useEffect(() => {
+    if (editingSessionId && editInputRef.current) {
+      editInputRef.current.focus()
+      editInputRef.current.select()
+    }
+  }, [editingSessionId])
 
   // Load sessions and settings on mount
   useEffect(() => {
@@ -236,6 +322,38 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
     }
   }
 
+  const handleStartRename = (session: ChatSession): void => {
+    setEditingSessionId(session.id)
+    setEditingTitle(session.title)
+  }
+
+  const handleCancelRename = (): void => {
+    setEditingSessionId(null)
+    setEditingTitle('')
+  }
+
+  const handleSaveRename = async (): Promise<void> => {
+    if (!editingSessionId || !editingTitle.trim()) {
+      handleCancelRename()
+      return
+    }
+
+    await window.api.renameSession(editingSessionId, editingTitle.trim())
+    setSessions((prev) =>
+      prev.map((s) => (s.id === editingSessionId ? { ...s, title: editingTitle.trim() } : s))
+    )
+    handleCancelRename()
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent): void => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveRename()
+    } else if (e.key === 'Escape') {
+      handleCancelRename()
+    }
+  }
+
   // API key not configured state
   if (hasApiKey === false) {
     return (
@@ -277,78 +395,16 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
   }
 
   const showStarterQuestions = messages.length === 0 && !streamingContent
+  const groupedSessions = groupSessionsByDate(sessions.slice().reverse())
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
-      <div
-        className={cn(
-          'border-r bg-muted/10 transition-all duration-300',
-          sidebarCollapsed ? 'w-0' : 'w-64'
-        )}
-      >
-        <div className="flex flex-col h-full overflow-hidden">
-          {!sidebarCollapsed && (
-            <>
-              <div className="p-3 border-b">
-                <Button onClick={handleNewChat} className="w-full gap-2" size="sm">
-                  <MessageSquarePlus className="h-4 w-4" />
-                  New Chat
-                </Button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                {sessions
-                  .slice()
-                  .reverse()
-                  .map((session) => (
-                    <button
-                      key={session.id}
-                      onClick={() => handleSelectSession(session.id)}
-                      className={cn(
-                        'w-full text-left px-3 py-2 rounded-lg text-sm group hover:bg-muted/50 transition-colors',
-                        session.id === currentSessionId && 'bg-muted'
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 truncate">
-                          <p className="truncate font-medium">{session.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {new Date(session.lastUpdated).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteSession(session.id)
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Main chat area */}
-      <div className="flex flex-col flex-1 max-w-4xl mx-auto w-full">
+      {/* Main chat area - Now on left (primary position) */}
+      <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shadow-md">
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
@@ -356,45 +412,59 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
               <p className="text-xs text-muted-foreground">Your AI Budget Assistant</p>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hover:bg-muted/50"
+            title={sidebarCollapsed ? 'Show chat history (⌘\\)' : 'Hide chat history (⌘\\)'}
+          >
+            {sidebarCollapsed ? (
+              <PanelRight className="h-4 w-4" />
+            ) : (
+              <PanelRightClose className="h-4 w-4" />
+            )}
+          </Button>
         </div>
 
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {showStarterQuestions ? (
-            <div className="flex flex-col items-center justify-center h-full space-y-8">
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="h-8 w-8 text-primary" />
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="max-w-3xl mx-auto space-y-4">
+            {showStarterQuestions ? (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <Sparkles className="h-8 w-8 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-semibold">Good {getGreeting()}</h2>
+                  <p className="text-muted-foreground">
+                    What's on <span className="text-primary font-medium">your mind?</span>
+                  </p>
                 </div>
-                <h2 className="text-2xl font-semibold">Good {getGreeting()}</h2>
-                <p className="text-muted-foreground">
-                  What's on <span className="text-primary font-medium">your mind?</span>
-                </p>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-                {STARTER_QUESTIONS.map((q) => (
-                  <button
-                    key={q.title}
-                    onClick={() => handleStarterClick(q.title)}
-                    className="flex items-start gap-3 p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors text-left group"
-                  >
-                    <div className="p-2 rounded-lg bg-muted group-hover:bg-background transition-colors">
-                      <q.icon className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{q.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{q.description}</p>
-                    </div>
-                  </button>
-                ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
+                  {STARTER_QUESTIONS.map((q) => (
+                    <button
+                      key={q.title}
+                      onClick={() => handleStarterClick(q.title)}
+                      className="flex items-start gap-4 p-5 rounded-xl border bg-card hover:bg-muted/50 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left group"
+                    >
+                      <div className="p-2.5 rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
+                        <q.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{q.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{q.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
-              ))}
+            ) : (
+              <>
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
+                ))}
 
               {streamingContent && (
                 <div className="flex gap-3">
@@ -445,37 +515,151 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
               <div ref={messagesEndRef} />
             </>
           )}
+          </div>
         </div>
 
         {/* Input area */}
-        <div className="border-t p-4">
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <div className="flex-1 relative">
-              <Input
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Ask Budgit a question..."
-                disabled={isLoading}
-                className="pr-12 py-6 rounded-xl bg-muted/50 border-muted-foreground/20 focus:border-primary"
-              />
-            </div>
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!inputValue.trim() || isLoading}
-              className="h-12 w-12 rounded-xl bg-primary hover:bg-primary/90"
-            >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="h-5 w-5" />
-              )}
+        <div className="border-t p-4 md:p-6">
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="flex gap-3">
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Ask Budgit a question..."
+                  disabled={isLoading}
+                  className="py-6 px-4 rounded-xl bg-muted/50 border-muted-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!inputValue.trim() || isLoading}
+                className="h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </Button>
+            </form>
+            <p className="text-xs text-muted-foreground text-center mt-3">
+              Budgit uses your budget data to provide personalized insights
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Sidebar - Now on right side with smoother animations */}
+      <div
+        className={cn(
+          'border-l bg-muted/5 overflow-hidden transition-all duration-300 ease-in-out',
+          sidebarCollapsed ? 'w-0 opacity-0' : 'w-72 opacity-100'
+        )}
+      >
+        <div
+          className={cn(
+            'flex flex-col h-full w-72 transition-transform duration-300 ease-in-out',
+            sidebarCollapsed ? 'translate-x-full' : 'translate-x-0'
+          )}
+        >
+          <div className="p-4 border-b">
+            <Button onClick={handleNewChat} className="w-full gap-2 shadow-sm hover:shadow-md transition-all" size="default">
+              <MessageSquarePlus className="h-4 w-4" />
+              New Chat
             </Button>
-          </form>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Budgit uses your budget data to provide personalized insights
-          </p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-4">
+            {Object.entries(groupedSessions).map(([group, groupSessions]) =>
+              groupSessions.length > 0 ? (
+                <div key={group} className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">
+                    {group}
+                  </p>
+                  {groupSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      onClick={() => !editingSessionId && handleSelectSession(session.id)}
+                      className={cn(
+                        'w-full text-left px-3 py-2.5 rounded-lg text-sm group hover:bg-muted/50 transition-all cursor-pointer',
+                        session.id === currentSessionId && 'bg-primary/10 hover:bg-primary/15 border border-primary/20'
+                      )}
+                    >
+                      {editingSessionId === session.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            ref={editInputRef}
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={handleRenameKeyDown}
+                            onBlur={handleSaveRename}
+                            className="h-7 text-sm px-2"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSaveRename()
+                            }}
+                          >
+                            <Check className="h-3 w-3 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCancelRename()
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">{session.title}</p>
+                          </div>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleStartRename(session)
+                              }}
+                              title="Rename"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteSession(session.id)
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : null
+            )}
+          </div>
         </div>
       </div>
     </div>
