@@ -650,8 +650,13 @@ export function Dashboard({
                           })}
                         </p>
                       </div>
-                      <span className="font-medium text-sm text-red-600 flex-shrink-0">
-                        -{formatCurrency(txn.amount)}
+                      <span
+                        className={`font-semibold text-sm tabular-nums flex-shrink-0 ${
+                          txn.amount >= 0 ? 'text-red-600' : 'text-green-600'
+                        }`}
+                      >
+                        {txn.amount >= 0 ? '-' : '+'}
+                        {formatCurrency(Math.abs(txn.amount))}
                       </span>
                     </div>
                   )
