@@ -23,14 +23,10 @@ import {
 } from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import type { Budget, Category, CategoryType, Transaction } from '../../../shared/types'
+import type { BudgetWithComputed, Category, CategoryType, Transaction } from '../../../shared/types'
 
 interface BudgetViewProps {
-  budget:
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
+  budget: BudgetWithComputed | null
   categories: Category[]
   loading: boolean
   currentMonth: string

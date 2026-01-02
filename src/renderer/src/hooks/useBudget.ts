@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type {
   Budget,
+  BudgetWithComputed,
   Category,
   Transaction,
   CategoryAllocation,
@@ -116,12 +117,7 @@ export function useCategories() {
 
 // Hook to manage budget for a specific month
 export function useBudget(month: string) {
-  const [budget, setBudget] = useState<
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
-  >(null)
+  const [budget, setBudget] = useState<BudgetWithComputed | null>(null)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {

@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus,
   ChevronDown,
   ChevronUp,
   Trash2,
   Sparkles,
-  Copy,
   RefreshCcw,
   GripVertical,
   X
@@ -32,6 +31,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
+import { useBudgetIndex } from '@/hooks/useBudget'
 import { CategoryDetailPanel } from '@/components/CategoryDetailPanel'
 import { BudgetSummaryPanel } from '@/components/BudgetSummaryPanel'
 import {
@@ -55,13 +55,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
-import type {
-  Budget,
-  Category,
-  CategoryType,
-  Transaction,
-  IncomeSource
-} from '../../../shared/types'
+import type { BudgetWithComputed, Category, CategoryType, Transaction, IncomeSource } from '../../../shared/types'
 
 // Import colors directly
 const TYPE_COLORS: Record<CategoryType, string> = {
@@ -75,11 +69,7 @@ const TYPE_COLORS: Record<CategoryType, string> = {
 }
 
 interface BudgetViewProps {
-  budget:
-    | (Budget & {
-        computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-      })
-    | null
+  budget: BudgetWithComputed | null
   categories: Category[]
   transactions: Transaction[]
   loading: boolean
@@ -119,6 +109,16 @@ const CATEGORY_TYPE_ORDER: CategoryType[] = [
   'MISC'
 ]
 
+const CATEGORY_TYPE_COLOR_CLASS: Record<CategoryType, string> = {
+  GIVING: 'bg-emerald-500',
+  SAVINGS: 'bg-blue-500',
+  NEEDS: 'bg-violet-500',
+  WANTS: 'bg-amber-500',
+  DEBT: 'bg-rose-500',
+  FOOD: 'bg-cyan-500',
+  MISC: 'bg-slate-500'
+}
+
 export function BudgetView({
   budget,
   categories,
@@ -136,6 +136,7 @@ export function BudgetView({
   onUpdateTransaction,
   onDeleteTransaction
 }: BudgetViewProps) {
+  const { budgets } = useBudgetIndex()
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false)
   const [showAddIncomeDialog, setShowAddIncomeDialog] = useState(false)
@@ -150,6 +151,7 @@ export function BudgetView({
   const [newCategoryType, setNewCategoryType] = useState<CategoryType>('NEEDS')
   const [newIncome, setNewIncome] = useState('')
   const [newIncomeName, setNewIncomeName] = useState('')
+  const [copyFrom, setCopyFrom] = useState('')
   const [creating, setCreating] = useState(false)
   const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
@@ -163,6 +165,20 @@ export function BudgetView({
   })
 
   // DnD Kit sensors for drag and drop
+
+  const sortedBudgets = useMemo(
+    () => [...budgets].sort((a, b) => b.month.localeCompare(a.month)),
+    [budgets]
+  )
+
+  useEffect(() => {
+    if (copyFrom && copyFrom !== 'scratch') {
+      const source = budgets.find((b) => b.month === copyFrom)
+      if (source) {
+        setNewIncome(source.incomeTotal.toString())
+      }
+    }
+  }, [copyFrom, budgets])
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -236,30 +252,36 @@ export function BudgetView({
           </div>
 
           <Card className="border-2">
-            <CardContent className="pt-6 space-y-4">
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-3">
+                <Label htmlFor="empty-copy-from" className="text-base">Copy from</Label>
+                <Select
+                  value={copyFrom || 'scratch'}
+                  onValueChange={(val) => setCopyFrom(val === 'scratch' ? 'scratch' : val)}
+                >
+                  <SelectTrigger id="empty-copy-from" className="h-12">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets
+                      .filter((b) => b.month !== currentMonth)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.month}>
+                          {formatMonth(parseMonthKey(b.month))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button
                 className="w-full h-12 text-base"
                 size="lg"
                 onClick={() => setShowNewBudgetDialog(true)}
               >
                 <Plus className="h-5 w-5 mr-2" />
-                Start Fresh Budget
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full h-12 text-base"
-                size="lg"
-                onClick={async () => {
-                  const prevMonth = await window.api.getPreviousMonth(currentMonth)
-                  const prevBudget = await window.api.getBudget(prevMonth)
-                  if (prevBudget) {
-                    setNewIncome(prevBudget.incomeTotal.toString())
-                  }
-                  setShowNewBudgetDialog(true)
-                }}
-              >
-                <Copy className="h-5 w-5 mr-2" />
-                Copy from Last Month
+                {copyFrom && copyFrom !== 'scratch' ? 'Copy Budget' : 'Create Budget'}
               </Button>
             </CardContent>
           </Card>
@@ -274,6 +296,24 @@ export function BudgetView({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="copy-from">Copy from</Label>
+                <Select value={copyFrom} onValueChange={setCopyFrom}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets
+                      .filter((b) => b.month !== currentMonth)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.month}>
+                          {formatMonth(parseMonthKey(b.month))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="income">Total Income</Label>
                 <div className="relative">
@@ -303,11 +343,11 @@ export function BudgetView({
                 disabled={!newIncome || parseFloat(newIncome) <= 0 || creating}
                 onClick={async () => {
                   setCreating(true)
-                  const prevMonth = await window.api.getPreviousMonth(currentMonth)
-                  const prevBudget = await window.api.getBudget(prevMonth)
-                  await onCreateBudget(parseFloat(newIncome), prevBudget ? prevMonth : undefined)
+                  const copyFromMonth = copyFrom && copyFrom !== 'scratch' ? copyFrom : undefined
+                  await onCreateBudget(parseFloat(newIncome), copyFromMonth)
                   setShowNewBudgetDialog(false)
                   setNewIncome('')
+                  setCopyFrom('')
                   setCreating(false)
                 }}
               >
@@ -534,10 +574,7 @@ export function BudgetView({
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-1.5 h-8 rounded-full"
-                          style={{ backgroundColor: group.color }}
-                        />
+                        <div className={cn('w-1.5 h-8 rounded-full', CATEGORY_TYPE_COLOR_CLASS[group.type])} />
                         <div>
                           <CardTitle className="text-base font-semibold flex items-center gap-2">
                             {group.label}
@@ -666,7 +703,7 @@ export function BudgetView({
           <BudgetSummaryPanel
             incomeTotal={budget.incomeTotal}
             totalPlanned={totalPlanned}
-            totalSpent={budget.computed.totalSpent}
+            totalSpent={budget.computed.totalSpentCategorized}
             leftToBudget={leftToBudget}
             categoryBreakdown={categoryBreakdown}
             transactions={transactions}
@@ -948,19 +985,30 @@ function SortableIncomeRow(props: Omit<IncomeRowProps, 'dragHandleProps'>): Reac
     id: props.source.id
   })
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
-    opacity: isDragging ? 0.9 : 1,
-    zIndex: isDragging ? 50 : 0,
-    position: 'relative',
-    boxShadow: isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
-    backgroundColor: isDragging ? 'hsl(var(--background))' : undefined,
-    borderRadius: isDragging ? '6px' : undefined
-  }
+  const nodeRef = useRef<HTMLDivElement | null>(null)
+  const assignRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      nodeRef.current = node
+    },
+    [setNodeRef]
+  )
+
+  useEffect(() => {
+    const node = nodeRef.current
+    if (!node) return
+    node.style.transform = CSS.Transform.toString(transform) ?? ''
+    node.style.transition = transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)'
+    node.style.opacity = isDragging ? '0.9' : '1'
+    node.style.zIndex = isDragging ? '50' : '0'
+    node.style.position = 'relative'
+    node.style.boxShadow = isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none'
+    node.style.backgroundColor = isDragging ? 'hsl(var(--background))' : ''
+    node.style.borderRadius = isDragging ? '6px' : ''
+  }, [transform, transition, isDragging])
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={assignRef}>
       <IncomeRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
@@ -1159,19 +1207,30 @@ function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): 
     id: props.category.id
   })
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
-    opacity: isDragging ? 0.9 : 1,
-    zIndex: isDragging ? 50 : 0,
-    position: 'relative',
-    boxShadow: isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
-    backgroundColor: isDragging ? 'hsl(var(--background))' : undefined,
-    borderRadius: isDragging ? '6px' : undefined
-  }
+  const nodeRef = useRef<HTMLDivElement | null>(null)
+  const assignRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      nodeRef.current = node
+    },
+    [setNodeRef]
+  )
+
+  useEffect(() => {
+    const node = nodeRef.current
+    if (!node) return
+    node.style.transform = CSS.Transform.toString(transform) ?? ''
+    node.style.transition = transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)'
+    node.style.opacity = isDragging ? '0.9' : '1'
+    node.style.zIndex = isDragging ? '50' : '0'
+    node.style.position = 'relative'
+    node.style.boxShadow = isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none'
+    node.style.backgroundColor = isDragging ? 'hsl(var(--background))' : ''
+    node.style.borderRadius = isDragging ? '6px' : ''
+  }, [transform, transition, isDragging])
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={assignRef}>
       <CategoryRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
@@ -1387,12 +1446,7 @@ function IncomeDetailPanel({
   return (
     <div className="h-full flex flex-col bg-background border-l">
       {/* Green Header for Income */}
-      <div
-        className="relative px-6 pt-6 pb-8 text-white"
-        style={{
-          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
-        }}
-      >
+      <div className="relative px-6 pt-6 pb-8 text-white bg-gradient-to-br from-emerald-500 to-emerald-600">
         <Button
           variant="ghost"
           size="icon"
@@ -1413,12 +1467,11 @@ function IncomeDetailPanel({
 
           {/* Progress bar */}
           <div className="space-y-2">
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-300"
-                style={{ width: `${receivedPercentage}%` }}
-              />
-            </div>
+            <progress
+              value={receivedPercentage}
+              max={100}
+              className="h-2 w-full overflow-hidden rounded-full bg-white/20 [--bar-bg:theme(colors.white)] [--bar-radius:9999px] [--bar-height:0.5rem] [&::-webkit-progress-bar]:bg-transparent [&::-webkit-progress-value]:bg-[color:var(--bar-bg)] [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:bg-[color:var(--bar-bg)] [&::-moz-progress-bar]:rounded-full"
+            />
           </div>
 
           <div className="flex items-baseline justify-between pt-2">

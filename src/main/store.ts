@@ -6,6 +6,7 @@ import {
   Transaction,
   Category,
   AppSettings,
+  BudgetWithComputed,
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
   CategoryAllocation,
@@ -249,6 +250,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
   }
 
   let allocations: CategoryAllocation[]
+  let incomeSources: Budget['incomeSources']
 
   if (copyFromMonth) {
     // Copy allocations from previous month
@@ -256,6 +258,25 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     if (previousBudget) {
       // Calculate spent amounts for previous month
       const previousTransactions = transactions.filter((t) => t.budgetMonth === copyFromMonth)
+
+      // Copy income sources and reset received; keep structure familiar to the user
+      incomeSources = previousBudget.incomeSources.map((src) => ({
+        ...src,
+        received: 0
+      }))
+
+      // Keep incomeTotal in sync with sources while respecting user input
+      const sourcesPlannedTotal = incomeSources.reduce((sum, src) => sum + src.planned, 0)
+      if (incomeSources.length === 0) {
+        incomeSources = [
+          { id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }
+        ]
+      } else {
+        const restPlanned = sourcesPlannedTotal - incomeSources[0].planned
+        const adjustedFirstPlanned = Math.max(0, incomeTotal - restPlanned)
+        incomeSources[0] = { ...incomeSources[0], planned: adjustedFirstPlanned }
+        incomeTotal = adjustedFirstPlanned + restPlanned
+      }
 
       allocations = categories.map((cat) => {
         const prevAllocation = previousBudget.allocations.find((a) => a.categoryId === cat.id)
@@ -279,6 +300,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
       })
     } else {
       // No previous budget found, start fresh
+      incomeSources = [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }]
       allocations = categories.map((cat) => ({
         categoryId: cat.id,
         planned: 0,
@@ -288,6 +310,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     }
   } else {
     // Start fresh
+    incomeSources = [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }]
     allocations = categories.map((cat) => ({
       categoryId: cat.id,
       planned: 0,
@@ -302,7 +325,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     id: uuidv4(),
     month,
     incomeTotal,
-    incomeSources: [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }],
+    incomeSources,
     allocations,
     isBalanced: incomeTotal === totalPlanned,
     createdAt: new Date().toISOString(),
@@ -444,23 +467,44 @@ function updateBudgetSpent(month: string): void {
 }
 
 // ============== Computed helpers ==============
-export function getBudgetWithSpent(month: string):
-  | (Budget & {
-      computed: { totalSpent: number; leftToBudget: number; available: Record<string, number> }
-    })
-  | null {
+function getUncategorizedCategoryIds(): Set<string> {
+  const categories = store.get('categories')
+  return new Set(
+    categories.filter((c) => c.name.toLowerCase().includes('uncategorized')).map((c) => c.id)
+  )
+}
+
+export function getBudgetWithSpent(month: string): BudgetWithComputed | null {
   const budget = getBudgetByMonth(month)
   if (!budget) return null
 
   const transactions = getTransactionsByMonth(month)
+  const categories = store.get('categories')
+  const categoryById = new Map(categories.map((c) => [c.id, c]))
+  const uncategorizedCategoryIds = getUncategorizedCategoryIds()
 
   const spentByCategory: Record<string, number> = {}
-  transactions.forEach((t) => {
-    spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
-  })
+  const totals = transactions.reduce(
+    (acc, t) => {
+      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
+
+      acc.totalSpentAll += t.amount
+
+      const category = t.categoryId ? categoryById.get(t.categoryId) : undefined
+      const isUncategorized =
+        !category || uncategorizedCategoryIds.has(t.categoryId) || t.categoryId === ''
+
+      if (isUncategorized) {
+        acc.uncategorizedSpent += t.amount
+      } else {
+        acc.totalSpentCategorized += t.amount
+      }
+      return acc
+    },
+    { totalSpentAll: 0, totalSpentCategorized: 0, uncategorizedSpent: 0 }
+  )
 
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
-  const totalSpent = Object.values(spentByCategory).reduce((sum, s) => sum + s, 0)
   const leftToBudget = budget.incomeTotal - totalPlanned
 
   const available: Record<string, number> = {}
@@ -476,7 +520,10 @@ export function getBudgetWithSpent(month: string):
       spent: spentByCategory[a.categoryId] || 0
     })),
     computed: {
-      totalSpent,
+      totalSpent: totals.totalSpentCategorized,
+      totalSpentCategorized: totals.totalSpentCategorized,
+      totalSpentAll: totals.totalSpentAll,
+      uncategorizedSpent: totals.uncategorizedSpent,
       leftToBudget,
       available
     }
