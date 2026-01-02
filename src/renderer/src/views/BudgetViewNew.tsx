@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus,
   ChevronDown,
   ChevronUp,
   Trash2,
   Sparkles,
-  Copy,
   RefreshCcw,
   GripVertical,
   X
@@ -109,6 +108,16 @@ const CATEGORY_TYPE_ORDER: CategoryType[] = [
   'DEBT',
   'MISC'
 ]
+
+const CATEGORY_TYPE_COLOR_CLASS: Record<CategoryType, string> = {
+  GIVING: 'bg-emerald-500',
+  SAVINGS: 'bg-blue-500',
+  NEEDS: 'bg-violet-500',
+  WANTS: 'bg-amber-500',
+  DEBT: 'bg-rose-500',
+  FOOD: 'bg-cyan-500',
+  MISC: 'bg-slate-500'
+}
 
 export function BudgetView({
   budget,
@@ -266,24 +275,32 @@ export function BudgetView({
                 </Select>
               </div>
 
-              <Button
-                className="w-full h-12 text-base"
-                size="lg"
-                onClick={() => {
-                  if (!copyFrom) {
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  className="w-full h-12 text-base"
+                  size="lg"
+                  onClick={() => {
+                    if (copyFrom === 'scratch') return
+                    setShowNewBudgetDialog(true)
+                  }}
+                  disabled={!copyFrom || copyFrom === 'scratch'}
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Copy Budget
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-12 text-base"
+                  size="lg"
+                  onClick={() => {
                     setCopyFrom('scratch')
-                  }
-                  if (copyFrom === 'scratch') {
                     setNewIncome('')
-                  }
-                  setShowNewBudgetDialog(true)
-                }}
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                {copyFrom && copyFrom !== 'scratch'
-                  ? 'Copy Budget'
-                  : 'Create Budget'}
-              </Button>
+                    setShowNewBudgetDialog(true)
+                  }}
+                >
+                  Start Fresh
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -575,10 +592,7 @@ export function BudgetView({
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-1.5 h-8 rounded-full"
-                          style={{ backgroundColor: group.color }}
-                        />
+                        <div className={cn('w-1.5 h-8 rounded-full', CATEGORY_TYPE_COLOR_CLASS[group.type])} />
                         <div>
                           <CardTitle className="text-base font-semibold flex items-center gap-2">
                             {group.label}
@@ -989,19 +1003,30 @@ function SortableIncomeRow(props: Omit<IncomeRowProps, 'dragHandleProps'>): Reac
     id: props.source.id
   })
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
-    opacity: isDragging ? 0.9 : 1,
-    zIndex: isDragging ? 50 : 0,
-    position: 'relative',
-    boxShadow: isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
-    backgroundColor: isDragging ? 'hsl(var(--background))' : undefined,
-    borderRadius: isDragging ? '6px' : undefined
-  }
+  const nodeRef = useRef<HTMLDivElement | null>(null)
+  const assignRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      nodeRef.current = node
+    },
+    [setNodeRef]
+  )
+
+  useEffect(() => {
+    const node = nodeRef.current
+    if (!node) return
+    node.style.transform = CSS.Transform.toString(transform) ?? ''
+    node.style.transition = transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)'
+    node.style.opacity = isDragging ? '0.9' : '1'
+    node.style.zIndex = isDragging ? '50' : '0'
+    node.style.position = 'relative'
+    node.style.boxShadow = isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none'
+    node.style.backgroundColor = isDragging ? 'hsl(var(--background))' : ''
+    node.style.borderRadius = isDragging ? '6px' : ''
+  }, [transform, transition, isDragging])
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={assignRef}>
       <IncomeRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
@@ -1200,19 +1225,30 @@ function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): 
     id: props.category.id
   })
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
-    opacity: isDragging ? 0.9 : 1,
-    zIndex: isDragging ? 50 : 0,
-    position: 'relative',
-    boxShadow: isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
-    backgroundColor: isDragging ? 'hsl(var(--background))' : undefined,
-    borderRadius: isDragging ? '6px' : undefined
-  }
+  const nodeRef = useRef<HTMLDivElement | null>(null)
+  const assignRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      nodeRef.current = node
+    },
+    [setNodeRef]
+  )
+
+  useEffect(() => {
+    const node = nodeRef.current
+    if (!node) return
+    node.style.transform = CSS.Transform.toString(transform) ?? ''
+    node.style.transition = transition ?? 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)'
+    node.style.opacity = isDragging ? '0.9' : '1'
+    node.style.zIndex = isDragging ? '50' : '0'
+    node.style.position = 'relative'
+    node.style.boxShadow = isDragging ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none'
+    node.style.backgroundColor = isDragging ? 'hsl(var(--background))' : ''
+    node.style.borderRadius = isDragging ? '6px' : ''
+  }, [transform, transition, isDragging])
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={assignRef}>
       <CategoryRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
@@ -1428,12 +1464,7 @@ function IncomeDetailPanel({
   return (
     <div className="h-full flex flex-col bg-background border-l">
       {/* Green Header for Income */}
-      <div
-        className="relative px-6 pt-6 pb-8 text-white"
-        style={{
-          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
-        }}
-      >
+      <div className="relative px-6 pt-6 pb-8 text-white bg-gradient-to-br from-emerald-500 to-emerald-600">
         <Button
           variant="ghost"
           size="icon"
@@ -1454,12 +1485,11 @@ function IncomeDetailPanel({
 
           {/* Progress bar */}
           <div className="space-y-2">
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-300"
-                style={{ width: `${receivedPercentage}%` }}
-              />
-            </div>
+            <progress
+              value={receivedPercentage}
+              max={100}
+              className="h-2 w-full overflow-hidden rounded-full bg-white/20 [--bar-bg:theme(colors.white)] [--bar-radius:9999px] [--bar-height:0.5rem] [&::-webkit-progress-bar]:bg-transparent [&::-webkit-progress-value]:bg-[color:var(--bar-bg)] [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:bg-[color:var(--bar-bg)] [&::-moz-progress-bar]:rounded-full"
+            />
           </div>
 
           <div className="flex items-baseline justify-between pt-2">
