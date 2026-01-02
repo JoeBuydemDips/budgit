@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   ChevronDown,
@@ -32,6 +32,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
+import { useBudgetIndex } from '@/hooks/useBudget'
 import { CategoryDetailPanel } from '@/components/CategoryDetailPanel'
 import { BudgetSummaryPanel } from '@/components/BudgetSummaryPanel'
 import {
@@ -126,6 +127,7 @@ export function BudgetView({
   onUpdateTransaction,
   onDeleteTransaction
 }: BudgetViewProps) {
+  const { budgets } = useBudgetIndex()
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false)
   const [showAddIncomeDialog, setShowAddIncomeDialog] = useState(false)
@@ -140,6 +142,7 @@ export function BudgetView({
   const [newCategoryType, setNewCategoryType] = useState<CategoryType>('NEEDS')
   const [newIncome, setNewIncome] = useState('')
   const [newIncomeName, setNewIncomeName] = useState('')
+  const [copyFrom, setCopyFrom] = useState('')
   const [creating, setCreating] = useState(false)
   const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
@@ -153,6 +156,20 @@ export function BudgetView({
   })
 
   // DnD Kit sensors for drag and drop
+
+  const sortedBudgets = useMemo(
+    () => [...budgets].sort((a, b) => b.month.localeCompare(a.month)),
+    [budgets]
+  )
+
+  useEffect(() => {
+    if (copyFrom && copyFrom !== 'scratch') {
+      const source = budgets.find((b) => b.month === copyFrom)
+      if (source) {
+        setNewIncome(source.incomeTotal.toString())
+      }
+    }
+  }, [copyFrom, budgets])
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -227,29 +244,45 @@ export function BudgetView({
 
           <Card className="border-2">
             <CardContent className="pt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="empty-copy-from">Copy from</Label>
+                <Select
+                  value={copyFrom || 'scratch'}
+                  onValueChange={(val) => setCopyFrom(val === 'scratch' ? 'scratch' : val)}
+                >
+                  <SelectTrigger id="empty-copy-from" className="h-11">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets
+                      .filter((b) => b.month !== currentMonth)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.month}>
+                          {formatMonth(parseMonthKey(b.month))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button
                 className="w-full h-12 text-base"
                 size="lg"
-                onClick={() => setShowNewBudgetDialog(true)}
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Start Fresh Budget
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full h-12 text-base"
-                size="lg"
-                onClick={async () => {
-                  const prevMonth = await window.api.getPreviousMonth(currentMonth)
-                  const prevBudget = await window.api.getBudget(prevMonth)
-                  if (prevBudget) {
-                    setNewIncome(prevBudget.incomeTotal.toString())
+                onClick={() => {
+                  if (!copyFrom) {
+                    setCopyFrom('scratch')
+                  }
+                  if (copyFrom === 'scratch') {
+                    setNewIncome('')
                   }
                   setShowNewBudgetDialog(true)
                 }}
               >
-                <Copy className="h-5 w-5 mr-2" />
-                Copy from Last Month
+                <Plus className="h-5 w-5 mr-2" />
+                {copyFrom && copyFrom !== 'scratch'
+                  ? 'Copy Budget'
+                  : 'Create Budget'}
               </Button>
             </CardContent>
           </Card>
@@ -264,6 +297,24 @@ export function BudgetView({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="copy-from">Copy from</Label>
+                <Select value={copyFrom} onValueChange={setCopyFrom}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets
+                      .filter((b) => b.month !== currentMonth)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.month}>
+                          {formatMonth(parseMonthKey(b.month))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="income">Total Income</Label>
                 <div className="relative">
@@ -293,11 +344,11 @@ export function BudgetView({
                 disabled={!newIncome || parseFloat(newIncome) <= 0 || creating}
                 onClick={async () => {
                   setCreating(true)
-                  const prevMonth = await window.api.getPreviousMonth(currentMonth)
-                  const prevBudget = await window.api.getBudget(prevMonth)
-                  await onCreateBudget(parseFloat(newIncome), prevBudget ? prevMonth : undefined)
+                  const copyFromMonth = copyFrom && copyFrom !== 'scratch' ? copyFrom : undefined
+                  await onCreateBudget(parseFloat(newIncome), copyFromMonth)
                   setShowNewBudgetDialog(false)
                   setNewIncome('')
+                  setCopyFrom('')
                   setCreating(false)
                 }}
               >

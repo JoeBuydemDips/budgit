@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   TrendingUp,
@@ -27,11 +27,16 @@ import {
 } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
 import type { BudgetWithComputed, Category, Transaction } from '../../../shared/types'
 import { CATEGORY_TYPE_COLORS, type CategoryType } from '../../../shared/types'
+import { useBudgetIndex } from '@/hooks/useBudget'
 
 interface DashboardProps {
   budget: BudgetWithComputed | null
@@ -63,6 +68,25 @@ export function Dashboard({
   onAddTransaction
 }: DashboardProps): React.JSX.Element {
   const [showAddTransaction, setShowAddTransaction] = useState(false)
+  const { budgets } = useBudgetIndex()
+  const [copyFrom, setCopyFrom] = useState('scratch')
+  const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
+  const [newIncome, setNewIncome] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  const sortedBudgets = useMemo(
+    () => [...budgets].sort((a, b) => b.month.localeCompare(a.month)),
+    [budgets]
+  )
+
+  useEffect(() => {
+    if (copyFrom && copyFrom !== 'scratch') {
+      const source = budgets.find((b) => b.month === copyFrom)
+      if (source) {
+        setNewIncome(source.incomeTotal.toString())
+      }
+    }
+  }, [copyFrom, budgets])
 
   // Calculate spending by day for the area chart
   const dailySpending = useMemo(() => {
@@ -197,18 +221,43 @@ export function Dashboard({
               </span>
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
-            <Button
-              size="lg"
-              className="w-full text-base h-12 shadow-md hover:shadow-lg transition-all"
-              onClick={async () => {
-                await onCreateBudget(0)
-              }}
-            >
-              Create My First Budget
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </CardContent>
+            <CardContent className="pt-4 space-y-4">
+              <div className="space-y-2 text-left">
+                <Label htmlFor="dashboard-copy-from">Copy from</Label>
+                <Select value={copyFrom} onValueChange={setCopyFrom}>
+                  <SelectTrigger id="dashboard-copy-from" className="h-11">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets
+                      .filter((b) => b.month !== currentMonth)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.month}>
+                          {formatMonth(parseMonthKey(b.month))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Copy planned amounts, carryovers, and income sources from any saved month.
+                </p>
+              </div>
+
+              <Button
+                size="lg"
+                className="w-full text-base h-12 shadow-md hover:shadow-lg transition-all"
+                onClick={() => {
+                  if (copyFrom === 'scratch') {
+                    setNewIncome('')
+                  }
+                  setShowNewBudgetDialog(true)
+                }}
+              >
+                {copyFrom !== 'scratch' ? 'Copy Budget' : 'Create My First Budget'}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </CardContent>
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center max-w-3xl w-full pt-8">
@@ -368,6 +417,76 @@ export function Dashboard({
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={showNewBudgetDialog} onOpenChange={setShowNewBudgetDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Your Monthly Income</DialogTitle>
+              <DialogDescription>
+                How much money do you expect to receive this month?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-dialog-copy-from">Copy from</Label>
+                <Select value={copyFrom} onValueChange={setCopyFrom}>
+                  <SelectTrigger id="dashboard-dialog-copy-from" className="h-11">
+                    <SelectValue placeholder="Start from scratch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scratch">Start from scratch</SelectItem>
+                    {sortedBudgets
+                      .filter((b) => b.month !== currentMonth)
+                      .map((b) => (
+                        <SelectItem key={b.id} value={b.month}>
+                          {formatMonth(parseMonthKey(b.month))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-income">Total Income</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    $
+                  </span>
+                  <Input
+                    id="dashboard-income"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    className="pl-7 h-12 text-lg"
+                    value={newIncome}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9.]/g, '')
+                      setNewIncome(val)
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowNewBudgetDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={!newIncome || parseFloat(newIncome) <= 0 || creating}
+                onClick={async () => {
+                  setCreating(true)
+                  const copyFromMonth = copyFrom && copyFrom !== 'scratch' ? copyFrom : undefined
+                  await onCreateBudget(parseFloat(newIncome), copyFromMonth)
+                  setShowNewBudgetDialog(false)
+                  setNewIncome('')
+                  setCopyFrom('scratch')
+                  setCreating(false)
+                }}
+              >
+                {creating ? 'Creating...' : 'Create Budget'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Budget Health Banner */}

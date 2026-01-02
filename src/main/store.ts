@@ -250,6 +250,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
   }
 
   let allocations: CategoryAllocation[]
+  let incomeSources: Budget['incomeSources']
 
   if (copyFromMonth) {
     // Copy allocations from previous month
@@ -257,6 +258,25 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     if (previousBudget) {
       // Calculate spent amounts for previous month
       const previousTransactions = transactions.filter((t) => t.budgetMonth === copyFromMonth)
+
+      // Copy income sources and reset received; keep structure familiar to the user
+      incomeSources = previousBudget.incomeSources.map((src) => ({
+        ...src,
+        received: 0
+      }))
+
+      // Keep incomeTotal in sync with sources while respecting user input
+      const sourcesPlannedTotal = incomeSources.reduce((sum, src) => sum + src.planned, 0)
+      if (incomeSources.length === 0) {
+        incomeSources = [
+          { id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }
+        ]
+      } else {
+        const restPlanned = sourcesPlannedTotal - incomeSources[0].planned
+        const adjustedFirstPlanned = Math.max(0, incomeTotal - restPlanned)
+        incomeSources[0] = { ...incomeSources[0], planned: adjustedFirstPlanned }
+        incomeTotal = adjustedFirstPlanned + restPlanned
+      }
 
       allocations = categories.map((cat) => {
         const prevAllocation = previousBudget.allocations.find((a) => a.categoryId === cat.id)
@@ -280,6 +300,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
       })
     } else {
       // No previous budget found, start fresh
+      incomeSources = [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }]
       allocations = categories.map((cat) => ({
         categoryId: cat.id,
         planned: 0,
@@ -289,6 +310,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     }
   } else {
     // Start fresh
+    incomeSources = [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }]
     allocations = categories.map((cat) => ({
       categoryId: cat.id,
       planned: 0,
@@ -303,7 +325,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     id: uuidv4(),
     month,
     incomeTotal,
-    incomeSources: [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }],
+    incomeSources,
     allocations,
     isBalanced: incomeTotal === totalPlanned,
     createdAt: new Date().toISOString(),
