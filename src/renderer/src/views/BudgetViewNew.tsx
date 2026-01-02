@@ -252,14 +252,14 @@ export function BudgetView({
           </div>
 
           <Card className="border-2">
-            <CardContent className="pt-6 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="empty-copy-from">Copy from</Label>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-3">
+                <Label htmlFor="empty-copy-from" className="text-base">Copy from</Label>
                 <Select
                   value={copyFrom || 'scratch'}
                   onValueChange={(val) => setCopyFrom(val === 'scratch' ? 'scratch' : val)}
                 >
-                  <SelectTrigger id="empty-copy-from" className="h-11">
+                  <SelectTrigger id="empty-copy-from" className="h-12">
                     <SelectValue placeholder="Start from scratch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -275,32 +275,14 @@ export function BudgetView({
                 </Select>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Button
-                  className="w-full h-12 text-base"
-                  size="lg"
-                  onClick={() => {
-                    if (copyFrom === 'scratch') return
-                    setShowNewBudgetDialog(true)
-                  }}
-                  disabled={!copyFrom || copyFrom === 'scratch'}
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Copy Budget
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full h-12 text-base"
-                  size="lg"
-                  onClick={() => {
-                    setCopyFrom('scratch')
-                    setNewIncome('')
-                    setShowNewBudgetDialog(true)
-                  }}
-                >
-                  Start Fresh
-                </Button>
-              </div>
+              <Button
+                className="w-full h-12 text-base"
+                size="lg"
+                onClick={() => setShowNewBudgetDialog(true)}
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                {copyFrom && copyFrom !== 'scratch' ? 'Copy Budget' : 'Create Budget'}
+              </Button>
             </CardContent>
           </Card>
         </div>
