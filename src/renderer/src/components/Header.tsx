@@ -22,28 +22,26 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70 app-region-drag">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-6">
-        {/* Left side - App branding */}
-        <div className="flex items-center gap-2">
+      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:px-6">
+        {/* Left side - App icon only to keep nav clean */}
+        <div className="flex items-center gap-2 app-region-no-drag">
           <Wallet className="h-6 w-6 text-primary" />
-          <div>
-            <p className="text-lg font-semibold leading-tight">Budgit</p>
-            <p className="text-xs text-muted-foreground">Zero-based budgeting</p>
-          </div>
         </div>
 
         {/* Center - Month navigation */}
         {showMonthNav && (
-          <div className="hidden md:flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 shadow-sm app-region-no-drag">
-            <Button variant="ghost" size="icon" onClick={onPreviousMonth}>
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <span className="min-w-[180px] text-center text-base font-medium">
-              {formatMonth(monthDate)}
-            </span>
-            <Button variant="ghost" size="icon" onClick={onNextMonth}>
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+          <div className="hidden md:flex items-center justify-center">
+            <div className="flex items-center gap-2 rounded-full border bg-card/60 px-3 py-1 shadow-sm app-region-no-drag">
+              <Button variant="ghost" size="icon" onClick={onPreviousMonth}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <span className="min-w-[180px] text-center text-base font-medium">
+                {formatMonth(monthDate)}
+              </span>
+              <Button variant="ghost" size="icon" onClick={onNextMonth}>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         )}
 
