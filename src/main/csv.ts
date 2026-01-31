@@ -1,8 +1,8 @@
 import {
   Budget,
   Transaction,
-  Category,
-  CategoryType,
+  BudgetItem,
+  Group,
   ColumnMapping,
   CsvImportProfile,
   DateFormatPreset,
@@ -10,7 +10,7 @@ import {
   PaymentRowHandling,
   COLUMN_ALIASES
 } from '../shared/types'
-import { getCategorySuggestions } from '../shared/categoryInference'
+import { getItemSuggestions } from '../shared/categoryInference'
 
 // CSV format types for import (legacy - keeping for backwards compatibility)
 export enum CsvFormat {
@@ -23,16 +23,16 @@ export enum CsvFormat {
 export const BUDGET_CSV_HEADERS = [
   'month',
   'incomeTotal',
-  'categoryId',
-  'categoryName',
+  'itemId',
+  'itemName',
   'planned',
   'spent',
   'carryover'
 ]
 
-export const TRANSACTION_CSV_HEADERS = ['Date', 'Amount', 'Card', 'Category', 'Description']
+export const TRANSACTION_CSV_HEADERS = ['Date', 'Amount', 'Card', 'Item', 'Description']
 
-export const CATEGORY_CSV_HEADERS = ['id', 'name', 'type', 'rolloverEnabled', 'sortOrder']
+export const ITEM_CSV_HEADERS = ['id', 'name', 'group', 'rolloverEnabled', 'sortOrder']
 
 // Escape CSV field values
 function escapeCSVField(value: string | number): string {
@@ -126,8 +126,8 @@ function parseAmount(
 }
 
 // Generate CSV content for budgets
-export function generateBudgetsCSV(budgets: Budget[], categories: Category[]): string {
-  const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
+export function generateBudgetsCSV(budgets: Budget[], items: BudgetItem[]): string {
+  const itemMap = new Map(items.map((i) => [i.id, i.name]))
   const lines: string[] = [BUDGET_CSV_HEADERS.join(',')]
 
   for (const budget of budgets) {
@@ -135,8 +135,8 @@ export function generateBudgetsCSV(budgets: Budget[], categories: Category[]): s
       const row = [
         budget.month,
         budget.incomeTotal,
-        allocation.categoryId,
-        categoryMap.get(allocation.categoryId) || '',
+        allocation.itemId,
+        itemMap.get(allocation.itemId) || '',
         allocation.planned,
         allocation.spent,
         allocation.carryover
@@ -148,12 +148,12 @@ export function generateBudgetsCSV(budgets: Budget[], categories: Category[]): s
   return lines.join('\n')
 }
 
-// Generate CSV content for categories
-export function generateCategoriesCSV(categories: Category[]): string {
-  const lines: string[] = [CATEGORY_CSV_HEADERS.join(',')]
+// Generate CSV content for budget items
+export function generateItemsCSV(items: BudgetItem[]): string {
+  const lines: string[] = [ITEM_CSV_HEADERS.join(',')]
 
-  for (const cat of categories) {
-    const row = [cat.id, cat.name, cat.type, cat.rolloverEnabled ? 'true' : 'false', cat.sortOrder]
+  for (const item of items) {
+    const row = [item.id, item.name, item.group, item.rolloverEnabled ? 'true' : 'false', item.sortOrder]
     lines.push(row.map(escapeCSVField).join(','))
   }
 
@@ -163,9 +163,9 @@ export function generateCategoriesCSV(categories: Category[]): string {
 // Generate CSV content for transactions
 export function generateTransactionsCSV(
   transactions: Transaction[],
-  categories: Category[]
+  items: BudgetItem[]
 ): string {
-  const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
+  const itemMap = new Map(items.map((i) => [i.id, i.name]))
   const lines: string[] = [TRANSACTION_CSV_HEADERS.join(',')]
 
   for (const tx of transactions) {
@@ -177,7 +177,7 @@ export function generateTransactionsCSV(
       formattedDate,
       tx.amount,
       tx.card || '',
-      categoryMap.get(tx.categoryId) || '',
+      itemMap.get(tx.itemId) || '',
       tx.description
     ]
     lines.push(row.map(escapeCSVField).join(','))
@@ -195,7 +195,7 @@ export interface ParseError {
 export interface ParsedBudgetAllocation {
   month: string
   incomeTotal: number
-  categoryId: string
+  itemId: string
   planned: number
   spent: number
   carryover: number
@@ -220,7 +220,7 @@ export function parseBudgetsCSV(csvContent: string): ParseBudgetsResult {
   const headers = parseCSVLine(lines[0])
   const monthIdx = headers.findIndex((h) => h.toLowerCase() === 'month')
   const incomeTotalIdx = headers.findIndex((h) => h.toLowerCase() === 'incometotal')
-  const categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
+  const itemIdIdx = headers.findIndex((h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid')
   const plannedIdx = headers.findIndex((h) => h.toLowerCase() === 'planned')
   const spentIdx = headers.findIndex((h) => h.toLowerCase() === 'spent')
   const carryoverIdx = headers.findIndex((h) => h.toLowerCase() === 'carryover')
@@ -229,8 +229,8 @@ export function parseBudgetsCSV(csvContent: string): ParseBudgetsResult {
   if (monthIdx === -1) {
     errors.push({ row: 1, field: 'month', message: 'Missing required column: month' })
   }
-  if (categoryIdIdx === -1) {
-    errors.push({ row: 1, field: 'categoryId', message: 'Missing required column: categoryId' })
+  if (itemIdIdx === -1) {
+    errors.push({ row: 1, field: 'itemId', message: 'Missing required column: itemId' })
   }
   if (plannedIdx === -1) {
     errors.push({ row: 1, field: 'planned', message: 'Missing required column: planned' })
@@ -267,16 +267,16 @@ export function parseBudgetsCSV(csvContent: string): ParseBudgetsResult {
       continue
     }
 
-    const categoryId = values[categoryIdIdx]
-    if (!categoryId) {
-      errors.push({ row: rowNum, field: 'categoryId', message: 'Missing categoryId' })
+    const itemId = values[itemIdIdx]
+    if (!itemId) {
+      errors.push({ row: rowNum, field: 'itemId', message: 'Missing itemId' })
       continue
     }
 
     allocations.push({
       month,
       incomeTotal: isNaN(incomeTotal) ? 0 : incomeTotal,
-      categoryId,
+      itemId,
       planned,
       spent: isNaN(spent) ? 0 : spent,
       carryover: isNaN(carryover) ? 0 : carryover
@@ -288,7 +288,7 @@ export function parseBudgetsCSV(csvContent: string): ParseBudgetsResult {
 
 export interface ParsedTransaction {
   budgetMonth: string
-  categoryName: string
+  itemName: string
   amount: number
   description: string
   date: string
@@ -303,9 +303,9 @@ export interface ParseTransactionsResult {
 // Parse CSV content for transactions
 export function parseTransactionsCSV(
   csvContent: string,
-  categories: Category[],
+  items: BudgetItem[],
   format: CsvFormat = CsvFormat.BUDGIT,
-  defaultCategoryId?: string
+  defaultItemId?: string
 ): ParseTransactionsResult {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
   const errors: ParseError[] = []
@@ -318,8 +318,8 @@ export function parseTransactionsCSV(
   // Parse header
   const headers = parseCSVLine(lines[0])
   let budgetMonthIdx: number
-  let categoryIdIdx: number
-  let categoryNameIdx: number
+  let itemIdIdx: number
+  let itemNameIdx: number
   let amountIdx: number
   let descriptionIdx: number
   let dateIdx: number
@@ -331,8 +331,8 @@ export function parseTransactionsCSV(
   if (format === CsvFormat.DEBIT_CARD) {
     // Debit card format headers
     budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
-    categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
-    categoryNameIdx = headers.findIndex((h) => h.toLowerCase() === 'category')
+    itemIdIdx = headers.findIndex((h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid')
+    itemNameIdx = headers.findIndex((h) => h.toLowerCase() === 'item' || h.toLowerCase() === 'category')
     amountIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction amount')
     descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction description')
     dateIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction date')
@@ -343,8 +343,8 @@ export function parseTransactionsCSV(
   } else {
     // Standard Budgit format headers
     budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
-    categoryIdIdx = headers.findIndex((h) => h.toLowerCase() === 'categoryid')
-    categoryNameIdx = headers.findIndex((h) => h.toLowerCase() === 'category')
+    itemIdIdx = headers.findIndex((h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid')
+    itemNameIdx = headers.findIndex((h) => h.toLowerCase() === 'item' || h.toLowerCase() === 'category')
     amountIdx = headers.findIndex((h) => h.toLowerCase() === 'amount')
     descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'description')
     dateIdx = headers.findIndex((h) => h.toLowerCase() === 'date')
@@ -380,11 +380,11 @@ export function parseTransactionsCSV(
     if (dateIdx === -1) {
       errors.push({ row: 1, field: 'date', message: 'Missing required column: date' })
     }
-    if (categoryIdIdx === -1 && categoryNameIdx === -1) {
+    if (itemIdIdx === -1 && itemNameIdx === -1) {
       errors.push({
         row: 1,
-        field: 'category',
-        message: 'Missing required column: categoryId or category'
+        field: 'item',
+        message: 'Missing required column: itemId or item'
       })
     }
   }
@@ -460,51 +460,51 @@ export function parseTransactionsCSV(
       continue
     }
 
-    // Determine categoryName
-    let categoryName = ''
+    // Determine itemName
+    let itemName = ''
     if (format === CsvFormat.DEBIT_CARD || format === CsvFormat.CREDIT_CARD) {
-      // For debit/credit cards, try to infer category from description
-      if (categoryNameIdx !== -1) {
-        categoryName = values[categoryNameIdx]?.trim() || ''
+      // For debit/credit cards, try to infer item from description
+      if (itemNameIdx !== -1) {
+        itemName = values[itemNameIdx]?.trim() || ''
       }
 
-      // If no explicit category, try to infer from description
-      if (!categoryName && descriptionIdx !== -1) {
+      // If no explicit item, try to infer from description
+      if (!itemName && descriptionIdx !== -1) {
         const description = values[descriptionIdx] || ''
-        const suggestions = getCategorySuggestions(description, categories)
+        const suggestions = getItemSuggestions(description, items)
 
         if (suggestions.length > 0) {
-          // Find the category by ID
-          const suggestedCategory = categories.find((c) => c.id === suggestions[0])
-          if (suggestedCategory) {
-            categoryName = suggestedCategory.name
+          // Find the item by ID
+          const suggestedItem = items.find((i) => i.id === suggestions[0])
+          if (suggestedItem) {
+            itemName = suggestedItem.name
           }
         }
       }
 
       // Final fallback to Uncategorized
-      if (!categoryName) {
-        categoryName = 'Uncategorized'
+      if (!itemName) {
+        itemName = 'Uncategorized'
       }
     } else {
-      // Standard format requires category
-      if (categoryNameIdx !== -1) {
-        categoryName = values[categoryNameIdx]?.trim() || ''
-      } else if (categoryIdIdx !== -1) {
-        const categoryId = values[categoryIdIdx]?.trim()
-        if (categoryId) {
-          const cat = categories.find((c) => c.id === categoryId)
-          categoryName = cat ? cat.name : categoryId // fallback to id if not found
+      // Standard format requires item
+      if (itemNameIdx !== -1) {
+        itemName = values[itemNameIdx]?.trim() || ''
+      } else if (itemIdIdx !== -1) {
+        const itemId = values[itemIdIdx]?.trim()
+        if (itemId) {
+          const item = items.find((i) => i.id === itemId)
+          itemName = item ? item.name : itemId // fallback to id if not found
         }
       }
-      if (!categoryName && defaultCategoryId) {
-        const defaultCat = categories.find((c) => c.id === defaultCategoryId)
-        if (defaultCat) {
-          categoryName = defaultCat.name
+      if (!itemName && defaultItemId) {
+        const defaultItem = items.find((i) => i.id === defaultItemId)
+        if (defaultItem) {
+          itemName = defaultItem.name
         }
       }
-      if (!categoryName) {
-        errors.push({ row: rowNum, field: 'category', message: 'Missing category' })
+      if (!itemName) {
+        errors.push({ row: rowNum, field: 'item', message: 'Missing item' })
         continue
       }
     }
@@ -513,7 +513,7 @@ export function parseTransactionsCSV(
 
     transactions.push({
       budgetMonth,
-      categoryName,
+      itemName,
       amount,
       description: descriptionIdx !== -1 ? values[descriptionIdx] || '' : '',
       date: isoDate,
@@ -524,21 +524,21 @@ export function parseTransactionsCSV(
   return { transactions, errors }
 }
 
-// Parsed category from CSV
-export interface ParsedCategory {
+// Parsed budget item from CSV
+export interface ParsedItem {
   id: string
   name: string
-  type: CategoryType
+  group: Group
   rolloverEnabled: boolean
   sortOrder: number
 }
 
-export interface ParseCategoriesResult {
-  categories: ParsedCategory[]
+export interface ParseItemsResult {
+  items: ParsedItem[]
   errors: ParseError[]
 }
 
-const VALID_CATEGORY_TYPES: CategoryType[] = [
+const VALID_GROUPS: Group[] = [
   'GIVING',
   'SAVINGS',
   'NEEDS',
@@ -548,21 +548,21 @@ const VALID_CATEGORY_TYPES: CategoryType[] = [
   'MISC'
 ]
 
-// Parse CSV content for categories
-export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
+// Parse CSV content for budget items
+export function parseItemsCSV(csvContent: string): ParseItemsResult {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
   const errors: ParseError[] = []
-  const categories: ParsedCategory[] = []
+  const items: ParsedItem[] = []
 
   if (lines.length === 0) {
-    return { categories: [], errors: [{ row: 0, field: '', message: 'Empty CSV file' }] }
+    return { items: [], errors: [{ row: 0, field: '', message: 'Empty CSV file' }] }
   }
 
   // Parse header
   const headers = parseCSVLine(lines[0])
   const idIdx = headers.findIndex((h) => h.toLowerCase() === 'id')
   const nameIdx = headers.findIndex((h) => h.toLowerCase() === 'name')
-  const typeIdx = headers.findIndex((h) => h.toLowerCase() === 'type')
+  const groupIdx = headers.findIndex((h) => h.toLowerCase() === 'group' || h.toLowerCase() === 'type')
   const rolloverIdx = headers.findIndex((h) => h.toLowerCase() === 'rolloverenabled')
   const sortOrderIdx = headers.findIndex((h) => h.toLowerCase() === 'sortorder')
 
@@ -573,12 +573,12 @@ export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
   if (nameIdx === -1) {
     errors.push({ row: 1, field: 'name', message: 'Missing required column: name' })
   }
-  if (typeIdx === -1) {
-    errors.push({ row: 1, field: 'type', message: 'Missing required column: type' })
+  if (groupIdx === -1) {
+    errors.push({ row: 1, field: 'group', message: 'Missing required column: group' })
   }
 
   if (errors.length > 0) {
-    return { categories: [], errors }
+    return { items: [], errors }
   }
 
   // Parse data rows
@@ -598,12 +598,12 @@ export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
       continue
     }
 
-    const typeValue = values[typeIdx]?.toUpperCase() as CategoryType
-    if (!VALID_CATEGORY_TYPES.includes(typeValue)) {
+    const groupValue = values[groupIdx]?.toUpperCase() as Group
+    if (!VALID_GROUPS.includes(groupValue)) {
       errors.push({
         row: rowNum,
-        field: 'type',
-        message: `Invalid type: ${typeValue}. Must be one of: ${VALID_CATEGORY_TYPES.join(', ')}`
+        field: 'group',
+        message: `Invalid group: ${groupValue}. Must be one of: ${VALID_GROUPS.join(', ')}`
       })
       continue
     }
@@ -613,16 +613,16 @@ export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
 
     const sortOrder = sortOrderIdx !== -1 ? parseInt(values[sortOrderIdx], 10) : i - 1
 
-    categories.push({
+    items.push({
       id,
       name,
-      type: typeValue,
+      group: groupValue,
       rolloverEnabled,
       sortOrder: isNaN(sortOrder) ? i - 1 : sortOrder
     })
   }
 
-  return { categories, errors }
+  return { items, errors }
 }
 
 // ============== Dynamic Column Mapping Functions ==============
@@ -784,14 +784,14 @@ export interface ParseWithMappingResult {
 // Parse CSV with dynamic column mapping
 export function parseTransactionsWithMapping(
   csvContent: string,
-  categories: Category[],
+  items: BudgetItem[],
   mapping: ColumnMapping,
   options: {
     dateFormat?: DateFormatPreset
     amountSignMode?: AmountSignMode
     paymentHandling?: PaymentRowHandling
     paymentKeywords?: string[]
-    defaultCategoryId?: string
+    defaultItemId?: string
   } = {}
 ): ParseWithMappingResult {
   const {
@@ -799,7 +799,7 @@ export function parseTransactionsWithMapping(
     amountSignMode = 'standard',
     paymentHandling = 'skip',
     paymentKeywords = ['PAYMENT', 'MOBILE PYMT', 'CREDIT'],
-    defaultCategoryId
+    defaultItemId
   } = options
 
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
@@ -901,30 +901,30 @@ export function parseTransactionsWithMapping(
     // Get description
     const description = row[mapping.description] || ''
 
-    // Determine category
-    let categoryName = ''
+    // Determine item
+    let itemName = ''
     if (mapping.category && row[mapping.category]) {
-      categoryName = row[mapping.category].trim()
+      itemName = row[mapping.category].trim()
     }
 
-    // If no category, try to infer
-    if (!categoryName && description) {
-      const suggestions = getCategorySuggestions(description, categories)
+    // If no item, try to infer
+    if (!itemName && description) {
+      const suggestions = getItemSuggestions(description, items)
       if (suggestions.length > 0) {
-        const suggestedCategory = categories.find((c) => c.id === suggestions[0])
-        if (suggestedCategory) {
-          categoryName = suggestedCategory.name
+        const suggestedItem = items.find((i) => i.id === suggestions[0])
+        if (suggestedItem) {
+          itemName = suggestedItem.name
         }
       }
     }
 
     // Fallback to uncategorized or default
-    if (!categoryName) {
-      if (defaultCategoryId) {
-        const defaultCat = categories.find((c) => c.id === defaultCategoryId)
-        categoryName = defaultCat ? defaultCat.name : 'Uncategorized'
+    if (!itemName) {
+      if (defaultItemId) {
+        const defaultItem = items.find((i) => i.id === defaultItemId)
+        itemName = defaultItem ? defaultItem.name : 'Uncategorized'
       } else {
-        categoryName = 'Uncategorized'
+        itemName = 'Uncategorized'
       }
     }
 
@@ -933,7 +933,7 @@ export function parseTransactionsWithMapping(
 
     transactions.push({
       budgetMonth,
-      categoryName,
+      itemName,
       amount,
       description,
       date: isoDate,

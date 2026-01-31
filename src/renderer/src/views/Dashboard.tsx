@@ -34,13 +34,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import type { BudgetWithComputed, Category, Transaction } from '../../../shared/types'
-import { CATEGORY_TYPE_COLORS, type CategoryType } from '../../../shared/types'
+import type { BudgetWithComputed, BudgetItem, Transaction } from '../../../shared/types'
+import { GROUP_COLORS, type Group } from '../../../shared/types'
 import { useBudgetIndex } from '@/hooks/useBudget'
 
 interface DashboardProps {
   budget: BudgetWithComputed | null
-  categories: Category[]
+  items: BudgetItem[]
   transactions: Transaction[]
   loading: boolean
   currentMonth: string
@@ -48,7 +48,7 @@ interface DashboardProps {
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
-const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
+const GROUP_LABELS: Record<Group, string> = {
   GIVING: 'Giving',
   SAVINGS: 'Savings',
   NEEDS: 'Essentials',
@@ -60,7 +60,7 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
 
 export function Dashboard({
   budget,
-  categories,
+  items,
   transactions,
   loading,
   currentMonth,
@@ -128,11 +128,11 @@ export function Dashboard({
       }))
   }, [transactions, currentMonth])
 
-  // Calculate category breakdown for pie chart
-  const categoryBreakdown = useMemo(() => {
+  // Calculate group breakdown for pie chart
+  const groupBreakdown = useMemo(() => {
     if (!budget) return []
 
-    const typeSpending: Record<CategoryType, { planned: number; spent: number }> = {
+    const groupSpending: Record<Group, { planned: number; spent: number }> = {
       GIVING: { planned: 0, spent: 0 },
       SAVINGS: { planned: 0, spent: 0 },
       NEEDS: { planned: 0, spent: 0 },
@@ -142,47 +142,47 @@ export function Dashboard({
       MISC: { planned: 0, spent: 0 }
     }
 
-    categories.forEach((cat) => {
-      const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
+    items.forEach((item) => {
+      const allocation = budget.allocations.find((a) => a.itemId === item.id)
       if (allocation) {
-        typeSpending[cat.type].planned += allocation.planned
-        typeSpending[cat.type].spent += allocation.spent
+        groupSpending[item.group].planned += allocation.planned
+        groupSpending[item.group].spent += allocation.spent
       }
     })
 
-    return Object.entries(typeSpending)
+    return Object.entries(groupSpending)
       .filter(([, data]) => data.planned > 0 || data.spent > 0)
-      .map(([type, data]) => ({
-        type: type as CategoryType,
-        label: CATEGORY_TYPE_LABELS[type as CategoryType],
+      .map(([group, data]) => ({
+        group: group as Group,
+        label: GROUP_LABELS[group as Group],
         ...data,
-        color: CATEGORY_TYPE_COLORS[type as CategoryType]
+        color: GROUP_COLORS[group as Group]
       }))
-  }, [budget, categories])
+  }, [budget, items])
 
-  // Top spending categories
-  const topCategories = useMemo(() => {
+  // Top spending items
+  const topItems = useMemo(() => {
     if (!budget) return []
 
-    return categories
-      .map((cat) => {
-        const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
+    return items
+      .map((item) => {
+        const allocation = budget.allocations.find((a) => a.itemId === item.id)
         const spent = allocation?.spent || 0
         const planned = allocation?.planned || 0
         // If no budget set but there's spending, show as 100% (over budget)
         // If budget is set, calculate actual percentage
         const percentage = planned > 0 ? (spent / planned) * 100 : spent > 0 ? 100 : 0
         return {
-          ...cat,
+          ...item,
           planned,
           spent,
           percentage
         }
       })
-      .filter((c) => c.spent > 0)
+      .filter((i) => i.spent > 0)
       .sort((a, b) => b.spent - a.spent)
       .slice(0, 5)
-  }, [budget, categories])
+  }, [budget, items])
 
   if (loading) {
     return (
@@ -307,10 +307,10 @@ export function Dashboard({
     .slice(0, 6)
 
   // Donut chart data
-  const donutData = categoryBreakdown.map((c) => ({
-    name: c.label,
-    value: c.spent,
-    color: c.color
+  const donutData = groupBreakdown.map((g) => ({
+    name: g.label,
+    value: g.spent,
+    color: g.color
   }))
 
   return (
@@ -580,18 +580,18 @@ export function Dashboard({
                   </div>
                 </div>
                 <div className="flex-1 space-y-2">
-                  {categoryBreakdown
-                    .filter((c) => c.spent > 0)
+                  {groupBreakdown
+                    .filter((g) => g.spent > 0)
                     .sort((a, b) => b.spent - a.spent)
                     .slice(0, 5)
-                    .map((cat) => (
-                      <div key={cat.type} className="flex items-center gap-2">
+                    .map((grp) => (
+                      <div key={grp.group} className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: cat.color }}
+                          style={{ backgroundColor: grp.color }}
                         />
-                        <span className="text-sm flex-1 truncate">{cat.label}</span>
-                        <span className="text-sm font-medium">{formatCurrency(cat.spent)}</span>
+                        <span className="text-sm flex-1 truncate">{grp.label}</span>
+                        <span className="text-sm font-medium">{formatCurrency(grp.spent)}</span>
                       </div>
                     ))}
                 </div>
@@ -649,47 +649,47 @@ export function Dashboard({
 
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Top Categories by Spending */}
+        {/* Top Items by Spending */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Top Categories</CardTitle>
+            <CardTitle className="text-lg">Top Items</CardTitle>
             <CardDescription>Your highest spending areas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {topCategories.length === 0 ? (
+            {topItems.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-4">
                 No spending recorded yet
               </p>
             ) : (
-              topCategories.map((cat) => {
+              topItems.map((item) => {
                 // Over budget if spending exceeds planned, OR if spending exists with no budget
-                const isOver = cat.spent > cat.planned
-                const hasNoBudget = cat.planned === 0 && cat.spent > 0
+                const isOver = item.spent > item.planned
+                const hasNoBudget = item.planned === 0 && item.spent > 0
                 return (
-                  <div key={cat.id} className="space-y-2">
+                  <div key={item.id} className="space-y-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <div
                           className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: CATEGORY_TYPE_COLORS[cat.type] }}
+                          style={{ backgroundColor: GROUP_COLORS[item.group] }}
                         />
-                        <span className="font-medium text-sm">{cat.name}</span>
+                        <span className="font-medium text-sm">{item.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={cn('text-sm', (isOver || hasNoBudget) && 'text-red-600')}>
-                          {formatCurrency(cat.spent)}
+                          {formatCurrency(item.spent)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          / {hasNoBudget ? 'No budget' : formatCurrency(cat.planned)}
+                          / {hasNoBudget ? 'No budget' : formatCurrency(item.planned)}
                         </span>
                       </div>
                     </div>
                     <Progress
-                      value={Math.min(cat.percentage, 100)}
+                      value={Math.min(item.percentage, 100)}
                       className="h-2"
                       indicatorClassName={cn(
                         (isOver || hasNoBudget) && 'bg-red-500',
-                        cat.percentage >= 80 && !isOver && !hasNoBudget && 'bg-amber-500'
+                        item.percentage >= 80 && !isOver && !hasNoBudget && 'bg-amber-500'
                       )}
                     />
                   </div>
@@ -732,7 +732,7 @@ export function Dashboard({
             ) : (
               <div className="space-y-3">
                 {recentTransactions.map((txn) => {
-                  const category = categories.find((c) => c.id === txn.categoryId)
+                  const item = items.find((i) => i.id === txn.itemId)
                   return (
                     <div
                       key={txn.id}
@@ -741,24 +741,24 @@ export function Dashboard({
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                         style={{
-                          backgroundColor: category
-                            ? `${CATEGORY_TYPE_COLORS[category.type]}20`
+                          backgroundColor: item
+                            ? `${GROUP_COLORS[item.group]}20`
                             : 'hsl(var(--muted))'
                         }}
                       >
                         <Receipt
                           className="h-4 w-4"
                           style={{
-                            color: category ? CATEGORY_TYPE_COLORS[category.type] : undefined
+                            color: item ? GROUP_COLORS[item.group] : undefined
                           }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">
-                          {txn.description || category?.name || 'Transaction'}
+                          {txn.description || item?.name || 'Transaction'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {category?.name} •{' '}
+                          {item?.name} •{' '}
                           {new Date(txn.date).toLocaleDateString(undefined, {
                             month: 'short',
                             day: 'numeric'
@@ -785,7 +785,7 @@ export function Dashboard({
       <AddTransactionDialog
         open={showAddTransaction}
         onOpenChange={setShowAddTransaction}
-        categories={categories}
+        items={items}
         currentMonth={currentMonth}
         onAddTransaction={onAddTransaction}
       />

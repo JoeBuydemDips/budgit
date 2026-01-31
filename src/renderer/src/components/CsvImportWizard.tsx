@@ -104,7 +104,7 @@ export function CsvImportWizard({
   const [previewTransactions, setPreviewTransactions] = useState<
     Array<{
       budgetMonth: string
-      categoryName: string
+      itemName: string
       amount: number
       description: string
       date: string
@@ -609,7 +609,7 @@ export function CsvImportWizard({
 
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-1">
-            <Label>Category Column</Label>
+            <Label>Item Column</Label>
             <Select
               value={mapping.category || '__none__'}
               onValueChange={(v) => updateMapping('category', v)}
@@ -618,7 +618,7 @@ export function CsvImportWizard({
                 <SelectValue placeholder="(optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">No category column (auto-infer from description)</SelectItem>
+                <SelectItem value="__none__">No item column (auto-infer from description)</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>
                     {h}
@@ -627,7 +627,7 @@ export function CsvImportWizard({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              If your CSV has no category, we&apos;ll try to infer it from the description
+              If your CSV has no item, we&apos;ll try to infer it from the description
             </p>
           </div>
 
@@ -881,7 +881,7 @@ export function CsvImportWizard({
                 <th className="px-3 py-2 text-left">Date</th>
                 <th className="px-3 py-2 text-left">Description</th>
                 <th className="px-3 py-2 text-right">Amount</th>
-                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left">Item</th>
                 <th className="px-3 py-2 text-left">Month</th>
               </tr>
             </thead>
@@ -896,7 +896,7 @@ export function CsvImportWizard({
                     {tx.amount < 0 ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}
                   </td>
                   <td className="px-3 py-2">
-                    <Badge variant="outline">{tx.categoryName}</Badge>
+                    <Badge variant="outline">{tx.itemName}</Badge>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{tx.budgetMonth}</td>
                 </tr>

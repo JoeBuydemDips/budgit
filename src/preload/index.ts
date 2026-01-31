@@ -1,13 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
-  Category,
+  BudgetItem,
   BudgetWithComputed,
-  LearnedCategoryMapping,
+  LearnedItemMapping,
   AppSettings,
   Transaction,
   Budget,
-  CategoryAllocation,
+  Allocation,
   ChatMessage,
   ChatSession,
   AiContextMonths,
@@ -25,21 +25,21 @@ const budgetApi = {
   updateSettings: (settings: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:update', settings),
 
-  // Categories
-  getCategories: (): Promise<Category[]> => ipcRenderer.invoke('categories:list'),
-  getLearnedMappings: (): Promise<LearnedCategoryMapping[]> =>
-    ipcRenderer.invoke('categories:getLearnedMappings'),
-  addCategory: (category: Omit<Category, 'id'>): Promise<Category> =>
-    ipcRenderer.invoke('categories:add', category),
-  updateCategory: (id: string, updates: Partial<Category>): Promise<Category | null> =>
-    ipcRenderer.invoke('categories:update', id, updates),
-  deleteCategory: (id: string): Promise<boolean> => ipcRenderer.invoke('categories:delete', id),
-  removeCategoryFromBudget: (month: string, categoryId: string): Promise<boolean> =>
-    ipcRenderer.invoke('categories:remove-from-budget', month, categoryId),
+  // Budget Items
+  getItems: (): Promise<BudgetItem[]> => ipcRenderer.invoke('items:list'),
+  getLearnedMappings: (): Promise<LearnedItemMapping[]> =>
+    ipcRenderer.invoke('items:getLearnedMappings'),
+  addItem: (item: Omit<BudgetItem, 'id'>): Promise<BudgetItem> =>
+    ipcRenderer.invoke('items:add', item),
+  updateItem: (id: string, updates: Partial<BudgetItem>): Promise<BudgetItem | null> =>
+    ipcRenderer.invoke('items:update', id, updates),
+  deleteItem: (id: string): Promise<boolean> => ipcRenderer.invoke('items:delete', id),
+  removeItemFromBudget: (month: string, itemId: string): Promise<boolean> =>
+    ipcRenderer.invoke('items:remove-from-budget', month, itemId),
   cleanupOrphanedAllocations: (): Promise<{ cleanedBudgets: number; removedAllocations: number }> =>
-    ipcRenderer.invoke('categories:cleanup-orphaned'),
-  reorderCategories: (categoryIds: string[]): Promise<void> =>
-    ipcRenderer.invoke('categories:reorder', categoryIds),
+    ipcRenderer.invoke('items:cleanup-orphaned'),
+  reorderItems: (itemIds: string[]): Promise<void> =>
+    ipcRenderer.invoke('items:reorder', itemIds),
 
   // Budgets
   getBudget: (month: string): Promise<Budget | null> => ipcRenderer.invoke('budget:get', month),
@@ -51,7 +51,7 @@ const budgetApi = {
     ipcRenderer.invoke('budget:create', month, incomeTotal, copyFromMonth),
   updateBudget: (
     month: string,
-    updates: { incomeTotal?: number; allocations?: CategoryAllocation[] }
+    updates: { incomeTotal?: number; allocations?: Allocation[] }
   ): Promise<Budget | null> => ipcRenderer.invoke('budget:update', month, updates),
   deleteBudget: (month: string): Promise<boolean> => ipcRenderer.invoke('budget:delete', month),
   getPreviousMonth: (month: string): Promise<string> =>
@@ -89,12 +89,12 @@ const budgetApi = {
     error?: string
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:exportTransactions', options),
-  exportCategoriesCSV: (): Promise<{
+  exportItemsCSV: (): Promise<{
     success: boolean
     filePath?: string
     error?: string
     canceled?: boolean
-  }> => ipcRenderer.invoke('csv:exportCategories'),
+  }> => ipcRenderer.invoke('csv:exportItems'),
   importBudgetsCSV: (options?: {
     targetMonth?: string
   }): Promise<{
@@ -114,7 +114,7 @@ const budgetApi = {
     errors: string[]
     canceled?: boolean
   }> => ipcRenderer.invoke('csv:importTransactions', options),
-  importCategoriesCSV: (options?: {
+  importItemsCSV: (options?: {
     mode?: 'merge' | 'replace'
   }): Promise<{
     success: boolean
@@ -122,17 +122,17 @@ const budgetApi = {
     updated: number
     errors: string[]
     canceled?: boolean
-  }> => ipcRenderer.invoke('csv:importCategories', options),
+  }> => ipcRenderer.invoke('csv:importItems', options),
   parseTransactionsCSV: (
     csvContent: string,
     options?: {
       format?: string
-      defaultCategoryId?: string
+      defaultItemId?: string
     }
   ): Promise<{
     transactions: Array<{
       budgetMonth: string
-      categoryName: string
+      itemName: string
       amount: number
       description: string
       date: string
@@ -167,12 +167,12 @@ const budgetApi = {
       amountSignMode?: AmountSignMode
       paymentHandling?: PaymentRowHandling
       paymentKeywords?: string[]
-      defaultCategoryId?: string
+      defaultItemId?: string
     }
   ): Promise<{
     transactions: Array<{
       budgetMonth: string
-      categoryName: string
+      itemName: string
       amount: number
       description: string
       date: string

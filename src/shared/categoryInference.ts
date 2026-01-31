@@ -1,7 +1,7 @@
-import { Category, LearnedCategoryMapping } from './types'
+import { BudgetItem, LearnedItemMapping } from './types'
 
-// Merchant name to category ID mappings
-const MERCHANT_CATEGORIES: Record<string, string> = {
+// Merchant name to item ID mappings
+const MERCHANT_ITEMS: Record<string, string> = {
   // Transportation
   'HARRIS COUNTY TOLL ROAD AUTHORITY': 'transportation',
   'RMA TOLL': 'transportation',
@@ -74,46 +74,46 @@ const MERCHANT_CATEGORIES: Record<string, string> = {
   'MY COMFY PAJAMA': 'clothing',
 
   // Phone/Cable (mapped to utilities or personal)
-  'PHONE/CABLE': 'utilities' // But since no phone category, use utilities
+  'PHONE/CABLE': 'utilities' // But since no phone item, use utilities
 }
 
-// Keyword patterns for category inference
-const KEYWORD_PATTERNS: Array<{ pattern: RegExp; categoryId: string; priority: number }> = [
+// Keyword patterns for item inference
+const KEYWORD_PATTERNS: Array<{ pattern: RegExp; itemId: string; priority: number }> = [
   // High priority exact matches
-  { pattern: /\b(toll|road|highway)\b/i, categoryId: 'transportation', priority: 10 },
+  { pattern: /\b(toll|road|highway)\b/i, itemId: 'transportation', priority: 10 },
   {
     pattern: /\b(grocery|supermarket|heb|sams|walmart|market)\b/i,
-    categoryId: 'groceries',
+    itemId: 'groceries',
     priority: 9
   },
   {
     pattern: /\b(restaurant|cafe|mcdonald|chipotle|doordash|dining)\b/i,
-    categoryId: 'dining-out',
+    itemId: 'dining-out',
     priority: 8
   },
   {
     pattern: /\b(hospital|health|doctor|dentist|cvs|pharmacy|medical)\b/i,
-    categoryId: 'health',
+    itemId: 'health',
     priority: 7
   },
-  { pattern: /\b(insurance|casualty)\b/i, categoryId: 'insurance', priority: 6 },
+  { pattern: /\b(insurance|casualty)\b/i, itemId: 'insurance', priority: 6 },
   {
     pattern: /\b(netflix|youtube|hulu|entertainment|movie|theater)\b/i,
-    categoryId: 'entertainment',
+    itemId: 'entertainment',
     priority: 5
   },
-  { pattern: /\b(amazon|target|shopping|merchandise)\b/i, categoryId: 'personal', priority: 4 },
+  { pattern: /\b(amazon|target|shopping|merchandise)\b/i, itemId: 'personal', priority: 4 },
   {
     pattern: /\b(clothing|clothes|dress|shirt|pants|shoes)\b/i,
-    categoryId: 'clothing',
+    itemId: 'clothing',
     priority: 3
   },
   {
     pattern: /\b(airlines|flight|travel|expedia|southwest)\b/i,
-    categoryId: 'personal',
+    itemId: 'personal',
     priority: 2
   },
-  { pattern: /\b(haircut|salon|beauty|spa)\b/i, categoryId: 'personal', priority: 1 }
+  { pattern: /\b(haircut|salon|beauty|spa)\b/i, itemId: 'personal', priority: 1 }
 ]
 
 // Clean merchant name for matching
@@ -126,15 +126,15 @@ function cleanMerchantName(description: string): string {
     .trim()
 }
 
-// Check if a category matches the expected ID or a similar name
-// This handles cases where users rename default categories
-function findMatchingCategory(expectedId: string, categories: Category[]): Category | null {
+// Check if an item matches the expected ID or a similar name
+// This handles cases where users rename default items
+function findMatchingItem(expectedId: string, items: BudgetItem[]): BudgetItem | null {
   // First, try exact ID match
-  const exactMatch = categories.find((c) => c.id === expectedId)
+  const exactMatch = items.find((c) => c.id === expectedId)
   if (exactMatch) return exactMatch
 
   // If ID not found, try to find by similar name
-  // Map expected IDs to possible category names
+  // Map expected IDs to possible item names
   const idToNames: Record<string, string[]> = {
     personal: ['personal', 'fun', 'personal/fun', 'lifestyle', 'misc'],
     groceries: ['groceries', 'grocery', 'food'],
@@ -153,7 +153,7 @@ function findMatchingCategory(expectedId: string, categories: Category[]): Categ
 
   const possibleNames = idToNames[expectedId] || [expectedId]
   for (const name of possibleNames) {
-    const match = categories.find(
+    const match = items.find(
       (c) => c.name.toLowerCase().includes(name) || name.includes(c.name.toLowerCase())
     )
     if (match) return match
@@ -162,11 +162,11 @@ function findMatchingCategory(expectedId: string, categories: Category[]): Categ
   return null
 }
 
-// Infer category from transaction description
-export function inferCategoryFromDescription(
+// Infer item from transaction description
+export function inferItemFromDescription(
   description: string,
-  categories: Category[],
-  learnedMappings: LearnedCategoryMapping[] = []
+  items: BudgetItem[],
+  learnedMappings: LearnedItemMapping[] = []
 ): string | null {
   if (!description) return null
 
@@ -177,38 +177,38 @@ export function inferCategoryFromDescription(
     (mapping) => cleanMerchantName(mapping.merchantName) === cleanDesc
   )
   if (learnedMatch) {
-    const categoryExists = categories.some((c) => c.id === learnedMatch.categoryId)
-    if (categoryExists) return learnedMatch.categoryId
+    const itemExists = items.some((c) => c.id === learnedMatch.itemId)
+    if (itemExists) return learnedMatch.itemId
   }
 
   // Then, try exact merchant match
-  const merchantMatch = MERCHANT_CATEGORIES[cleanDesc]
+  const merchantMatch = MERCHANT_ITEMS[cleanDesc]
   if (merchantMatch) {
-    // Use smarter matching that handles renamed categories
-    const matchedCategory = findMatchingCategory(merchantMatch, categories)
-    if (matchedCategory) return matchedCategory.id
+    // Use smarter matching that handles renamed items
+    const matchedItem = findMatchingItem(merchantMatch, items)
+    if (matchedItem) return matchedItem.id
   }
 
   // Then, try keyword patterns, sorted by priority
   const sortedPatterns = KEYWORD_PATTERNS.sort((a, b) => b.priority - a.priority)
-  for (const { pattern, categoryId } of sortedPatterns) {
+  for (const { pattern, itemId } of sortedPatterns) {
     if (pattern.test(cleanDesc)) {
-      // Use smarter matching that handles renamed categories
-      const matchedCategory = findMatchingCategory(categoryId, categories)
-      if (matchedCategory) return matchedCategory.id
+      // Use smarter matching that handles renamed items
+      const matchedItem = findMatchingItem(itemId, items)
+      if (matchedItem) return matchedItem.id
     }
   }
 
   return null
 }
 
-// Get category suggestions for a description (returns multiple possibilities)
-export function getCategorySuggestions(
+// Get item suggestions for a description (returns multiple possibilities)
+export function getItemSuggestions(
   description: string,
-  categories: Category[],
-  learnedMappings: LearnedCategoryMapping[] = []
+  items: BudgetItem[],
+  learnedMappings: LearnedItemMapping[] = []
 ): string[] {
-  const inferred = inferCategoryFromDescription(description, categories, learnedMappings)
+  const inferred = inferItemFromDescription(description, items, learnedMappings)
   if (inferred) return [inferred]
 
   // If no inference, return some defaults based on common patterns
@@ -217,25 +217,25 @@ export function getCategorySuggestions(
 
   // Check for common patterns
   if (/\b(eat|food|drink|restaurant|cafe)\b/i.test(cleanDesc)) {
-    if (categories.some((c) => c.id === 'dining-out')) suggestions.push('dining-out')
-    if (categories.some((c) => c.id === 'groceries')) suggestions.push('groceries')
+    if (items.some((c) => c.id === 'dining-out')) suggestions.push('dining-out')
+    if (items.some((c) => c.id === 'groceries')) suggestions.push('groceries')
   }
 
   if (/\b(shop|buy|purchase)\b/i.test(cleanDesc)) {
-    if (categories.some((c) => c.id === 'personal')) suggestions.push('personal')
+    if (items.some((c) => c.id === 'personal')) suggestions.push('personal')
   }
 
   // Check for income patterns
   if (/\b(payroll|salary|deposit|direct deposit|wage|income)\b/i.test(cleanDesc)) {
-    if (categories.some((c) => c.id === 'salary')) suggestions.push('salary')
+    if (items.some((c) => c.id === 'salary')) suggestions.push('salary')
   }
 
   if (/\b(freelance|contract|consult|independent)\b/i.test(cleanDesc)) {
-    if (categories.some((c) => c.id === 'freelance')) suggestions.push('freelance')
+    if (items.some((c) => c.id === 'freelance')) suggestions.push('freelance')
   }
 
   if (/\b(invest|dividend|interest|capital|return|profit)\b/i.test(cleanDesc)) {
-    if (categories.some((c) => c.id === 'investments')) suggestions.push('investments')
+    if (items.some((c) => c.id === 'investments')) suggestions.push('investments')
   }
 
   // Note: No default fallback - if nothing matches, return empty array
@@ -245,11 +245,11 @@ export function getCategorySuggestions(
 }
 
 // Learn from user correction
-export function learnCategoryMapping(
+export function learnItemMapping(
   merchantName: string,
-  categoryId: string,
-  learnedMappings: LearnedCategoryMapping[]
-): LearnedCategoryMapping[] {
+  itemId: string,
+  learnedMappings: LearnedItemMapping[]
+): LearnedItemMapping[] {
   const cleanName = cleanMerchantName(merchantName)
   const existingIndex = learnedMappings.findIndex(
     (mapping) => cleanMerchantName(mapping.merchantName) === cleanName
@@ -258,26 +258,26 @@ export function learnCategoryMapping(
   if (existingIndex >= 0) {
     // Update existing mapping
     const existing = learnedMappings[existingIndex]
-    if (existing.categoryId === categoryId) {
-      // Same category, increase confidence
+    if (existing.itemId === itemId) {
+      // Same item, increase confidence
       learnedMappings[existingIndex] = {
         ...existing,
         confidence: Math.min(1, existing.confidence + 0.1),
         lastUsed: new Date().toISOString()
       }
     } else {
-      // Different category, update if confidence is low or reset
+      // Different item, update if confidence is low or reset
       if (existing.confidence < 0.5) {
         learnedMappings[existingIndex] = {
           merchantName: cleanName,
-          categoryId,
+          itemId,
           confidence: 0.6,
           lastUsed: new Date().toISOString()
         }
       } else {
         // High confidence, don't change but could log conflict
         console.warn(
-          `High confidence mapping conflict for ${cleanName}: ${existing.categoryId} vs ${categoryId}`
+          `High confidence mapping conflict for ${cleanName}: ${existing.itemId} vs ${itemId}`
         )
       }
     }
@@ -285,7 +285,7 @@ export function learnCategoryMapping(
     // Add new mapping
     learnedMappings.push({
       merchantName: cleanName,
-      categoryId,
+      itemId,
       confidence: 0.5,
       lastUsed: new Date().toISOString()
     })
@@ -297,8 +297,8 @@ export function learnCategoryMapping(
 // Get all learned mappings for a merchant (for debugging/display)
 export function getLearnedMappingsForMerchant(
   merchantName: string,
-  learnedMappings: LearnedCategoryMapping[]
-): LearnedCategoryMapping | null {
+  learnedMappings: LearnedItemMapping[]
+): LearnedItemMapping | null {
   const cleanName = cleanMerchantName(merchantName)
   return (
     learnedMappings.find((mapping) => cleanMerchantName(mapping.merchantName) === cleanName) || null

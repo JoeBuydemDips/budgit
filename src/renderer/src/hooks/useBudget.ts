@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import type {
   Budget,
   BudgetWithComputed,
-  Category,
+  BudgetItem,
   Transaction,
-  CategoryAllocation,
+  Allocation,
   IncomeSource,
-  LearnedCategoryMapping
+  LearnedItemMapping
 } from '../../../shared/types'
 
 export function useBudgetIndex() {
@@ -56,15 +56,15 @@ export function useCurrentMonth() {
   }
 }
 
-// Hook to manage categories
-export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([])
+// Hook to manage budget items
+export function useItems() {
+  const [items, setItems] = useState<BudgetItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     // Don't set loading=true during refresh to prevent scroll reset
-    const cats = await window.api.getCategories()
-    setCategories(cats)
+    const itemList = await window.api.getItems()
+    setItems(itemList)
     setLoading(false)
   }, [])
 
@@ -72,46 +72,46 @@ export function useCategories() {
     refresh()
   }, [refresh])
 
-  const addCategory = useCallback(
-    async (category: Omit<Category, 'id'>) => {
-      await window.api.addCategory(category)
+  const addItem = useCallback(
+    async (item: Omit<BudgetItem, 'id'>) => {
+      await window.api.addItem(item)
       await refresh()
     },
     [refresh]
   )
 
-  const deleteCategory = useCallback(
+  const deleteItem = useCallback(
     async (id: string) => {
-      await window.api.deleteCategory(id)
+      await window.api.deleteItem(id)
       await refresh()
     },
     [refresh]
   )
 
-  const reorderCategories = useCallback(
-    async (categoryIds: string[]) => {
-      await window.api.reorderCategories(categoryIds)
+  const reorderItems = useCallback(
+    async (itemIds: string[]) => {
+      await window.api.reorderItems(itemIds)
       await refresh()
     },
     [refresh]
   )
 
-  const updateCategory = useCallback(
-    async (id: string, updates: Partial<Category>) => {
-      await window.api.updateCategory(id, updates)
+  const updateItem = useCallback(
+    async (id: string, updates: Partial<BudgetItem>) => {
+      await window.api.updateItem(id, updates)
       await refresh()
     },
     [refresh]
   )
 
   return {
-    categories,
+    items,
     loading,
     refresh,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    reorderCategories
+    addItem,
+    updateItem,
+    deleteItem,
+    reorderItems
   }
 }
 
@@ -151,18 +151,18 @@ export function useBudget(month: string) {
   )
 
   const updateAllocation = useCallback(
-    async (categoryId: string, planned: number) => {
+    async (itemId: string, planned: number) => {
       if (!budget) return
-      const existingAllocation = budget.allocations.find((a) => a.categoryId === categoryId)
+      const existingAllocation = budget.allocations.find((a) => a.itemId === itemId)
       let newAllocations
       if (existingAllocation) {
         // Update existing allocation
         newAllocations = budget.allocations.map((a) =>
-          a.categoryId === categoryId ? { ...a, planned } : a
+          a.itemId === itemId ? { ...a, planned } : a
         )
       } else {
-        // Create new allocation for this category
-        newAllocations = [...budget.allocations, { categoryId, planned, spent: 0, carryover: 0 }]
+        // Create new allocation for this item
+        newAllocations = [...budget.allocations, { itemId, planned, spent: 0, carryover: 0 }]
       }
       await window.api.updateBudget(month, { allocations: newAllocations })
       await refresh()
@@ -170,16 +170,16 @@ export function useBudget(month: string) {
     [month, budget, refresh]
   )
 
-  const removeCategoryFromBudget = useCallback(
-    async (categoryId: string) => {
-      await window.api.removeCategoryFromBudget(month, categoryId)
+  const removeItemFromBudget = useCallback(
+    async (itemId: string) => {
+      await window.api.removeItemFromBudget(month, itemId)
       await refresh()
     },
     [month, refresh]
   )
 
   const updateAllocations = useCallback(
-    async (allocations: CategoryAllocation[]) => {
+    async (allocations: Allocation[]) => {
       await window.api.updateBudget(month, { allocations })
       await refresh()
     },
@@ -204,7 +204,7 @@ export function useBudget(month: string) {
     updateAllocation,
     updateAllocations,
     updateIncomeSources,
-    removeCategoryFromBudget
+    removeItemFromBudget
   }
 }
 
@@ -281,9 +281,9 @@ export function useTransactions(month: string) {
   }
 }
 
-// Hook for learned category mappings
+// Hook for learned item mappings
 export function useLearnedMappings() {
-  const [learnedMappings, setLearnedMappings] = useState<LearnedCategoryMapping[]>([])
+  const [learnedMappings, setLearnedMappings] = useState<LearnedItemMapping[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {

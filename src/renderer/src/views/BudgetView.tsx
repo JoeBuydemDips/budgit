@@ -23,22 +23,22 @@ import {
 } from '@/components/ui/select'
 import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import type { BudgetWithComputed, Category, CategoryType, Transaction } from '../../../shared/types'
+import type { BudgetWithComputed, BudgetItem, Group, Transaction } from '../../../shared/types'
 
 interface BudgetViewProps {
   budget: BudgetWithComputed | null
-  categories: Category[]
+  items: BudgetItem[]
   loading: boolean
   currentMonth: string
   onCreateBudget: (incomeTotal: number, copyFromMonth?: string) => Promise<void>
   onUpdateIncome: (incomeTotal: number) => Promise<void>
-  onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
-  onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
-  onDeleteCategory: (id: string) => Promise<void>
+  onUpdateAllocation: (itemId: string, planned: number) => Promise<void>
+  onAddItem: (item: Omit<BudgetItem, 'id'>) => Promise<void>
+  onDeleteItem: (id: string) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
-const CATEGORY_TYPE_LABELS = {
+const GROUP_LABELS = {
   GIVING: 'Giving',
   SAVINGS: 'Savings',
   NEEDS: 'Essentials',
@@ -47,32 +47,32 @@ const CATEGORY_TYPE_LABELS = {
   FOOD: 'Food'
 }
 
-const CATEGORY_TYPE_ORDER = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
+const GROUP_ORDER = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
 
 export function BudgetView({
   budget,
-  categories,
+  items,
   loading,
   currentMonth,
   onCreateBudget,
   onUpdateIncome,
   onUpdateAllocation,
-  onAddCategory,
-  onDeleteCategory,
+  onAddItem,
+  onDeleteItem,
   onAddTransaction
 }: BudgetViewProps) {
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
-  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false)
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false)
   const [showAddTransactionDialog, setShowAddTransactionDialog] = useState(false)
-  const [selectedCategoryForTransaction, setSelectedCategoryForTransaction] = useState<string>('')
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [newCategoryType, setNewCategoryType] = useState<CategoryType>('NEEDS')
+  const [selectedItemForTransaction, setSelectedItemForTransaction] = useState<string>('')
+  const [newItemName, setNewItemName] = useState('')
+  const [newItemGroup, setNewItemGroup] = useState<Group>('NEEDS')
   const [newIncome, setNewIncome] = useState('')
   const [creating, setCreating] = useState(false)
   const [incomeEdit, setIncomeEdit] = useState('')
   const [savingIncome, setSavingIncome] = useState(false)
-  const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [showDeleteItemDialog, setShowDeleteItemDialog] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<BudgetItem | null>(null)
 
   // Sync incomeEdit with budget - must be before any early returns
   useEffect(() => {
@@ -191,22 +191,22 @@ export function BudgetView({
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
   const leftToBudget = budget.incomeTotal - totalPlanned
 
-  // Group categories by type
-  const groupedCategories = CATEGORY_TYPE_ORDER.map((type) => ({
-    type,
-    label: CATEGORY_TYPE_LABELS[type as keyof typeof CATEGORY_TYPE_LABELS],
-    categories: categories
-      .filter((c) => c.type === type)
-      .map((cat) => {
-        const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
+  // Group items by group
+  const groupedItems = GROUP_ORDER.map((group) => ({
+    group,
+    label: GROUP_LABELS[group as keyof typeof GROUP_LABELS],
+    items: items
+      .filter((c) => c.group === group)
+      .map((item) => {
+        const allocation = budget.allocations.find((a) => a.itemId === item.id)
         return {
-          ...cat,
+          ...item,
           planned: allocation?.planned || 0,
           spent: allocation?.spent || 0,
           carryover: allocation?.carryover || 0
         }
       })
-  })).filter((g) => g.categories.length > 0)
+  })).filter((g) => g.items.length > 0)
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -290,7 +290,7 @@ export function BudgetView({
           ) : (
             <p>
               You&apos;re over budget by <strong>{formatCurrency(Math.abs(leftToBudget))}</strong>.
-              Reduce some category amounts.
+              Reduce some item amounts.
             </p>
           )}
         </div>
@@ -305,42 +305,42 @@ export function BudgetView({
         </div>
       )}
 
-      {/* Category Groups */}
-      {groupedCategories.map((group) => (
-        <Card key={group.type}>
+      {/* Item Groups */}
+      {groupedItems.map((grp) => (
+        <Card key={grp.group}>
           <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{group.label}</CardTitle>
+            <CardTitle className="text-lg">{grp.label}</CardTitle>
             <Button
               variant="ghost"
               size="sm"
               className="h-8 px-2 text-muted-foreground hover:text-primary"
               onClick={() => {
-                setNewCategoryType(group.type as CategoryType)
-                setShowAddCategoryDialog(true)
+                setNewItemGroup(grp.group as Group)
+                setShowAddItemDialog(true)
               }}
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add {group.label}
+              Add {grp.label}
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {group.categories.length === 0 && (
+            {grp.items.length === 0 && (
               <div className="text-center py-4 text-sm text-muted-foreground italic">
-                No categories yet. Click &quot;Add {group.label}&quot; to start.
+                No items yet. Click &quot;Add {grp.label}&quot; to start.
               </div>
             )}
-            {group.categories.map((cat, index) => (
-              <div key={cat.id}>
+            {grp.items.map((item, index) => (
+              <div key={item.id}>
                 {index > 0 && <Separator className="mb-4" />}
-                <CategoryRow
-                  category={cat}
-                  onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
+                <ItemRow
+                  item={item}
+                  onUpdatePlanned={(planned) => onUpdateAllocation(item.id, planned)}
                   onDelete={() => {
-                    setCategoryToDelete(cat)
-                    setShowDeleteCategoryDialog(true)
+                    setItemToDelete(item)
+                    setShowDeleteItemDialog(true)
                   }}
                   onAddTransaction={() => {
-                    setSelectedCategoryForTransaction(cat.id)
+                    setSelectedItemForTransaction(item.id)
                     setShowAddTransactionDialog(true)
                   }}
                 />
@@ -353,70 +353,67 @@ export function BudgetView({
       <AddTransactionDialog
         open={showAddTransactionDialog}
         onOpenChange={setShowAddTransactionDialog}
-        categories={categories}
+        items={items}
         currentMonth={currentMonth}
-        defaultCategoryId={selectedCategoryForTransaction}
+        defaultItemId={selectedItemForTransaction}
         onAddTransaction={onAddTransaction}
       />
 
-      <Dialog open={showDeleteCategoryDialog} onOpenChange={setShowDeleteCategoryDialog}>
+      <Dialog open={showDeleteItemDialog} onOpenChange={setShowDeleteItemDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle>Delete Item</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete &quot;{categoryToDelete?.name}&quot;? This
-              will remove the category and all its allocations from all budgets. This action cannot
-              be undone.
+              Are you sure you want to permanently delete &quot;{itemToDelete?.name}&quot;? This
+              will remove the item and all its allocations from all budgets. This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteCategoryDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteItemDialog(false)}>
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={async () => {
-                if (categoryToDelete) {
-                  await onDeleteCategory(categoryToDelete.id)
-                  setShowDeleteCategoryDialog(false)
-                  setCategoryToDelete(null)
+                if (itemToDelete) {
+                  await onDeleteItem(itemToDelete.id)
+                  setShowDeleteItemDialog(false)
+                  setItemToDelete(null)
                 }
               }}
             >
-              Delete Category
+              Delete Item
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+      <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Category</DialogTitle>
-            <DialogDescription>Create a new category to track your spending.</DialogDescription>
+            <DialogTitle>Add New Item</DialogTitle>
+            <DialogDescription>Create a new item to track your spending.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Category Name</Label>
+              <Label>Item Name</Label>
               <Input
                 placeholder="e.g., Groceries, Rent, Netflix"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Category Type</Label>
-              <Select
-                value={newCategoryType}
-                onValueChange={(val) => setNewCategoryType(val as CategoryType)}
-              >
+              <Label>Item Group</Label>
+              <Select value={newItemGroup} onValueChange={(val) => setNewItemGroup(val as Group)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORY_TYPE_ORDER.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {CATEGORY_TYPE_LABELS[type as keyof typeof CATEGORY_TYPE_LABELS]}
+                  {GROUP_ORDER.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {GROUP_LABELS[group as keyof typeof GROUP_LABELS]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -424,23 +421,23 @@ export function BudgetView({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddCategoryDialog(false)}>
+            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
               Cancel
             </Button>
             <Button
-              disabled={!newCategoryName}
+              disabled={!newItemName}
               onClick={async () => {
-                await onAddCategory({
-                  name: newCategoryName,
-                  type: newCategoryType,
+                await onAddItem({
+                  name: newItemName,
+                  group: newItemGroup,
                   rolloverEnabled: false,
                   sortOrder: 0
                 })
-                setShowAddCategoryDialog(false)
-                setNewCategoryName('')
+                setShowAddItemDialog(false)
+                setNewItemName('')
               }}
             >
-              Add Category
+              Add Item
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -449,8 +446,8 @@ export function BudgetView({
   )
 }
 
-interface CategoryRowProps {
-  category: {
+interface ItemRowProps {
+  item: {
     id: string
     name: string
     planned: number
@@ -463,14 +460,13 @@ interface CategoryRowProps {
   onAddTransaction: () => void
 }
 
-function CategoryRow({ category, onUpdatePlanned, onDelete, onAddTransaction }: CategoryRowProps) {
+function ItemRow({ item, onUpdatePlanned, onDelete, onAddTransaction }: ItemRowProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(category.planned.toString())
+  const [editValue, setEditValue] = useState(item.planned.toString())
 
-  const available = category.planned + category.carryover - category.spent
-  const progress =
-    category.planned > 0 ? Math.min((category.spent / category.planned) * 100, 100) : 0
-  const isOverBudget = category.spent > category.planned + category.carryover
+  const available = item.planned + item.carryover - item.spent
+  const progress = item.planned > 0 ? Math.min((item.spent / item.planned) * 100, 100) : 0
+  const isOverBudget = item.spent > item.planned + item.carryover
 
   const handleSave = () => {
     const value = parseFloat(editValue) || 0
@@ -484,10 +480,10 @@ function CategoryRow({ category, onUpdatePlanned, onDelete, onAddTransaction }: 
     <div className="group space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-medium">{category.name}</span>
-          {category.carryover > 0 && (
+          <span className="font-medium">{item.name}</span>
+          {item.carryover > 0 && (
             <span className="text-xs text-muted-foreground">
-              (+{formatCurrency(category.carryover)} rollover)
+              (+{formatCurrency(item.carryover)} rollover)
             </span>
           )}
           <Button
@@ -503,7 +499,7 @@ function CategoryRow({ category, onUpdatePlanned, onDelete, onAddTransaction }: 
           <div className="text-right flex items-center gap-3">
             <div className="flex items-center gap-1">
               <span className={cn('text-sm', isOverBudget && 'text-red-600')}>
-                {formatCurrency(category.spent)}
+                {formatCurrency(item.spent)}
               </span>
               <Button
                 variant="ghost"
@@ -530,12 +526,12 @@ function CategoryRow({ category, onUpdatePlanned, onDelete, onAddTransaction }: 
               ) : (
                 <button
                   onClick={() => {
-                    setEditValue(category.planned.toString())
+                    setEditValue(item.planned.toString())
                     setIsEditing(true)
                   }}
                   className="flex items-center justify-end gap-2 w-24 h-8 px-2 rounded hover:bg-muted transition-colors text-right font-medium"
                 >
-                  {formatCurrency(category.planned)}
+                  {formatCurrency(item.planned)}
                   <Pencil className="h-3 w-3 opacity-0 group-hover/input:opacity-50" />
                 </button>
               )}
@@ -552,7 +548,7 @@ function CategoryRow({ category, onUpdatePlanned, onDelete, onAddTransaction }: 
         )}
       />
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Spent: {formatCurrency(category.spent)}</span>
+        <span>Spent: {formatCurrency(item.spent)}</span>
         <span className={cn(available < 0 && 'text-red-600')}>
           Available: {formatCurrency(available)}
         </span>

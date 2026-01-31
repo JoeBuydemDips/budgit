@@ -1,12 +1,12 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
-  Category,
+  BudgetItem,
   BudgetWithComputed,
-  LearnedCategoryMapping,
+  LearnedItemMapping,
   AppSettings,
   Transaction,
   Budget,
-  CategoryAllocation,
+  Allocation,
   IncomeSource,
   ChatMessage,
   ChatSession,
@@ -23,15 +23,15 @@ interface BudgetAPI {
   getSettings: () => Promise<AppSettings>
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
 
-  // Categories
-  getCategories: () => Promise<Category[]>
-  getLearnedMappings: () => Promise<LearnedCategoryMapping[]>
-  addCategory: (category: Omit<Category, 'id'>) => Promise<Category>
-  updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
-  deleteCategory: (id: string) => Promise<boolean>
-  removeCategoryFromBudget: (month: string, categoryId: string) => Promise<boolean>
+  // Budget Items
+  getItems: () => Promise<BudgetItem[]>
+  getLearnedMappings: () => Promise<LearnedItemMapping[]>
+  addItem: (item: Omit<BudgetItem, 'id'>) => Promise<BudgetItem>
+  updateItem: (id: string, updates: Partial<BudgetItem>) => Promise<BudgetItem | null>
+  deleteItem: (id: string) => Promise<boolean>
+  removeItemFromBudget: (month: string, itemId: string) => Promise<boolean>
   cleanupOrphanedAllocations: () => Promise<{ cleanedBudgets: number; removedAllocations: number }>
-  reorderCategories: (categoryIds: string[]) => Promise<void>
+  reorderItems: (itemIds: string[]) => Promise<void>
 
   // Budgets
   getBudget: (month: string) => Promise<Budget | null>
@@ -43,7 +43,7 @@ interface BudgetAPI {
     month: string,
     updates: {
       incomeTotal?: number
-      allocations?: CategoryAllocation[]
+      allocations?: Allocation[]
       incomeSources?: IncomeSource[]
     }
   ) => Promise<Budget | null>
@@ -73,7 +73,7 @@ interface BudgetAPI {
     error?: string
     canceled?: boolean
   }>
-  exportCategoriesCSV: () => Promise<{
+  exportItemsCSV: () => Promise<{
     success: boolean
     filePath?: string
     error?: string
@@ -93,7 +93,7 @@ interface BudgetAPI {
     errors: string[]
     canceled?: boolean
   }>
-  importCategoriesCSV: (options?: { mode?: 'merge' | 'replace' }) => Promise<{
+  importItemsCSV: (options?: { mode?: 'merge' | 'replace' }) => Promise<{
     success: boolean
     imported: number
     updated: number
@@ -102,11 +102,11 @@ interface BudgetAPI {
   }>
   parseTransactionsCSV: (
     csvContent: string,
-    options?: { format?: string; defaultCategoryId?: string }
+    options?: { format?: string; defaultItemId?: string }
   ) => Promise<{
     transactions: Array<{
       budgetMonth: string
-      categoryName: string
+      itemName: string
       amount: number
       description: string
       date: string
@@ -134,12 +134,12 @@ interface BudgetAPI {
       amountSignMode?: AmountSignMode
       paymentHandling?: PaymentRowHandling
       paymentKeywords?: string[]
-      defaultCategoryId?: string
+      defaultItemId?: string
     }
   ) => Promise<{
     transactions: Array<{
       budgetMonth: string
-      categoryName: string
+      itemName: string
       amount: number
       description: string
       date: string

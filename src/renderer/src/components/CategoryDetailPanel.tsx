@@ -21,25 +21,15 @@ import {
 } from '@/components/ui/select'
 import { cn, formatCurrency } from '@/lib/utils'
 import type {
-  Category,
+  BudgetItem,
   Transaction,
-  CategoryType,
-  LearnedCategoryMapping
+  Group,
+  LearnedItemMapping
 } from '../../../shared/types'
-import { CATEGORY_TYPE_COLORS } from '../../../shared/types'
+import { GROUP_COLORS } from '../../../shared/types'
 import { AddTransactionDialog } from './AddTransactionDialog'
 
-const TYPE_COLORS: Record<CategoryType, string> = {
-  GIVING: '#10B981',
-  SAVINGS: '#3B82F6',
-  NEEDS: '#8B5CF6',
-  WANTS: '#F59E0B',
-  DEBT: '#EF4444',
-  FOOD: '#06B6D4',
-  MISC: '#6B7280'
-}
-
-const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
+const GROUP_LABELS: Record<Group, string> = {
   GIVING: 'Giving',
   SAVINGS: 'Savings',
   NEEDS: 'Essentials',
@@ -49,18 +39,18 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   MISC: 'Miscellaneous'
 }
 
-const CATEGORY_TYPE_ORDER: CategoryType[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
+const GROUP_ORDER: Group[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT']
 
 interface CategoryDetailPanelProps {
-  category: Category & {
+  item: BudgetItem & {
     planned: number
     spent: number
     carryover: number
     remaining: number
   }
   transactions: Transaction[]
-  categories: Category[]
-  learnedMappings: LearnedCategoryMapping[]
+  items: BudgetItem[]
+  learnedMappings: LearnedItemMapping[]
   currentMonth: string
   onClose: () => void
   onUpdateTransaction: (
@@ -68,34 +58,34 @@ interface CategoryDetailPanelProps {
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ) => Promise<void>
   onDeleteTransaction: (id: string) => Promise<void>
-  onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
+  onUpdateItem: (id: string, updates: Partial<BudgetItem>) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
 export function CategoryDetailPanel({
-  category,
+  item,
   transactions,
-  categories,
+  items,
   learnedMappings,
   currentMonth,
   onClose,
   onUpdateTransaction,
   onDeleteTransaction,
-  onUpdateCategory,
+  onUpdateItem,
   onAddTransaction
 }: CategoryDetailPanelProps): React.JSX.Element {
   const [showAddTransactions, setShowAddTransactions] = useState(false)
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [assigning, setAssigning] = useState(false)
-  const [editingType, setEditingType] = useState(false)
-  const [typeValue, setTypeValue] = useState<CategoryType>(category.type)
+  const [editingGroup, setEditingGroup] = useState(false)
+  const [groupValue, setGroupValue] = useState<Group>(item.group)
   const [showAddNewExpense, setShowAddNewExpense] = useState(false)
 
-  // Update type value when category changes
+  // Update group value when item changes
   useEffect(() => {
-    setTypeValue(category.type)
-  }, [category.type])
+    setGroupValue(item.group)
+  }, [item.group])
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -105,22 +95,22 @@ export function CategoryDetailPanel({
     }
   }, [showAddTransactions])
 
-  const categoryTransactions = transactions
-    .filter((t) => t.categoryId === category.id && t.budgetMonth === currentMonth)
+  const itemTransactions = transactions
+    .filter((t) => t.itemId === item.id && t.budgetMonth === currentMonth)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  // Find uncategorized category
-  const uncategorizedCategory = categories.find((c) => c.name === 'Uncategorized')
+  // Find uncategorized item
+  const uncategorizedItem = items.find((c) => c.name === 'Uncategorized')
 
-  // Available transactions that can be assigned to this category (from uncategorized)
+  // Available transactions that can be assigned to this item (from uncategorized)
   const availableTransactions = transactions
     .filter(
       (t) =>
         t &&
         t.budgetMonth === currentMonth &&
-        (!t.categoryId ||
-          t.categoryId === uncategorizedCategory?.id ||
-          !categories.find((c) => c.id === t.categoryId))
+        (!t.itemId ||
+          t.itemId === uncategorizedItem?.id ||
+          !items.find((c) => c.id === t.itemId))
     )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -135,10 +125,10 @@ export function CategoryDetailPanel({
     )
   })
 
-  const safeToSpend = category.planned + category.carryover - category.spent
-  const headerColor = (TYPE_COLORS as Record<string, string>)[category?.type] || '#6B7280'
+  const safeToSpend = item.planned + item.carryover - item.spent
+  const headerColor = (GROUP_COLORS as Record<string, string>)[item?.group] || '#6B7280'
   const spentPercentage =
-    category.planned > 0 ? Math.min((category.spent / category.planned) * 100, 100) : 0
+    item.planned > 0 ? Math.min((item.spent / item.planned) * 100, 100) : 0
 
   const handleAssignTransactions = async (): Promise<void> => {
     if (selectedTransactionIds.length === 0) return
@@ -146,7 +136,7 @@ export function CategoryDetailPanel({
     setAssigning(true)
     try {
       for (const id of selectedTransactionIds) {
-        await onUpdateTransaction(id, { categoryId: category.id })
+        await onUpdateTransaction(id, { itemId: item.id })
       }
       setSelectedTransactionIds([])
       setSearchQuery('')
@@ -199,9 +189,9 @@ export function CategoryDetailPanel({
 
         <div className="space-y-4">
           <div>
-            <h2 className="text-2xl font-bold">{category.name}</h2>
+            <h2 className="text-2xl font-bold">{item.name}</h2>
             <p className="text-white/70 text-sm mt-0.5">
-              {formatCurrency(category.spent)} of {formatCurrency(category.planned)} spent
+              {formatCurrency(item.spent)} of {formatCurrency(item.planned)} spent
             </p>
           </div>
 
@@ -249,21 +239,21 @@ export function CategoryDetailPanel({
           </Button>
         </div>
 
-        {/* Category Type */}
+        {/* Item Group */}
         <div className="px-4 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Category Type</span>
+              <span className="text-sm font-medium">Budget Group</span>
               <div
                 className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: TYPE_COLORS[category.type] }}
+                style={{ backgroundColor: GROUP_COLORS[item.group] }}
               />
             </div>
-            {!editingType ? (
+            {!editingGroup ? (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setEditingType(true)}
+                onClick={() => setEditingGroup(true)}
                 className="h-8 px-2 text-muted-foreground hover:text-foreground"
               >
                 <Edit3 className="h-3.5 w-3.5 mr-1" />
@@ -275,8 +265,8 @@ export function CategoryDetailPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setTypeValue(category.type)
-                    setEditingType(false)
+                    setGroupValue(item.group)
+                    setEditingGroup(false)
                   }}
                   className="h-8 px-2"
                 >
@@ -285,37 +275,37 @@ export function CategoryDetailPanel({
                 <Button
                   size="sm"
                   onClick={async () => {
-                    if (typeValue !== category.type) {
-                      await onUpdateCategory(category.id, { type: typeValue })
+                    if (groupValue !== item.group) {
+                      await onUpdateItem(item.id, { group: groupValue })
                     }
-                    setEditingType(false)
+                    setEditingGroup(false)
                   }}
                   className="h-8 px-2"
-                  disabled={typeValue === category.type}
+                  disabled={groupValue === item.group}
                 >
                   Save
                 </Button>
               </div>
             )}
           </div>
-          {editingType ? (
+          {editingGroup ? (
             <div className="mt-3">
               <Select
-                value={typeValue}
-                onValueChange={(value: CategoryType) => setTypeValue(value)}
+                value={groupValue}
+                onValueChange={(value: Group) => setGroupValue(value)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORY_TYPE_ORDER.map((type) => (
-                    <SelectItem key={type} value={type}>
+                  {GROUP_ORDER.map((grp) => (
+                    <SelectItem key={grp} value={grp}>
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: TYPE_COLORS[type] }}
+                          style={{ backgroundColor: GROUP_COLORS[grp] }}
                         />
-                        {CATEGORY_TYPE_LABELS[type]}
+                        {GROUP_LABELS[grp]}
                       </div>
                     </SelectItem>
                   ))}
@@ -324,7 +314,7 @@ export function CategoryDetailPanel({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground mt-1">
-              {CATEGORY_TYPE_LABELS[category.type]}
+              {GROUP_LABELS[item.group]}
             </p>
           )}
         </div>
@@ -335,26 +325,26 @@ export function CategoryDetailPanel({
             Activity This Month
           </h3>
 
-          {categoryTransactions.length === 0 ? (
+          {itemTransactions.length === 0 ? (
             <div className="text-center py-12">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
                 <Receipt className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground">No transactions yet</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Add your first expense to {category.name}
+                Add your first expense to {item.name}
               </p>
             </div>
           ) : (
             <div className="space-y-1">
-              {categoryTransactions.map((tx) => (
+              {itemTransactions.map((tx) => (
                 <div
                   key={tx.id}
                   className="group flex items-center justify-between py-3 px-3 rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">
-                      {tx.description || category.name}
+                      {tx.description || item.name}
                     </p>
                     <p className="text-xs text-muted-foreground">{formatDate(tx.date)}</p>
                   </div>
@@ -400,10 +390,10 @@ export function CategoryDetailPanel({
       <AddTransactionDialog
         open={showAddNewExpense}
         onOpenChange={setShowAddNewExpense}
-        categories={categories}
+        items={items}
         learnedMappings={learnedMappings}
         currentMonth={currentMonth}
-        defaultCategoryId={category.id}
+        defaultItemId={item.id}
         onAddTransaction={onAddTransaction}
       />
 
@@ -414,8 +404,8 @@ export function CategoryDetailPanel({
           style={{ maxHeight: '90vh', maxWidth: '90vw', overflow: 'auto', padding: '1rem' }}
         >
           <DialogHeader>
-            <DialogTitle>Add Transactions to {category.name}</DialogTitle>
-            <DialogDescription>Select transactions to assign to this category</DialogDescription>
+            <DialogTitle>Add Transactions to {item.name}</DialogTitle>
+            <DialogDescription>Select transactions to assign to this budget item</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -459,14 +449,14 @@ export function CategoryDetailPanel({
               ) : (
                 <div className="divide-y">
                   {filteredAvailableTransactions.map((txn) => {
-                    const category = categories.find((c) => c.id === txn.categoryId)
+                    const txnItem = items.find((c) => c.id === txn.itemId)
                     return (
                       <div key={txn.id} className="flex items-center gap-3 p-3 hover:bg-muted/50">
                         <Checkbox
                           checked={selectedTransactionIds.includes(txn.id)}
                           onCheckedChange={() => handleToggleSelect(txn.id)}
                         />
-                        {/* Description & Category */}
+                        {/* Description & Item */}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{txn.description || 'Transaction'}</p>
                           <Badge
@@ -474,16 +464,16 @@ export function CategoryDetailPanel({
                             className="mt-1 text-xs font-normal"
                             style={{
                               backgroundColor:
-                                category && category.name !== 'Uncategorized'
-                                  ? `${CATEGORY_TYPE_COLORS[category.type]}20`
+                                txnItem && txnItem.name !== 'Uncategorized'
+                                  ? `${GROUP_COLORS[txnItem.group]}20`
                                   : undefined,
                               color:
-                                category && category.name !== 'Uncategorized'
-                                  ? CATEGORY_TYPE_COLORS[category.type]
+                                txnItem && txnItem.name !== 'Uncategorized'
+                                  ? GROUP_COLORS[txnItem.group]
                                   : undefined
                             }}
                           >
-                            {category?.name || 'Uncategorized'}
+                            {txnItem?.name || 'Uncategorized'}
                           </Badge>
                         </div>
                         {/* Amount */}
@@ -504,11 +494,11 @@ export function CategoryDetailPanel({
               )}
             </div>
 
-            {/* Category Info */}
+            {/* Item Info */}
             <div className="bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: headerColor }} />
-                <span className="font-medium">Assigning to: {category.name}</span>
+                <span className="font-medium">Assigning to: {item.name}</span>
               </div>
             </div>
           </div>

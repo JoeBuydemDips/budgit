@@ -55,10 +55,10 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
-import type { BudgetWithComputed, Category, CategoryType, Transaction, IncomeSource } from '../../../shared/types'
+import type { BudgetWithComputed, BudgetItem, Group, Transaction, IncomeSource } from '../../../shared/types'
 
 // Import colors directly
-const TYPE_COLORS: Record<CategoryType, string> = {
+const GROUP_COLORS: Record<Group, string> = {
   GIVING: '#10B981',
   SAVINGS: '#3B82F6',
   NEEDS: '#8B5CF6',
@@ -70,18 +70,18 @@ const TYPE_COLORS: Record<CategoryType, string> = {
 
 interface BudgetViewProps {
   budget: BudgetWithComputed | null
-  categories: Category[]
+  items: BudgetItem[]
   transactions: Transaction[]
   loading: boolean
   currentMonth: string
   onCreateBudget: (incomeTotal: number, copyFromMonth?: string) => Promise<void>
-  onUpdateAllocation: (categoryId: string, planned: number) => Promise<void>
+  onUpdateAllocation: (itemId: string, planned: number) => Promise<void>
   onUpdateIncomeSources: (sources: IncomeSource[]) => Promise<void>
-  onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
-  onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
-  onDeleteCategory: (id: string) => Promise<void>
-  onRemoveFromBudget: (categoryId: string) => Promise<void>
-  onReorderCategories: (categoryIds: string[]) => Promise<void>
+  onAddItem: (item: Omit<BudgetItem, 'id'>) => Promise<void>
+  onUpdateItem: (id: string, updates: Partial<BudgetItem>) => Promise<void>
+  onDeleteItem: (id: string) => Promise<void>
+  onRemoveFromBudget: (itemId: string) => Promise<void>
+  onReorderItems: (itemIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onUpdateTransaction: (
     id: string,
@@ -90,7 +90,7 @@ interface BudgetViewProps {
   onDeleteTransaction: (id: string) => Promise<void>
 }
 
-const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
+const GROUP_LABELS: Record<Group, string> = {
   GIVING: 'Giving',
   SAVINGS: 'Savings',
   NEEDS: 'Housing & Utilities',
@@ -100,7 +100,7 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   MISC: 'Miscellaneous'
 }
 
-const CATEGORY_TYPE_ORDER: CategoryType[] = [
+const GROUP_ORDER: Group[] = [
   'GIVING',
   'SAVINGS',
   'NEEDS',
@@ -110,7 +110,7 @@ const CATEGORY_TYPE_ORDER: CategoryType[] = [
   'MISC'
 ]
 
-const CATEGORY_TYPE_COLOR_CLASS: Record<CategoryType, string> = {
+const GROUP_COLOR_CLASS: Record<Group, string> = {
   GIVING: 'bg-emerald-500',
   SAVINGS: 'bg-blue-500',
   NEEDS: 'bg-violet-500',
@@ -122,43 +122,43 @@ const CATEGORY_TYPE_COLOR_CLASS: Record<CategoryType, string> = {
 
 export function BudgetView({
   budget,
-  categories,
+  items,
   transactions,
   loading,
   currentMonth,
   onCreateBudget,
   onUpdateAllocation,
   onUpdateIncomeSources,
-  onAddCategory,
-  onUpdateCategory,
-  onDeleteCategory,
+  onAddItem,
+  onUpdateItem,
+  onDeleteItem,
   onRemoveFromBudget,
-  onReorderCategories,
+  onReorderItems,
   onAddTransaction,
   onUpdateTransaction,
   onDeleteTransaction
 }: BudgetViewProps) {
   const { budgets } = useBudgetIndex()
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
-  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false)
-  const [addCategoryMode, setAddCategoryMode] = useState<'existing' | 'new'>('existing')
-  const [selectedExistingCategory, setSelectedExistingCategory] = useState('')
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false)
+  const [addItemMode, setAddItemMode] = useState<'existing' | 'new'>('existing')
+  const [selectedExistingItem, setSelectedExistingItem] = useState('')
   const [showAddIncomeDialog, setShowAddIncomeDialog] = useState(false)
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
   const [quickAddAmount, setQuickAddAmount] = useState('')
   const [quickAddDescription, setQuickAddDescription] = useState('')
   const [quickAddDate, setQuickAddDate] = useState(new Date().toISOString().split('T')[0])
-  const [quickAddCategoryId, setQuickAddCategoryId] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [quickAddItemId, setQuickAddItemId] = useState('')
+  const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [selectedIncomeSource, setSelectedIncomeSource] = useState<string | null>(null)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [newCategoryType, setNewCategoryType] = useState<CategoryType>('NEEDS')
+  const [newItemName, setNewItemName] = useState('')
+  const [newItemGroup, setNewItemGroup] = useState<Group>('NEEDS')
   const [newIncome, setNewIncome] = useState('')
   const [newIncomeName, setNewIncomeName] = useState('')
   const [copyFrom, setCopyFrom] = useState('')
   const [creating, setCreating] = useState(false)
-  const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false)
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [showDeleteItemDialog, setShowDeleteItemDialog] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<BudgetItem | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     INCOME: true,
     GIVING: true,
@@ -198,22 +198,22 @@ export function BudgetView({
     setExpandedGroups((prev) => ({ ...prev, [type]: !prev[type] }))
   }
 
-  // Handle drag end for category reordering
-  const handleDragEnd = async (event: DragEndEvent, groupType: CategoryType) => {
+  // Handle drag end for item reordering
+  const handleDragEnd = async (event: DragEndEvent, groupType: Group) => {
     const { active, over } = event
     if (over && active.id !== over.id) {
-      // Get categories of this type sorted by sortOrder
-      const typeCats = categories
-        .filter((c) => c.type === groupType)
+      // Get items of this group sorted by sortOrder
+      const groupItems = items
+        .filter((i) => i.group === groupType)
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
-      const oldIndex = typeCats.findIndex((c) => c.id === active.id)
-      const newIndex = typeCats.findIndex((c) => c.id === over.id)
+      const oldIndex = groupItems.findIndex((i) => i.id === active.id)
+      const newIndex = groupItems.findIndex((i) => i.id === over.id)
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(typeCats, oldIndex, newIndex)
-        const reorderedIds = reordered.map((c) => c.id)
-        await onReorderCategories(reorderedIds)
+        const reordered = arrayMove(groupItems, oldIndex, newIndex)
+        const reorderedIds = reordered.map((i) => i.id)
+        await onReorderItems(reorderedIds)
       }
     }
   }
@@ -372,17 +372,17 @@ export function BudgetView({
   ]
   const totalReceived = incomeSources.reduce((sum, s) => sum + s.received, 0)
 
-  // Group categories by type with calculated data
-  // Only show categories that have an allocation in this budget
-  const allocatedCategoryIds = new Set(budget.allocations.map((a) => a.categoryId))
-  const groupedCategories = CATEGORY_TYPE_ORDER.map((type) => {
-    const typeCats = categories
-      .filter((c) => c.type === type && allocatedCategoryIds.has(c.id))
+  // Group items by group with calculated data
+  // Only show items that have an allocation in this budget
+  const allocatedItemIds = new Set(budget.allocations.map((a) => a.itemId))
+  const groupedItems = GROUP_ORDER.map((group) => {
+    const groupItems = items
+      .filter((i) => i.group === group && allocatedItemIds.has(i.id))
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) // Sort by sortOrder
-      .map((cat) => {
-        const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
+      .map((item) => {
+        const allocation = budget.allocations.find((a) => a.itemId === item.id)
         return {
-          ...cat,
+          ...item,
           planned: allocation?.planned || 0,
           spent: allocation?.spent || 0,
           carryover: allocation?.carryover || 0,
@@ -390,40 +390,40 @@ export function BudgetView({
             (allocation?.planned || 0) + (allocation?.carryover || 0) - (allocation?.spent || 0)
         }
       })
-    const groupPlanned = typeCats.reduce((sum, c) => sum + c.planned, 0)
-    const groupSpent = typeCats.reduce((sum, c) => sum + c.spent, 0)
-    const groupRemaining = typeCats.reduce((sum, c) => sum + c.remaining, 0)
+    const groupPlanned = groupItems.reduce((sum, i) => sum + i.planned, 0)
+    const groupSpent = groupItems.reduce((sum, i) => sum + i.spent, 0)
+    const groupRemaining = groupItems.reduce((sum, i) => sum + i.remaining, 0)
 
     return {
-      type,
-      label: CATEGORY_TYPE_LABELS[type],
-      color: TYPE_COLORS[type],
-      categories: typeCats,
+      group,
+      label: GROUP_LABELS[group],
+      color: GROUP_COLORS[group],
+      items: groupItems,
       planned: groupPlanned,
       spent: groupSpent,
       remaining: groupRemaining
     }
-  }).filter((g) => g.categories.length > 0 || true) // Show all groups
+  }).filter((g) => g.items.length > 0 || true) // Show all groups
 
   // Summary panel data
-  const categoryBreakdown = CATEGORY_TYPE_ORDER.map((type) => {
-    const group = groupedCategories.find((g) => g.type === type)
+  const itemBreakdown = GROUP_ORDER.map((grp) => {
+    const groupData = groupedItems.find((g) => g.group === grp)
     return {
-      type,
-      label: CATEGORY_TYPE_LABELS[type],
-      planned: group?.planned || 0,
-      spent: group?.spent || 0,
-      percentage: budget.incomeTotal > 0 ? ((group?.planned || 0) / budget.incomeTotal) * 100 : 0
+      group: grp,
+      label: GROUP_LABELS[grp],
+      planned: groupData?.planned || 0,
+      spent: groupData?.spent || 0,
+      percentage: budget.incomeTotal > 0 ? ((groupData?.planned || 0) / budget.incomeTotal) * 100 : 0
     }
   })
 
-  // Find selected category data for detail panel
-  const selectedCategoryData = selectedCategory
-    ? groupedCategories.flatMap((g) => g.categories).find((c) => c.id === selectedCategory)
+  // Find selected item data for detail panel
+  const selectedItemData = selectedItem
+    ? groupedItems.flatMap((g) => g.items).find((i) => i.id === selectedItem)
     : null
 
   // Find selected income source data for detail panel
-  const selectedIncomeData = selectedIncomeSource
+  const selectedIncomeSourceData = selectedIncomeSource
     ? incomeSources.find((s) => s.id === selectedIncomeSource)
     : null
 
@@ -547,7 +547,7 @@ export function BudgetView({
                           isSelected={selectedIncomeSource === source.id}
                           onSelect={() => {
                             setSelectedIncomeSource(source.id)
-                            setSelectedCategory(null)
+                            setSelectedItem(null)
                           }}
                           onUpdate={(updates) => handleUpdateIncomeSource(source.id, updates)}
                           onDelete={() => handleDeleteIncomeSource(source.id)}
@@ -569,22 +569,22 @@ export function BudgetView({
             </Collapsible>
           </Card>
 
-          {/* Category Groups */}
-          {groupedCategories.map((group) => (
-            <Card key={group.type}>
+          {/* Item Groups */}
+          {groupedItems.map((group) => (
+            <Card key={group.group}>
               <Collapsible
-                open={expandedGroups[group.type]}
-                onOpenChange={() => toggleGroup(group.type)}
+                open={expandedGroups[group.group]}
+                onOpenChange={() => toggleGroup(group.group)}
               >
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={cn('w-1.5 h-8 rounded-full', CATEGORY_TYPE_COLOR_CLASS[group.type])} />
+                        <div className={cn('w-1.5 h-8 rounded-full', GROUP_COLOR_CLASS[group.group])} />
                         <div>
                           <CardTitle className="text-base font-semibold flex items-center gap-2">
                             {group.label}
-                            {expandedGroups[group.type] ? (
+                            {expandedGroups[group.group] ? (
                               <ChevronUp className="h-4 w-4 text-muted-foreground" />
                             ) : (
                               <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -619,15 +619,15 @@ export function BudgetView({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="pt-0 pb-3 px-0 space-y-0">
-                    {group.categories.length === 0 ? (
+                    {group.items.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-4 text-center italic">
-                        No categories yet
+                        No items yet
                       </p>
                     ) : (
                       <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
-                        onDragEnd={(event) => handleDragEnd(event, group.type)}
+                        onDragEnd={(event) => handleDragEnd(event, group.group)}
                         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
                         measuring={{
                           droppable: {
@@ -636,27 +636,27 @@ export function BudgetView({
                         }}
                       >
                         <SortableContext
-                          items={group.categories.map((c) => c.id)}
+                          items={group.items.map((i) => i.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {group.categories.map((cat) => (
-                            <SortableCategoryRow
-                              key={cat.id}
-                              category={cat}
-                              isSelected={selectedCategory === cat.id}
+                          {group.items.map((item) => (
+                            <SortableItemRow
+                              key={item.id}
+                              item={item}
+                              isSelected={selectedItem === item.id}
                               onSelect={() => {
-                                setSelectedCategory(cat.id)
+                                setSelectedItem(item.id)
                                 setSelectedIncomeSource(null)
                               }}
                               onUpdateName={async (name) => {
-                                await onUpdateCategory(cat.id, { name })
+                                await onUpdateItem(item.id, { name })
                               }}
-                              onUpdatePlanned={(planned) => onUpdateAllocation(cat.id, planned)}
+                              onUpdatePlanned={(planned) => onUpdateAllocation(item.id, planned)}
                               onToggleRollover={async (enabled) => {
-                                await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
+                                await onUpdateItem(item.id, { rolloverEnabled: enabled })
                               }}
                               onRemoveFromBudget={async () => {
-                                await onRemoveFromBudget(cat.id)
+                                await onRemoveFromBudget(item.id)
                               }}
                             />
                           ))}
@@ -668,8 +668,8 @@ export function BudgetView({
                       size="sm"
                       className="text-primary hover:text-primary/80 ml-6 mt-2"
                       onClick={() => {
-                        setNewCategoryType(group.type)
-                        setShowAddCategoryDialog(true)
+                        setNewItemGroup(group.group)
+                        setShowAddItemDialog(true)
                       }}
                     >
                       <Plus className="h-4 w-4 mr-1" />
@@ -685,24 +685,24 @@ export function BudgetView({
 
       {/* Right Column - Detail Panel or Summary */}
       <div className="hidden lg:block w-[380px] border-l bg-muted/30">
-        {selectedCategoryData ? (
+        {selectedItemData ? (
           <CategoryDetailPanel
-            category={selectedCategoryData}
+            item={selectedItemData}
             transactions={transactions}
-            categories={categories}
+            items={items}
             learnedMappings={[]}
             currentMonth={currentMonth}
-            onClose={() => setSelectedCategory(null)}
+            onClose={() => setSelectedItem(null)}
             onUpdateTransaction={onUpdateTransaction}
             onDeleteTransaction={onDeleteTransaction}
-            onUpdateCategory={onUpdateCategory}
+            onUpdateItem={onUpdateItem}
             onAddTransaction={onAddTransaction}
           />
-        ) : selectedIncomeData ? (
+        ) : selectedIncomeSourceData ? (
           <IncomeDetailPanel
-            incomeSource={selectedIncomeData}
+            incomeSource={selectedIncomeSourceData}
             onClose={() => setSelectedIncomeSource(null)}
-            onUpdate={(updates) => handleUpdateIncomeSource(selectedIncomeData.id, updates)}
+            onUpdate={(updates) => handleUpdateIncomeSource(selectedIncomeSourceData.id, updates)}
           />
         ) : (
           <BudgetSummaryPanel
@@ -710,9 +710,9 @@ export function BudgetView({
             totalPlanned={totalPlanned}
             totalSpent={budget.computed.totalSpentCategorized}
             leftToBudget={leftToBudget}
-            categoryBreakdown={categoryBreakdown}
+            categoryBreakdown={itemBreakdown}
             transactions={transactions}
-            categories={categories}
+            items={items}
             currentMonth={currentMonth}
           />
         )}
@@ -729,88 +729,88 @@ export function BudgetView({
 
       {/* Dialogs */}
 
-      <Dialog open={showAddCategoryDialog} onOpenChange={(open) => {
-        setShowAddCategoryDialog(open)
+      <Dialog open={showAddItemDialog} onOpenChange={(open) => {
+        setShowAddItemDialog(open)
         if (!open) {
-          setAddCategoryMode('existing')
-          setSelectedExistingCategory('')
-          setNewCategoryName('')
+          setAddItemMode('existing')
+          setSelectedExistingItem('')
+          setNewItemName('')
         }
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Category to Budget</DialogTitle>
-            <DialogDescription>Add an existing category or create a new one.</DialogDescription>
+            <DialogTitle>Add Item to Budget</DialogTitle>
+            <DialogDescription>Add an existing item or create a new one.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Mode tabs */}
             <div className="flex gap-2">
               <Button
-                variant={addCategoryMode === 'existing' ? 'default' : 'outline'}
+                variant={addItemMode === 'existing' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setAddCategoryMode('existing')}
+                onClick={() => setAddItemMode('existing')}
               >
-                Existing Category
+                Existing Item
               </Button>
               <Button
-                variant={addCategoryMode === 'new' ? 'default' : 'outline'}
+                variant={addItemMode === 'new' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setAddCategoryMode('new')}
+                onClick={() => setAddItemMode('new')}
               >
-                New Category
+                New Item
               </Button>
             </div>
 
-            {addCategoryMode === 'existing' ? (
+            {addItemMode === 'existing' ? (
               <div className="space-y-2">
-                <Label>Select Category</Label>
+                <Label>Select Item</Label>
                 <Select
-                  value={selectedExistingCategory}
-                  onValueChange={setSelectedExistingCategory}
+                  value={selectedExistingItem}
+                  onValueChange={setSelectedExistingItem}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a category..." />
+                    <SelectValue placeholder="Choose an item..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories
-                      .filter((c) => !allocatedCategoryIds.has(c.id))
+                    {items
+                      .filter((i) => !allocatedItemIds.has(i.id))
                       .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name} ({CATEGORY_TYPE_LABELS[cat.type]})
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} ({GROUP_LABELS[item.group]})
                         </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
-                {categories.filter((c) => !allocatedCategoryIds.has(c.id)).length === 0 && (
+                {items.filter((i) => !allocatedItemIds.has(i.id)).length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    All categories are already in this budget. Create a new one instead.
+                    All items are already in this budget. Create a new one instead.
                   </p>
                 )}
               </div>
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label>Category Name</Label>
+                  <Label>Item Name</Label>
                   <Input
                     placeholder="e.g., Groceries, Rent, Netflix"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Category Type</Label>
+                  <Label>Item Group</Label>
                   <Select
-                    value={newCategoryType}
-                    onValueChange={(val) => setNewCategoryType(val as CategoryType)}
+                    value={newItemGroup}
+                    onValueChange={(val) => setNewItemGroup(val as Group)}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORY_TYPE_ORDER.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {CATEGORY_TYPE_LABELS[type]}
+                      {GROUP_ORDER.map((grp) => (
+                        <SelectItem key={grp} value={grp}>
+                          {GROUP_LABELS[grp]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -820,30 +820,30 @@ export function BudgetView({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddCategoryDialog(false)}>
+            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
               Cancel
             </Button>
             <Button
-              disabled={addCategoryMode === 'existing' ? !selectedExistingCategory : !newCategoryName}
+              disabled={addItemMode === 'existing' ? !selectedExistingItem : !newItemName}
               onClick={async () => {
-                if (addCategoryMode === 'existing' && selectedExistingCategory) {
-                  // Add existing category to this month's budget with $0 allocation
-                  await onUpdateAllocation(selectedExistingCategory, 0)
-                } else if (addCategoryMode === 'new' && newCategoryName) {
-                  // Create new category (which automatically gets added to the budget)
-                  await onAddCategory({
-                    name: newCategoryName,
-                    type: newCategoryType,
+                if (addItemMode === 'existing' && selectedExistingItem) {
+                  // Add existing item to this month's budget with $0 allocation
+                  await onUpdateAllocation(selectedExistingItem, 0)
+                } else if (addItemMode === 'new' && newItemName) {
+                  // Create new item (which automatically gets added to the budget)
+                  await onAddItem({
+                    name: newItemName,
+                    group: newItemGroup,
                     rolloverEnabled: false,
                     sortOrder: 0
                   })
                 }
-                setShowAddCategoryDialog(false)
-                setSelectedExistingCategory('')
-                setNewCategoryName('')
+                setShowAddItemDialog(false)
+                setSelectedExistingItem('')
+                setNewItemName('')
               }}
             >
-              {addCategoryMode === 'existing' ? 'Add to Budget' : 'Create Category'}
+              {addItemMode === 'existing' ? 'Add to Budget' : 'Create Item'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -948,21 +948,21 @@ export function BudgetView({
               </div>
 
               <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={quickAddCategoryId} onValueChange={setQuickAddCategoryId}>
+                <Label>Item</Label>
+                <Select value={quickAddItemId} onValueChange={setQuickAddItemId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder="Select an item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {groupedCategories.map((group) =>
-                      group.categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
+                    {groupedItems.map((group) =>
+                      group.items.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
                           <div className="flex items-center gap-2">
                             <div
                               className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: group.color }}
                             />
-                            {cat.name}
+                            {item.name}
                           </div>
                         </SelectItem>
                       ))
@@ -978,20 +978,20 @@ export function BudgetView({
               Cancel
             </Button>
             <Button
-              disabled={!quickAddAmount || parseFloat(quickAddAmount) <= 0 || !quickAddCategoryId}
+              disabled={!quickAddAmount || parseFloat(quickAddAmount) <= 0 || !quickAddItemId}
               onClick={async () => {
-                const cat = categories.find((c) => c.id === quickAddCategoryId)
+                const item = items.find((i) => i.id === quickAddItemId)
                 await onAddTransaction({
                   amount: parseFloat(quickAddAmount),
-                  description: quickAddDescription || cat?.name || '',
+                  description: quickAddDescription || item?.name || '',
                   date: quickAddDate,
-                  categoryId: quickAddCategoryId,
+                  itemId: quickAddItemId,
                   budgetMonth: currentMonth
                 })
                 setShowQuickAddDialog(false)
                 setQuickAddAmount('')
                 setQuickAddDescription('')
-                setQuickAddCategoryId('')
+                setQuickAddItemId('')
               }}
             >
               Track Expense
@@ -1000,31 +1000,31 @@ export function BudgetView({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showDeleteCategoryDialog} onOpenChange={setShowDeleteCategoryDialog}>
+      <Dialog open={showDeleteItemDialog} onOpenChange={setShowDeleteItemDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle>Delete Item</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete &quot;{categoryToDelete?.name}&quot;? This
-              will remove the category and all its allocations from all budgets. This action cannot
+              Are you sure you want to permanently delete &quot;{itemToDelete?.name}&quot;? This
+              will remove the item and all its allocations from all budgets. This action cannot
               be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteCategoryDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteItemDialog(false)}>
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={async () => {
-                if (categoryToDelete) {
-                  await onDeleteCategory(categoryToDelete.id)
-                  setShowDeleteCategoryDialog(false)
-                  setCategoryToDelete(null)
+                if (itemToDelete) {
+                  await onDeleteItem(itemToDelete.id)
+                  setShowDeleteItemDialog(false)
+                  setItemToDelete(null)
                 }
               }}
             >
-              Delete Category
+              Delete Item
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1227,7 +1227,7 @@ function IncomeRow({
             </button>
           )}
         </div>
-        {/* Action buttons - matching CategoryRow structure */}
+        {/* Action buttons - matching ItemRow structure */}
         <div className="w-12 flex items-center justify-end">
           {canDelete && (
             <Button
@@ -1246,9 +1246,9 @@ function IncomeRow({
   )
 }
 
-// Category Row Component
-interface CategoryRowProps {
-  category: {
+// Item Row Component
+interface ItemRowProps {
+  item: {
     id: string
     name: string
     planned: number
@@ -1270,9 +1270,9 @@ interface CategoryRowProps {
 }
 
 // Sortable wrapper component
-function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): React.JSX.Element {
+function SortableItemRow(props: Omit<ItemRowProps, 'dragHandleProps'>): React.JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: props.category.id
+    id: props.item.id
   })
 
   const nodeRef = useRef<HTMLDivElement | null>(null)
@@ -1299,13 +1299,13 @@ function SortableCategoryRow(props: Omit<CategoryRowProps, 'dragHandleProps'>): 
 
   return (
     <div ref={assignRef}>
-      <CategoryRow {...props} dragHandleProps={{ attributes, listeners }} />
+      <ItemRow {...props} dragHandleProps={{ attributes, listeners }} />
     </div>
   )
 }
 
-function CategoryRow({
-  category,
+function ItemRow({
+  item,
   isSelected,
   onSelect,
   onUpdateName,
@@ -1313,18 +1313,18 @@ function CategoryRow({
   onToggleRollover,
   onRemoveFromBudget,
   dragHandleProps
-}: CategoryRowProps): React.JSX.Element {
+}: ItemRowProps): React.JSX.Element {
   const [editingName, setEditingName] = useState(false)
-  const [nameValue, setNameValue] = useState(category.name)
+  const [nameValue, setNameValue] = useState(item.name)
   const [editingPlanned, setEditingPlanned] = useState(false)
-  const [plannedValue, setPlannedValue] = useState(category.planned.toString())
+  const [plannedValue, setPlannedValue] = useState(item.planned.toString())
 
   const handleSaveName = (): void => {
     const trimmed = nameValue.trim()
-    if (trimmed && trimmed !== category.name) {
+    if (trimmed && trimmed !== item.name) {
       onUpdateName(trimmed)
     } else {
-      setNameValue(category.name)
+      setNameValue(item.name)
     }
     setEditingName(false)
   }
@@ -1367,7 +1367,7 @@ function CategoryRow({
               e.stopPropagation()
               if (e.key === 'Enter') handleSaveName()
               if (e.key === 'Escape') {
-                setNameValue(category.name)
+                setNameValue(item.name)
                 setEditingName(false)
               }
             }}
@@ -1379,32 +1379,32 @@ function CategoryRow({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              setNameValue(category.name)
+              setNameValue(item.name)
               setEditingName(true)
             }}
             className="font-medium truncate hover:bg-muted px-2 py-1 rounded transition-colors text-left"
           >
-            {category.name}
+            {item.name}
           </button>
         )}
-        {category.carryover > 0 && (
+        {item.carryover > 0 && (
           <Badge variant="outline" className="text-xs">
-            +{formatCurrency(category.carryover)}
+            +{formatCurrency(item.carryover)}
           </Badge>
         )}
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onToggleRollover(!category.rolloverEnabled)
+            onToggleRollover(!item.rolloverEnabled)
           }}
           className={cn(
             'p-1 rounded transition-colors',
-            category.rolloverEnabled
+            item.rolloverEnabled
               ? 'text-primary hover:text-primary/80'
               : 'text-muted-foreground/40 hover:text-muted-foreground'
           )}
           title={
-            category.rolloverEnabled
+            item.rolloverEnabled
               ? 'Rollover enabled - click to disable'
               : 'Click to enable rollover'
           }
@@ -1436,20 +1436,20 @@ function CategoryRow({
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                setPlannedValue(category.planned.toString())
+                setPlannedValue(item.planned.toString())
                 setEditingPlanned(true)
               }}
               className="hover:bg-muted pl-2 py-1 rounded transition-colors"
             >
-              {formatCurrency(category.planned)}
+              {formatCurrency(item.planned)}
             </button>
           )}
         </div>
         <div className="w-28 text-right">
           <span
-            className={cn('font-medium', category.spent > 0 ? 'text-primary' : 'text-green-600')}
+            className={cn('font-medium', item.spent > 0 ? 'text-primary' : 'text-green-600')}
           >
-            {formatCurrency(category.spent)}
+            {formatCurrency(item.spent)}
           </span>
         </div>
         {/* Action button */}

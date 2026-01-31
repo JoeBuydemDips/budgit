@@ -6,9 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
 import {
-  CATEGORY_TYPE_COLORS,
-  type CategoryType,
-  type Category,
+  GROUP_COLORS,
+  type Group,
+  type BudgetItem,
   type Transaction
 } from '../../../shared/types'
 
@@ -18,14 +18,14 @@ interface BudgetSummaryPanelProps {
   totalSpent: number
   leftToBudget: number
   categoryBreakdown: {
-    type: CategoryType
+    group: Group
     label: string
     planned: number
     spent: number
     percentage: number
   }[]
   transactions: Transaction[]
-  categories: Category[]
+  items: BudgetItem[]
   currentMonth: string
 }
 
@@ -34,7 +34,7 @@ export function BudgetSummaryPanel({
   leftToBudget,
   categoryBreakdown,
   transactions,
-  categories
+  items
 }: BudgetSummaryPanelProps): React.JSX.Element {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
@@ -44,7 +44,7 @@ export function BudgetSummaryPanel({
     .map((c) => ({
       name: c.label,
       value: c.planned,
-      color: CATEGORY_TYPE_COLORS[c.type]
+      color: GROUP_COLORS[c.group]
     }))
 
   // Get hovered segment data for center display
@@ -144,12 +144,12 @@ export function BudgetSummaryPanel({
               </div>
               {categoryBreakdown.map((cat) => (
                 <div
-                  key={cat.type}
+                  key={cat.group}
                   className="grid grid-cols-[1fr_auto_auto_auto] gap-3 text-sm py-2 px-2 hover:bg-muted/50 rounded-md transition-colors"
                 >
                   <span
                     className="font-medium truncate min-w-0"
-                    style={{ color: CATEGORY_TYPE_COLORS[cat.type] }}
+                    style={{ color: GROUP_COLORS[cat.group] }}
                     title={cat.label}
                   >
                     {cat.label}
@@ -193,8 +193,8 @@ export function BudgetSummaryPanel({
             ) : (
               <div className="space-y-1">
                 {recentTransactions.map((tx) => {
-                  const category = categories.find((c) => c.id === tx.categoryId)
-                  const categoryColor = category ? CATEGORY_TYPE_COLORS[category.type] : '#888'
+                  const item = items.find((c) => c.id === tx.itemId)
+                  const itemColor = item ? GROUP_COLORS[item.group] : '#888'
                   return (
                     <div
                       key={tx.id}
@@ -203,16 +203,16 @@ export function BudgetSummaryPanel({
                       {/* Color indicator */}
                       <div
                         className="w-1 h-10 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: categoryColor }}
+                        style={{ backgroundColor: itemColor }}
                       />
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {tx.description || category?.name || 'Expense'}
+                          {tx.description || item?.name || 'Expense'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {category?.name} •{' '}
+                          {item?.name} •{' '}
                           {new Date(tx.date).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric'

@@ -4,14 +4,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import {
   getSettings,
   updateSettings,
-  getCategories,
+  getItems,
   getLearnedMappings,
-  addCategory,
-  updateCategory,
-  deleteCategory,
-  removeCategoryFromBudget,
+  addItem,
+  updateItem,
+  deleteItem,
+  removeItemFromBudget,
   cleanupOrphanedAllocations,
-  reorderCategories,
+  reorderItems,
   getBudgetByMonth,
   createBudget,
   updateBudget,
@@ -30,9 +30,9 @@ import {
   getNextMonth,
   importBudgets,
   importTransactions,
-  importCategories,
+  importItems,
   ImportResult,
-  ImportCategoriesResult,
+  ImportItemsResult,
   getChatSessions,
   getCurrentSessionId,
   createChatSession,
@@ -51,19 +51,21 @@ import {
 import {
   generateBudgetsCSV,
   generateTransactionsCSV,
-  generateCategoriesCSV,
+  generateItemsCSV,
   parseBudgetsCSV,
   parseTransactionsCSV,
-  parseCategoriesCSV,
+  parseItemsCSV,
   CsvFormat,
   extractCsvHeaders,
   getCsvPreviewRows,
   autoDetectColumnMapping,
   parseTransactionsWithMapping,
-  createDefaultProfile
+  createDefaultProfile,
+  ParsedTransaction,
+  ParseError
 } from './csv'
 import type {
-  Category,
+  BudgetItem,
   AppSettings,
   Transaction,
   ColumnMapping,
@@ -84,37 +86,37 @@ export function registerIpcHandlers(): void {
     return updateSettings(settings)
   })
 
-  // ============== Categories ==============
-  ipcMain.handle('categories:list', () => {
-    return getCategories()
+  // ============== Budget Items ==============
+  ipcMain.handle('items:list', () => {
+    return getItems()
   })
 
-  ipcMain.handle('categories:getLearnedMappings', () => {
+  ipcMain.handle('items:getLearnedMappings', () => {
     return getLearnedMappings()
   })
 
-  ipcMain.handle('categories:add', (_, category: Omit<Category, 'id'>) => {
-    return addCategory(category)
+  ipcMain.handle('items:add', (_, item: Omit<BudgetItem, 'id'>) => {
+    return addItem(item)
   })
 
-  ipcMain.handle('categories:update', (_, id: string, updates: Partial<Category>) => {
-    return updateCategory(id, updates)
+  ipcMain.handle('items:update', (_, id: string, updates: Partial<BudgetItem>) => {
+    return updateItem(id, updates)
   })
 
-  ipcMain.handle('categories:delete', (_, id: string) => {
-    return deleteCategory(id)
+  ipcMain.handle('items:delete', (_, id: string) => {
+    return deleteItem(id)
   })
 
-  ipcMain.handle('categories:remove-from-budget', (_, month: string, categoryId: string) => {
-    return removeCategoryFromBudget(month, categoryId)
+  ipcMain.handle('items:remove-from-budget', (_, month: string, itemId: string) => {
+    return removeItemFromBudget(month, itemId)
   })
 
-  ipcMain.handle('categories:cleanup-orphaned', () => {
+  ipcMain.handle('items:cleanup-orphaned', () => {
     return cleanupOrphanedAllocations()
   })
 
-  ipcMain.handle('categories:reorder', (_, categoryIds: string[]) => {
-    return reorderCategories(categoryIds)
+  ipcMain.handle('items:reorder', (_, itemIds: string[]) => {
+    return reorderItems(itemIds)
   })
 
   // ============== Budgets ==============
@@ -148,7 +150,7 @@ export function registerIpcHandlers(): void {
       month: string,
       updates: {
         incomeTotal?: number
-        allocations?: { categoryId: string; planned: number; spent: number; carryover: number }[]
+        allocations?: { itemId: string; planned: number; spent: number; carryover: number }[]
       }
     ) => {
       return updateBudget(month, updates)
@@ -208,8 +210,8 @@ export function registerIpcHandlers(): void {
         options?.months && options.months.length > 0
           ? getBudgetsByMonths(options.months)
           : getBudgets()
-      const categories = getCategories()
-      const csvContent = generateBudgetsCSV(budgets, categories)
+      const items = getItems()
+      const csvContent = generateBudgetsCSV(budgets, items)
       await writeFile(result.filePath, csvContent, 'utf-8')
       return { success: true, filePath: result.filePath }
     } catch (error) {
@@ -239,8 +241,8 @@ export function registerIpcHandlers(): void {
           options?.startDate || options?.endDate
             ? getTransactionsByDateRange(options.startDate, options.endDate)
             : getTransactions()
-        const categories = getCategories()
-        const csvContent = generateTransactionsCSV(transactions, categories)
+        const items = getItems()
+        const csvContent = generateTransactionsCSV(transactions, items)
         await writeFile(result.filePath, csvContent, 'utf-8')
         return { success: true, filePath: result.filePath }
       } catch (error) {
@@ -309,9 +311,9 @@ export function registerIpcHandlers(): void {
 
       try {
         const csvContent = await readFile(result.filePaths[0], 'utf-8')
-        const categories = getCategories()
+        const items = getItems()
         const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
-        const parsed = parseTransactionsCSV(csvContent, categories, format)
+        const parsed = parseTransactionsCSV(csvContent, items, format)
 
         if (parsed.errors.length > 0) {
           return {
@@ -334,26 +336,19 @@ export function registerIpcHandlers(): void {
     async (
       _,
       csvContent: string,
-      options?: { format?: string; defaultCategoryId?: string }
+      options?: { format?: string; defaultItemId?: string }
     ): Promise<{
-      transactions: Array<{
-        budgetMonth: string
-        categoryName: string
-        amount: number
-        description: string
-        date: string
-        card?: string
-      }>
+      transactions: ParsedTransaction[]
       errors: { row: number; message: string }[]
     }> => {
       try {
-        const categories = getCategories()
+        const items = getItems()
         const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
         const parsed = parseTransactionsCSV(
           csvContent,
-          categories,
+          items,
           format,
-          options?.defaultCategoryId
+          options?.defaultItemId
         )
         return { transactions: parsed.transactions, errors: parsed.errors }
       } catch (error) {
@@ -424,23 +419,16 @@ export function registerIpcHandlers(): void {
         amountSignMode?: AmountSignMode
         paymentHandling?: PaymentRowHandling
         paymentKeywords?: string[]
-        defaultCategoryId?: string
+        defaultItemId?: string
       }
     ): Promise<{
-      transactions: Array<{
-        budgetMonth: string
-        categoryName: string
-        amount: number
-        description: string
-        date: string
-        card?: string
-      }>
-      errors: { row: number; field: string; message: string }[]
+      transactions: ParsedTransaction[]
+      errors: ParseError[]
       skippedPayments: number
     }> => {
       try {
-        const categories = getCategories()
-        const result = parseTransactionsWithMapping(csvContent, categories, mapping, options)
+        const items = getItems()
+        const result = parseTransactionsWithMapping(csvContent, items, mapping, options)
         return result
       } catch (error) {
         return {
@@ -468,8 +456,8 @@ export function registerIpcHandlers(): void {
       }
     ): Promise<ImportResult & { skippedPayments?: number }> => {
       try {
-        const categories = getCategories()
-        const parsed = parseTransactionsWithMapping(csvContent, categories, mapping, options)
+        const items = getItems()
+        const parsed = parseTransactionsWithMapping(csvContent, items, mapping, options)
 
         if (parsed.errors.length > 0) {
           return {
@@ -534,14 +522,14 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // Export categories
-  ipcMain.handle('csv:exportCategories', async () => {
+  // Export budget items
+  ipcMain.handle('csv:exportItems', async () => {
     const window = BrowserWindow.getFocusedWindow()
     if (!window) return { success: false, error: 'No active window' }
 
     const result = await dialog.showSaveDialog(window, {
-      title: 'Export Categories',
-      defaultPath: 'budgit-categories.csv',
+      title: 'Export Budget Items',
+      defaultPath: 'budgit-items.csv',
       filters: [{ name: 'CSV Files', extensions: ['csv'] }]
     })
 
@@ -550,8 +538,8 @@ export function registerIpcHandlers(): void {
     }
 
     try {
-      const categories = getCategories()
-      const csvContent = generateCategoriesCSV(categories)
+      const items = getItems()
+      const csvContent = generateItemsCSV(items)
       await writeFile(result.filePath, csvContent, 'utf-8')
       return { success: true, filePath: result.filePath }
     } catch (error) {
@@ -559,18 +547,18 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  // Import categories
+  // Import budget items
   ipcMain.handle(
-    'csv:importCategories',
+    'csv:importItems',
     async (
       _,
       options?: { mode?: 'merge' | 'replace' }
-    ): Promise<ImportCategoriesResult & { canceled?: boolean }> => {
+    ): Promise<ImportItemsResult & { canceled?: boolean }> => {
       const window = BrowserWindow.getFocusedWindow()
       if (!window) return { success: false, imported: 0, updated: 0, errors: ['No active window'] }
 
       const result = await dialog.showOpenDialog(window, {
-        title: 'Import Categories',
+        title: 'Import Budget Items',
         filters: [{ name: 'CSV Files', extensions: ['csv'] }],
         properties: ['openFile']
       })
@@ -581,7 +569,7 @@ export function registerIpcHandlers(): void {
 
       try {
         const csvContent = await readFile(result.filePaths[0], 'utf-8')
-        const parsed = parseCategoriesCSV(csvContent)
+        const parsed = parseItemsCSV(csvContent)
 
         if (parsed.errors.length > 0) {
           return {
@@ -592,7 +580,7 @@ export function registerIpcHandlers(): void {
           }
         }
 
-        return importCategories(parsed.categories, options?.mode || 'merge')
+        return importItems(parsed.items, options?.mode || 'merge')
       } catch (error) {
         return { success: false, imported: 0, updated: 0, errors: [String(error)] }
       }
@@ -659,7 +647,7 @@ export function registerIpcHandlers(): void {
 
       try {
         // Build context from budget data
-        const categories = getCategories()
+        const items = getItems()
         const allBudgets = getBudgetsWithSpent()
         const allTransactions = getTransactions()
 
@@ -678,7 +666,7 @@ export function registerIpcHandlers(): void {
 
         // Build system prompt with budget context
         const systemPrompt = buildSystemPrompt(
-          categories,
+          items,
           filteredBudgets,
           filteredTransactions,
           settings.currencySymbol
@@ -713,12 +701,12 @@ export function registerIpcHandlers(): void {
 
 // Build system prompt with budget context for Budgit AI
 function buildSystemPrompt(
-  categories: Category[],
+  items: BudgetItem[],
   budgets: ReturnType<typeof getBudgetsWithSpent>,
   transactions: Transaction[],
   currencySymbol: string
 ): string {
-  const categoryList = categories.map((c) => `- ${c.name} (${c.type})`).join('\n')
+  const itemList = items.map((i) => `- ${i.name} (${i.group})`).join('\n')
 
   // Summarize budgets
   const budgetSummaries = budgets
@@ -730,15 +718,15 @@ function buildSystemPrompt(
     })
     .join('\n')
 
-  // Summarize spending by category for the most recent month
+  // Summarize spending by item for the most recent month
   const recentBudget = budgets[budgets.length - 1]
-  let categoryBreakdown = ''
+  let itemBreakdown = ''
   if (recentBudget) {
-    categoryBreakdown = recentBudget.allocations
+    itemBreakdown = recentBudget.allocations
       .filter((a) => a.planned > 0 || a.spent > 0)
       .map((a) => {
-        const cat = categories.find((c) => c.id === a.categoryId)
-        return `- ${cat?.name || 'Unknown'}: Planned ${currencySymbol}${a.planned.toFixed(2)}, Spent ${currencySymbol}${a.spent.toFixed(2)}`
+        const item = items.find((i) => i.id === a.itemId)
+        return `- ${item?.name || 'Unknown'}: Planned ${currencySymbol}${a.planned.toFixed(2)}, Spent ${currencySymbol}${a.spent.toFixed(2)}`
       })
       .join('\n')
   }
@@ -747,8 +735,8 @@ function buildSystemPrompt(
   const recentTransactions = transactions
     .slice(-10)
     .map((t) => {
-      const cat = categories.find((c) => c.id === t.categoryId)
-      return `- ${t.date}: ${t.description} - ${currencySymbol}${t.amount.toFixed(2)} (${cat?.name || 'Unknown'})`
+      const item = items.find((i) => i.id === t.itemId)
+      return `- ${t.date}: ${t.description} - ${currencySymbol}${t.amount.toFixed(2)} (${item?.name || 'Unknown'})`
     })
     .join('\n')
 
@@ -763,14 +751,14 @@ Your personality:
 
 The user's currency symbol is: ${currencySymbol}
 
-BUDGET CATEGORIES:
-${categoryList}
+BUDGET ITEMS:
+${itemList}
 
 MONTHLY BUDGET SUMMARIES (most recent months):
 ${budgetSummaries || 'No budget data available yet.'}
 
-CURRENT MONTH CATEGORY BREAKDOWN:
-${categoryBreakdown || 'No allocations yet.'}
+CURRENT MONTH ITEM BREAKDOWN:
+${itemBreakdown || 'No allocations yet.'}
 
 RECENT TRANSACTIONS:
 ${recentTransactions || 'No transactions recorded yet.'}
@@ -779,7 +767,7 @@ When answering:
 1. Reference specific numbers from their data
 2. Identify trends (increasing/decreasing spending)
 3. Compare planned vs actual spending
-4. Highlight categories that are over or under budget
+4. Highlight items that are over or under budget
 5. Provide practical tips for improvement
 6. Be encouraging about progress
 
