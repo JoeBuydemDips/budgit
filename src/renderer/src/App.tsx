@@ -24,7 +24,6 @@ function App(): React.JSX.Element {
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
   const {
     items,
-    refresh: refreshItems,
     addItem,
     updateItem,
     deleteItem,
@@ -207,8 +206,6 @@ function App(): React.JSX.Element {
                   )}
                   {currentView === 'settings' && (
                     <SettingsView
-                      items={items}
-                      onRefreshItems={refreshItems}
                       onRefreshBudgets={refreshBudgets}
                       onRefreshBudget={refreshBudget}
                       onRefreshTransactions={refreshTransactions}

@@ -1,24 +1,17 @@
 import { useEffect, useState } from 'react'
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  GripVertical,
   Download,
   Upload,
   CheckCircle,
   XCircle,
-  Search,
-  ChevronDown,
-  ChevronUp,
   Eye,
   EyeOff,
   Sparkles,
-  Wand2
+  Wand2,
+  Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -40,11 +33,9 @@ import {
 import { useTheme } from '@/components/theme-provider'
 import { formatMonth, parseMonthKey } from '@/lib/utils'
 import { CsvImportWizard } from '@/components/CsvImportWizard'
-import type { Budget, BudgetItem, Group, AiContextMonths } from '../../../shared/types'
+import type { Budget, AiContextMonths } from '../../../shared/types'
 
 interface SettingsViewProps {
-  items: BudgetItem[]
-  onRefreshItems: () => Promise<void>
   onRefreshBudgets: () => Promise<void>
   onRefreshBudget: () => Promise<void>
   onRefreshTransactions: () => Promise<void>
@@ -58,33 +49,16 @@ interface ImportExportFeedback {
 type ExportDialogType = 'budgets' | 'transactions' | null
 type ImportDialogType = 'budgets' | 'transactions' | null
 
-const GROUP_TYPES: { value: Group; label: string }[] = [
-  { value: 'GIVING', label: 'Giving' },
-  { value: 'SAVINGS', label: 'Savings' },
-  { value: 'NEEDS', label: 'Essentials' },
-  { value: 'WANTS', label: 'Lifestyle' },
-  { value: 'DEBT', label: 'Debt' },
-  { value: 'FOOD', label: 'Food' },
-  { value: 'MISC', label: 'Miscellaneous' }
-]
-
 export function SettingsView({
-  items,
-  onRefreshItems,
   onRefreshBudgets,
   onRefreshBudget,
   onRefreshTransactions
 }: SettingsViewProps): React.JSX.Element {
   const { theme, setTheme } = useTheme()
-  const [showAddItem, setShowAddItem] = useState(false)
-  const [editingItem, setEditingItem] = useState<BudgetItem | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [importExportFeedback, setImportExportFeedback] = useState<ImportExportFeedback | null>(
     null
   )
   const [isProcessing, setIsProcessing] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [itemsExpanded, setItemsExpanded] = useState(true)
 
   // Export/Import dialog states
   const [exportDialogType, setExportDialogType] = useState<ExportDialogType>(null)
@@ -132,18 +106,6 @@ export function SettingsView({
     }
     return undefined
   }, [importExportFeedback])
-
-  // Filter items based on search term
-  const filteredItems = items.filter((item) => {
-    if (!searchTerm.trim()) return true
-
-    const searchLower = searchTerm.toLowerCase()
-    const itemName = item.name.toLowerCase()
-    const itemGroupLabel =
-      GROUP_TYPES.find((t) => t.value === item.group)?.label.toLowerCase() || ''
-
-    return itemName.includes(searchLower) || itemGroupLabel.includes(searchLower)
-  })
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -308,98 +270,6 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* Budget Items */}
-      <Card>
-        <Collapsible open={itemsExpanded} onOpenChange={setItemsExpanded}>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <CardTitle>Budget Items</CardTitle>
-                    <CardDescription>Manage your budget items</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => setShowAddItem(true)}
-                    className="w-full sm:w-auto"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Item
-                  </Button>
-                  {itemsExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent>
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search items by name or type..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {filteredItems.map((item, index) => (
-                  <div key={item.id}>
-                    {index > 0 && <Separator className="my-2" />}
-                    <div className="flex items-center justify-between py-2 group">
-                      <div className="flex items-center gap-3">
-                        <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {GROUP_TYPES.find((t) => t.value === item.group)?.label}
-                            {item.rolloverEnabled && ' • Rollover enabled'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setEditingItem(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700"
-                          onClick={() => setDeleteConfirm(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {filteredItems.length === 0 && searchTerm.trim() && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No items found matching &quot;{searchTerm}&quot;</p>
-                    <p className="text-sm">Try searching by item name or type</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
-
       {/* Import/Export Data */}
       <Card>
         <CardHeader>
@@ -461,42 +331,6 @@ export function SettingsView({
                 <Download className="h-4 w-4 mr-2" />
                 Export Transactions
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                disabled={isProcessing}
-                onClick={async () => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.exportItemsCSV()
-                    if (result.canceled) {
-                      // User canceled, no feedback needed
-                    } else if (result.success) {
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: 'Items exported successfully!'
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message: result.error || 'Export failed'
-                      })
-                    }
-                  } catch (error) {
-                    setImportExportFeedback({
-                      type: 'error',
-                      message: String(error)
-                    })
-                  } finally {
-                    setIsProcessing(false)
-                  }
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Items
-              </Button>
             </div>
           </div>
 
@@ -506,8 +340,8 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Import Data</Label>
             <p className="text-sm text-muted-foreground">
-              Import budgets, transactions, or items from CSV files. Duplicate transactions
-              will be skipped.
+              Import budgets or transactions from CSV files. Duplicate transactions will be
+              skipped.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
@@ -546,43 +380,6 @@ export function SettingsView({
                 <Upload className="h-4 w-4 mr-2" />
                 Import Transactions
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                disabled={isProcessing}
-                onClick={async () => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.importItemsCSV({ mode: 'merge' })
-                    if (result.canceled) {
-                      // User canceled, no feedback needed
-                    } else if (result.success) {
-                      await onRefreshItems()
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: `Items imported: ${result.imported} new, ${result.updated} updated`
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message: result.errors.join(', ') || 'Import failed'
-                      })
-                    }
-                  } catch (error) {
-                    setImportExportFeedback({
-                      type: 'error',
-                      message: String(error)
-                    })
-                  } finally {
-                    setIsProcessing(false)
-                  }
-                }}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Import Items
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -610,7 +407,6 @@ export function SettingsView({
                 setImportExportFeedback(null)
                 try {
                   const result = await window.api.cleanupOrphanedAllocations()
-                  await onRefreshItems()
                   await onRefreshBudgets()
                   setImportExportFeedback({
                     type: 'success',
@@ -645,64 +441,6 @@ export function SettingsView({
           <p>Zero-based budgeting for families. Give every dollar a job.</p>
         </CardContent>
       </Card>
-
-      {/* Add Item Dialog */}
-      <ItemDialog
-        open={showAddItem}
-        onOpenChange={setShowAddItem}
-        onSave={async (data) => {
-          await window.api.addItem({
-            ...data,
-            sortOrder: items.length
-          })
-          await onRefreshItems()
-          setShowAddItem(false)
-        }}
-      />
-
-      {/* Edit Item Dialog */}
-      <ItemDialog
-        open={!!editingItem}
-        onOpenChange={(open) => !open && setEditingItem(null)}
-        item={editingItem || undefined}
-        onSave={async (data) => {
-          if (editingItem) {
-            await window.api.updateItem(editingItem.id, data)
-            await onRefreshItems()
-          }
-          setEditingItem(null)
-        }}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Item</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this item? Transactions in this item will
-              become uncategorized.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (deleteConfirm) {
-                  await window.api.deleteItem(deleteConfirm)
-                  await onRefreshItems()
-                }
-                setDeleteConfirm(null)
-              }}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Export Budgets Dialog */}
       <Dialog
@@ -1065,7 +803,6 @@ export function SettingsView({
                     // User cancelled
                   } else if (result.success) {
                     // Refresh data after import
-                    await onRefreshItems()
                     await onRefreshBudget()
                     await onRefreshBudgets()
                     await onRefreshTransactions()
@@ -1127,125 +864,11 @@ export function SettingsView({
           }
         }}
         onRefresh={async () => {
-          await onRefreshItems()
           await onRefreshBudget()
           await onRefreshBudgets()
           await onRefreshTransactions()
         }}
       />
     </div>
-  )
-}
-
-interface ItemDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  item?: BudgetItem
-  onSave: (data: Omit<BudgetItem, 'id' | 'sortOrder'>) => Promise<void>
-}
-
-function ItemDialog({
-  open,
-  onOpenChange,
-  item,
-  onSave
-}: ItemDialogProps): React.JSX.Element {
-  const [name, setName] = useState(item?.name || '')
-  const [group, setGroup] = useState<Group>(item?.group || 'NEEDS')
-  const [rolloverEnabled, setRolloverEnabled] = useState(item?.rolloverEnabled || false)
-  const [saving, setSaving] = useState(false)
-
-  // Reset form when item changes
-  useEffect(() => {
-    if (item) {
-      setName(item.name)
-      setGroup(item.group)
-      setRolloverEnabled(item.rolloverEnabled)
-    } else {
-      setName('')
-      setGroup('NEEDS')
-      setRolloverEnabled(false)
-    }
-  }, [item])
-
-  const handleSave = async (): Promise<void> => {
-    if (!name.trim()) return
-
-    setSaving(true)
-    await onSave({
-      name: name.trim(),
-      group,
-      rolloverEnabled
-    })
-    setSaving(false)
-
-    // Reset form
-    setName('')
-    setGroup('NEEDS')
-    setRolloverEnabled(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{item ? 'Edit' : 'Add'} Item</DialogTitle>
-          <DialogDescription>
-            {item ? 'Update the item details' : 'Create a new budget item'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Groceries"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="group">Group</Label>
-            <Select value={group} onValueChange={(value: Group) => setGroup(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GROUP_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="rollover"
-              checked={rolloverEnabled}
-              onChange={(e) => setRolloverEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-input"
-              aria-label="Enable rollover for this item"
-            />
-            <Label htmlFor="rollover" className="text-sm font-normal">
-              Enable rollover (carry unused funds to next month)
-            </Label>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button disabled={!name.trim() || saving} onClick={handleSave}>
-            {saving ? 'Saving...' : item ? 'Update' : 'Add'} Item
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
