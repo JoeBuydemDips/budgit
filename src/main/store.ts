@@ -658,17 +658,19 @@ export function getBudgetWithSpent(month: string): BudgetWithComputed | null {
   const spentByItem: Record<string, number> = {}
   const totals = transactions.reduce(
     (acc, t) => {
-      spentByItem[t.itemId] = (spentByItem[t.itemId] || 0) + t.amount
+      // Only count positive amounts as spending (negative amounts are income/credits)
+      if (t.amount > 0) {
+        spentByItem[t.itemId] = (spentByItem[t.itemId] || 0) + t.amount
+        acc.totalSpentAll += t.amount
 
-      acc.totalSpentAll += t.amount
+        const item = t.itemId ? itemById.get(t.itemId) : undefined
+        const isUncategorized = !item || uncategorizedItemIds.has(t.itemId) || t.itemId === ''
 
-      const item = t.itemId ? itemById.get(t.itemId) : undefined
-      const isUncategorized = !item || uncategorizedItemIds.has(t.itemId) || t.itemId === ''
-
-      if (isUncategorized) {
-        acc.uncategorizedSpent += t.amount
-      } else {
-        acc.totalSpentCategorized += t.amount
+        if (isUncategorized) {
+          acc.uncategorizedSpent += t.amount
+        } else {
+          acc.totalSpentCategorized += t.amount
+        }
       }
       return acc
     },

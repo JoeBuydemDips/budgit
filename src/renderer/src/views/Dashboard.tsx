@@ -129,6 +129,7 @@ export function Dashboard({
   }, [transactions, currentMonth])
 
   // Calculate group breakdown for pie chart
+  // Uses allocation spent values which are computed from transactions for items in the budget
   const groupBreakdown = useMemo(() => {
     if (!budget) return []
 
@@ -142,9 +143,13 @@ export function Dashboard({
       MISC: { planned: 0, spent: 0 }
     }
 
-    items.forEach((item) => {
-      const allocation = budget.allocations.find((a) => a.itemId === item.id)
-      if (allocation) {
+    // Build a map from itemId to item for quick lookup
+    const itemById = new Map(items.map((item) => [item.id, item]))
+
+    // Sum planned and spent amounts from allocations
+    budget.allocations.forEach((allocation) => {
+      const item = itemById.get(allocation.itemId)
+      if (item) {
         groupSpending[item.group].planned += allocation.planned
         groupSpending[item.group].spent += allocation.spent
       }
@@ -160,14 +165,20 @@ export function Dashboard({
       }))
   }, [budget, items])
 
-  // Top spending items
+  // Top spending items - calculate spent from transactions directly
   const topItems = useMemo(() => {
     if (!budget) return []
+
+    // Calculate spent per item from transactions
+    const spentByItem: Record<string, number> = {}
+    transactions.forEach((txn) => {
+      spentByItem[txn.itemId] = (spentByItem[txn.itemId] || 0) + txn.amount
+    })
 
     return items
       .map((item) => {
         const allocation = budget.allocations.find((a) => a.itemId === item.id)
-        const spent = allocation?.spent || 0
+        const spent = spentByItem[item.id] || 0
         const planned = allocation?.planned || 0
         // If no budget set but there's spending, show as 100% (over budget)
         // If budget is set, calculate actual percentage
@@ -182,7 +193,7 @@ export function Dashboard({
       .filter((i) => i.spent > 0)
       .sort((a, b) => b.spent - a.spent)
       .slice(0, 5)
-  }, [budget, items])
+  }, [budget, items, transactions])
 
   if (loading) {
     return (
@@ -292,7 +303,8 @@ export function Dashboard({
   }
 
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
-  const totalSpent = budget.computed.totalSpentCategorized
+  // Use allocation spent values for consistency with pie chart
+  const totalSpent = budget.allocations.reduce((sum, a) => sum + a.spent, 0)
   const leftToBudget = budget.computed.leftToBudget
   const remaining = totalPlanned - totalSpent
   const spentPercentage = totalPlanned > 0 ? (totalSpent / totalPlanned) * 100 : 0
