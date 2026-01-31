@@ -21,15 +21,37 @@ function migrateStore(storeInstance: Store<StoreSchema>): void {
   // Check if we have old 'categories' data that needs migration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawData = storeInstance.store as any
-  
-  // Migrate categories -> items
-  if ('categories' in rawData && !('items' in rawData)) {
+
+  // Migrate categories -> items (if categories exists with data, use it instead of defaults)
+  if (
+    'categories' in rawData &&
+    Array.isArray(rawData.categories) &&
+    rawData.categories.length > 0
+  ) {
     console.log('Migrating categories to items...')
     storeInstance.set('items', rawData.categories as BudgetItem[])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete rawData.categories
   }
-  
+
+  // Migrate items: type -> group (old terminology)
+  const currentItems = storeInstance.get('items')
+  let needsItemMigration = false
+  const migratedItems = currentItems.map((item) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawItem = item as any
+    if ('type' in rawItem && !('group' in rawItem)) {
+      needsItemMigration = true
+      const { type, ...rest } = rawItem
+      return { ...rest, group: type }
+    }
+    return item
+  })
+
+  if (needsItemMigration) {
+    console.log('Migrating items from type to group...')
+    storeInstance.set('items', migratedItems)
+  }
+
   // Migrate allocations: categoryId -> itemId
   const budgets = storeInstance.get('budgets')
   let needsBudgetMigration = false
@@ -48,12 +70,12 @@ function migrateStore(storeInstance: Store<StoreSchema>): void {
     })
     return { ...budget, allocations: migratedAllocations }
   })
-  
+
   if (needsBudgetMigration) {
     console.log('Migrating budget allocations from categoryId to itemId...')
     storeInstance.set('budgets', migratedBudgets)
   }
-  
+
   // Migrate learnedMappings: categoryId -> itemId
   const mappings = storeInstance.get('learnedMappings')
   let needsMappingMigration = false
@@ -69,12 +91,12 @@ function migrateStore(storeInstance: Store<StoreSchema>): void {
     }
     return mapping
   })
-  
+
   if (needsMappingMigration) {
     console.log('Migrating learned mappings from categoryId to itemId...')
     storeInstance.set('learnedMappings', migratedMappings)
   }
-  
+
   // Migrate transactions: categoryId -> itemId
   const transactions = storeInstance.get('transactions')
   let needsTransactionMigration = false
@@ -90,10 +112,53 @@ function migrateStore(storeInstance: Store<StoreSchema>): void {
     }
     return tx
   })
-  
+
   if (needsTransactionMigration) {
     console.log('Migrating transactions from categoryId to itemId...')
     storeInstance.set('transactions', migratedTransactions)
+  }
+
+  // Recovery: Find orphaned item references and create placeholder items for them
+  const items = storeInstance.get('items')
+  const itemIds = new Set(items.map((item) => item.id))
+  const orphanedIds = new Set<string>()
+
+  // Find orphaned allocations
+  for (const budget of storeInstance.get('budgets')) {
+    for (const alloc of budget.allocations) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const id = (alloc as any).itemId || (alloc as any).categoryId
+      if (id && !itemIds.has(id)) {
+        orphanedIds.add(id)
+      }
+    }
+  }
+
+  // Find orphaned transactions
+  for (const tx of storeInstance.get('transactions')) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const id = (tx as any).itemId || (tx as any).categoryId
+    if (id && !itemIds.has(id)) {
+      orphanedIds.add(id)
+    }
+  }
+
+  // Create placeholder items for orphans so they show in the UI
+  if (orphanedIds.size > 0) {
+    console.log(`Creating ${orphanedIds.size} placeholder items for orphaned references...`)
+    const newItems = [...items]
+    let sortOrder = items.length
+    for (const orphanId of orphanedIds) {
+      newItems.push({
+        id: orphanId,
+        name: `Recovered Item (${orphanId.slice(0, 8)})`,
+        group: 'MISC',
+        rolloverEnabled: false,
+        sortOrder: sortOrder++
+      })
+    }
+    storeInstance.set('items', newItems)
+    console.log('Placeholder items created. Please rename them in Settings.')
   }
 }
 
@@ -598,8 +663,7 @@ export function getBudgetWithSpent(month: string): BudgetWithComputed | null {
       acc.totalSpentAll += t.amount
 
       const item = t.itemId ? itemById.get(t.itemId) : undefined
-      const isUncategorized =
-        !item || uncategorizedItemIds.has(t.itemId) || t.itemId === ''
+      const isUncategorized = !item || uncategorizedItemIds.has(t.itemId) || t.itemId === ''
 
       if (isUncategorized) {
         acc.uncategorizedSpent += t.amount
@@ -844,10 +908,7 @@ function findMatchingItem(itemName: string, items: BudgetItem[]): string | null 
   // Fuzzy match: check if input contains item name or vice versa
   for (const item of items) {
     const normalizedItem = item.name.toLowerCase()
-    if (
-      normalizedInput.includes(normalizedItem) ||
-      normalizedItem.includes(normalizedInput)
-    ) {
+    if (normalizedInput.includes(normalizedItem) || normalizedItem.includes(normalizedInput)) {
       return item.id
     }
   }

@@ -38,8 +38,7 @@ const budgetApi = {
     ipcRenderer.invoke('items:remove-from-budget', month, itemId),
   cleanupOrphanedAllocations: (): Promise<{ cleanedBudgets: number; removedAllocations: number }> =>
     ipcRenderer.invoke('items:cleanup-orphaned'),
-  reorderItems: (itemIds: string[]): Promise<void> =>
-    ipcRenderer.invoke('items:reorder', itemIds),
+  reorderItems: (itemIds: string[]): Promise<void> => ipcRenderer.invoke('items:reorder', itemIds),
 
   // Budgets
   getBudget: (month: string): Promise<Budget | null> => ipcRenderer.invoke('budget:get', month),

@@ -344,12 +344,7 @@ export function registerIpcHandlers(): void {
       try {
         const items = getItems()
         const format = (options?.format as CsvFormat) || CsvFormat.BUDGIT
-        const parsed = parseTransactionsCSV(
-          csvContent,
-          items,
-          format,
-          options?.defaultItemId
-        )
+        const parsed = parseTransactionsCSV(csvContent, items, format, options?.defaultItemId)
         return { transactions: parsed.transactions, errors: parsed.errors }
       } catch (error) {
         return { transactions: [], errors: [{ row: 0, message: String(error) }] }

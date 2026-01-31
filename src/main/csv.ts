@@ -153,7 +153,13 @@ export function generateItemsCSV(items: BudgetItem[]): string {
   const lines: string[] = [ITEM_CSV_HEADERS.join(',')]
 
   for (const item of items) {
-    const row = [item.id, item.name, item.group, item.rolloverEnabled ? 'true' : 'false', item.sortOrder]
+    const row = [
+      item.id,
+      item.name,
+      item.group,
+      item.rolloverEnabled ? 'true' : 'false',
+      item.sortOrder
+    ]
     lines.push(row.map(escapeCSVField).join(','))
   }
 
@@ -161,10 +167,7 @@ export function generateItemsCSV(items: BudgetItem[]): string {
 }
 
 // Generate CSV content for transactions
-export function generateTransactionsCSV(
-  transactions: Transaction[],
-  items: BudgetItem[]
-): string {
+export function generateTransactionsCSV(transactions: Transaction[], items: BudgetItem[]): string {
   const itemMap = new Map(items.map((i) => [i.id, i.name]))
   const lines: string[] = [TRANSACTION_CSV_HEADERS.join(',')]
 
@@ -220,7 +223,9 @@ export function parseBudgetsCSV(csvContent: string): ParseBudgetsResult {
   const headers = parseCSVLine(lines[0])
   const monthIdx = headers.findIndex((h) => h.toLowerCase() === 'month')
   const incomeTotalIdx = headers.findIndex((h) => h.toLowerCase() === 'incometotal')
-  const itemIdIdx = headers.findIndex((h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid')
+  const itemIdIdx = headers.findIndex(
+    (h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid'
+  )
   const plannedIdx = headers.findIndex((h) => h.toLowerCase() === 'planned')
   const spentIdx = headers.findIndex((h) => h.toLowerCase() === 'spent')
   const carryoverIdx = headers.findIndex((h) => h.toLowerCase() === 'carryover')
@@ -331,8 +336,12 @@ export function parseTransactionsCSV(
   if (format === CsvFormat.DEBIT_CARD) {
     // Debit card format headers
     budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
-    itemIdIdx = headers.findIndex((h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid')
-    itemNameIdx = headers.findIndex((h) => h.toLowerCase() === 'item' || h.toLowerCase() === 'category')
+    itemIdIdx = headers.findIndex(
+      (h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid'
+    )
+    itemNameIdx = headers.findIndex(
+      (h) => h.toLowerCase() === 'item' || h.toLowerCase() === 'category'
+    )
     amountIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction amount')
     descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction description')
     dateIdx = headers.findIndex((h) => h.toLowerCase() === 'transaction date')
@@ -343,8 +352,12 @@ export function parseTransactionsCSV(
   } else {
     // Standard Budgit format headers
     budgetMonthIdx = headers.findIndex((h) => h.toLowerCase() === 'budgetmonth')
-    itemIdIdx = headers.findIndex((h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid')
-    itemNameIdx = headers.findIndex((h) => h.toLowerCase() === 'item' || h.toLowerCase() === 'category')
+    itemIdIdx = headers.findIndex(
+      (h) => h.toLowerCase() === 'itemid' || h.toLowerCase() === 'categoryid'
+    )
+    itemNameIdx = headers.findIndex(
+      (h) => h.toLowerCase() === 'item' || h.toLowerCase() === 'category'
+    )
     amountIdx = headers.findIndex((h) => h.toLowerCase() === 'amount')
     descriptionIdx = headers.findIndex((h) => h.toLowerCase() === 'description')
     dateIdx = headers.findIndex((h) => h.toLowerCase() === 'date')
@@ -538,15 +551,7 @@ export interface ParseItemsResult {
   errors: ParseError[]
 }
 
-const VALID_GROUPS: Group[] = [
-  'GIVING',
-  'SAVINGS',
-  'NEEDS',
-  'WANTS',
-  'DEBT',
-  'FOOD',
-  'MISC'
-]
+const VALID_GROUPS: Group[] = ['GIVING', 'SAVINGS', 'NEEDS', 'WANTS', 'DEBT', 'FOOD', 'MISC']
 
 // Parse CSV content for budget items
 export function parseItemsCSV(csvContent: string): ParseItemsResult {
@@ -562,7 +567,9 @@ export function parseItemsCSV(csvContent: string): ParseItemsResult {
   const headers = parseCSVLine(lines[0])
   const idIdx = headers.findIndex((h) => h.toLowerCase() === 'id')
   const nameIdx = headers.findIndex((h) => h.toLowerCase() === 'name')
-  const groupIdx = headers.findIndex((h) => h.toLowerCase() === 'group' || h.toLowerCase() === 'type')
+  const groupIdx = headers.findIndex(
+    (h) => h.toLowerCase() === 'group' || h.toLowerCase() === 'type'
+  )
   const rolloverIdx = headers.findIndex((h) => h.toLowerCase() === 'rolloverenabled')
   const sortOrderIdx = headers.findIndex((h) => h.toLowerCase() === 'sortorder')
 
