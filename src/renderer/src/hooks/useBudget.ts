@@ -73,9 +73,10 @@ export function useItems() {
   }, [refresh])
 
   const addItem = useCallback(
-    async (item: Omit<BudgetItem, 'id'>) => {
-      await window.api.addItem(item)
+    async (item: Omit<BudgetItem, 'id'>): Promise<BudgetItem> => {
+      const createdItem = await window.api.addItem(item)
       await refresh()
+      return createdItem
     },
     [refresh]
   )

@@ -77,7 +77,7 @@ interface BudgetViewProps {
   onCreateBudget: (incomeTotal: number, copyFromMonth?: string) => Promise<void>
   onUpdateAllocation: (itemId: string, planned: number) => Promise<void>
   onUpdateIncomeSources: (sources: IncomeSource[]) => Promise<void>
-  onAddItem: (item: Omit<BudgetItem, 'id'>) => Promise<void>
+  onAddItem: (item: Omit<BudgetItem, 'id'>) => Promise<BudgetItem>
   onUpdateItem: (id: string, updates: Partial<BudgetItem>) => Promise<void>
   onDeleteItem: (id: string) => Promise<void>
   onRemoveFromBudget: (itemId: string) => Promise<void>
@@ -830,13 +830,15 @@ export function BudgetView({
                   // Add existing item to this month's budget with $0 allocation
                   await onUpdateAllocation(selectedExistingItem, 0)
                 } else if (addItemMode === 'new' && newItemName) {
-                  // Create new item (which automatically gets added to the budget)
-                  await onAddItem({
+                  // Create new item and add it to this month's budget
+                  const createdItem = await onAddItem({
                     name: newItemName,
                     group: newItemGroup,
                     rolloverEnabled: false,
                     sortOrder: 0
                   })
+                  // Add the newly created item to this month's budget with $0 allocation
+                  await onUpdateAllocation(createdItem.id, 0)
                 }
                 setShowAddItemDialog(false)
                 setSelectedExistingItem('')
