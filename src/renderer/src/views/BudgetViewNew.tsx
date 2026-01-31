@@ -80,6 +80,7 @@ interface BudgetViewProps {
   onAddCategory: (category: Omit<Category, 'id'>) => Promise<void>
   onUpdateCategory: (id: string, updates: Partial<Category>) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
+  onRemoveFromBudget: (categoryId: string) => Promise<void>
   onReorderCategories: (categoryIds: string[]) => Promise<void>
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onUpdateTransaction: (
@@ -131,6 +132,7 @@ export function BudgetView({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onRemoveFromBudget,
   onReorderCategories,
   onAddTransaction,
   onUpdateTransaction,
@@ -369,9 +371,11 @@ export function BudgetView({
   const totalReceived = incomeSources.reduce((sum, s) => sum + s.received, 0)
 
   // Group categories by type with calculated data
+  // Only show categories that have an allocation in this budget
+  const allocatedCategoryIds = new Set(budget.allocations.map((a) => a.categoryId))
   const groupedCategories = CATEGORY_TYPE_ORDER.map((type) => {
     const typeCats = categories
-      .filter((c) => c.type === type)
+      .filter((c) => c.type === type && allocatedCategoryIds.has(c.id))
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) // Sort by sortOrder
       .map((cat) => {
         const allocation = budget.allocations.find((a) => a.categoryId === cat.id)
@@ -649,9 +653,8 @@ export function BudgetView({
                               onToggleRollover={async (enabled) => {
                                 await onUpdateCategory(cat.id, { rolloverEnabled: enabled })
                               }}
-                              onDelete={() => {
-                                setCategoryToDelete(cat)
-                                setShowDeleteCategoryDialog(true)
+                              onRemoveFromBudget={async () => {
+                                await onRemoveFromBudget(cat.id)
                               }}
                             />
                           ))}
@@ -1194,7 +1197,7 @@ interface CategoryRowProps {
   onUpdateName: (name: string) => void
   onUpdatePlanned: (planned: number) => void
   onToggleRollover: (enabled: boolean) => void
-  onDelete: () => void
+  onRemoveFromBudget: () => void
   dragHandleProps?: {
     attributes: DraggableAttributes
     listeners: DraggableSyntheticListeners
@@ -1243,7 +1246,7 @@ function CategoryRow({
   onUpdateName,
   onUpdatePlanned,
   onToggleRollover,
-  onDelete,
+  onRemoveFromBudget,
   dragHandleProps
 }: CategoryRowProps): React.JSX.Element {
   const [editingName, setEditingName] = useState(false)
@@ -1384,7 +1387,7 @@ function CategoryRow({
             {formatCurrency(category.spent)}
           </span>
         </div>
-        {/* Action buttons */}
+        {/* Action button */}
         <div className="w-12 flex items-center justify-end">
           <Button
             variant="ghost"
@@ -1392,9 +1395,9 @@ function CategoryRow({
             className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
             onClick={(e) => {
               e.stopPropagation()
-              onDelete()
+              onRemoveFromBudget()
             }}
-            title="Delete Category"
+            title="Remove from this month's budget"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>

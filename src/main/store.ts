@@ -453,12 +453,32 @@ function updateBudgetSpent(month: string): void {
   const monthTransactions = transactions.filter((t) => t.budgetMonth === month)
   const budget = budgets[index]
 
+  // Calculate spent for existing allocations
   const updatedAllocations = budget.allocations.map((allocation) => {
     const spent = monthTransactions
       .filter((t) => t.categoryId === allocation.categoryId)
       .reduce((sum, t) => sum + t.amount, 0)
     return { ...allocation, spent }
   })
+
+  // Find categories with transactions that don't have allocations yet
+  const existingCategoryIds = new Set(budget.allocations.map((a) => a.categoryId))
+  const categoriesWithSpending = new Set(monthTransactions.map((t) => t.categoryId))
+
+  for (const categoryId of categoriesWithSpending) {
+    if (!existingCategoryIds.has(categoryId)) {
+      // Add a new allocation for this category with spent amount
+      const spent = monthTransactions
+        .filter((t) => t.categoryId === categoryId)
+        .reduce((sum, t) => sum + t.amount, 0)
+      updatedAllocations.push({
+        categoryId,
+        planned: 0,
+        spent,
+        carryover: 0
+      })
+    }
+  }
 
   budgets[index] = {
     ...budget,
