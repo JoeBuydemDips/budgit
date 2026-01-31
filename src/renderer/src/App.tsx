@@ -44,7 +44,8 @@ function App(): React.JSX.Element {
     refresh: refreshTransactions,
     addTransaction,
     updateTransaction,
-    deleteTransaction
+    deleteTransaction,
+    unassignTransaction
   } = useTransactions(currentMonth)
 
   // Refresh budget when transactions change
@@ -65,6 +66,12 @@ function App(): React.JSX.Element {
 
   const handleDeleteTransaction = async (id: string) => {
     await deleteTransaction(id)
+    await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
+  }
+
+  const handleUnassignTransaction = async (id: string) => {
+    await unassignTransaction(id)
     await refreshBudget()
     await refreshBudgets() // Keep insights in sync
   }
@@ -167,7 +174,7 @@ function App(): React.JSX.Element {
                   onReorderItems={reorderItems}
                   onAddTransaction={handleAddTransaction}
                   onUpdateTransaction={handleUpdateTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
+                  onDeleteTransaction={handleUnassignTransaction}
                 />
               ) : currentView === 'insights' ? (
                 <InsightsView

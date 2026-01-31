@@ -355,8 +355,9 @@ export function CategoryDetailPanel({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
                       onClick={() => onDeleteTransaction(tx.id)}
+                      title="Remove from category"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

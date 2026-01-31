@@ -69,6 +69,8 @@ const budgetApi = {
   ): Promise<Transaction | null> => ipcRenderer.invoke('transactions:update', id, updates),
   deleteTransaction: (id: string): Promise<boolean> =>
     ipcRenderer.invoke('transactions:delete', id),
+  unassignTransaction: (id: string): Promise<Transaction | null> =>
+    ipcRenderer.invoke('transactions:unassign', id),
 
   // CSV Import/Export
   exportBudgetsCSV: (options?: {

@@ -272,13 +272,27 @@ export function useTransactions(month: string) {
     [refresh]
   )
 
+  const unassignTransaction = useCallback(
+    async (id: string) => {
+      try {
+        await window.api.unassignTransaction(id)
+        await refresh()
+      } catch (err) {
+        console.error('Failed to unassign transaction', id, err)
+        throw err
+      }
+    },
+    [refresh]
+  )
+
   return {
     transactions,
     loading,
     refresh,
     addTransaction,
     updateTransaction,
-    deleteTransaction
+    deleteTransaction,
+    unassignTransaction
   }
 }
 

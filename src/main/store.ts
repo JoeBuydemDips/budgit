@@ -593,6 +593,29 @@ export function deleteTransaction(id: string): boolean {
   return true
 }
 
+// Unassign a transaction from its category (move to uncategorized)
+export function unassignTransaction(id: string): Transaction | null {
+  const transactions = store.get('transactions')
+  const index = transactions.findIndex((t) => t.id === id)
+  if (index === -1) return null
+
+  const oldTransaction = transactions[index]
+  const uncategorizedItemId = getOrCreateUncategorizedItem()
+
+  const updated: Transaction = {
+    ...oldTransaction,
+    itemId: uncategorizedItemId
+  }
+
+  transactions[index] = updated
+  store.set('transactions', transactions)
+
+  // Update spent amount in budget (recalculates allocations)
+  updateBudgetSpent(oldTransaction.budgetMonth)
+
+  return updated
+}
+
 // Helper to recalculate spent amounts in a budget
 function updateBudgetSpent(month: string): void {
   const budgets = store.get('budgets')

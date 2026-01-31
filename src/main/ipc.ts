@@ -25,6 +25,7 @@ import {
   addTransaction,
   updateTransaction,
   deleteTransaction,
+  unassignTransaction,
   getBudgetWithSpent,
   getPreviousMonth,
   getNextMonth,
@@ -187,6 +188,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('transactions:delete', (_, id: string) => {
     return deleteTransaction(id)
+  })
+
+  ipcMain.handle('transactions:unassign', (_, id: string) => {
+    return unassignTransaction(id)
   })
 
   // ============== CSV Export/Import ==============

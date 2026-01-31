@@ -59,6 +59,7 @@ interface BudgetAPI {
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ) => Promise<Transaction | null>
   deleteTransaction: (id: string) => Promise<boolean>
+  unassignTransaction: (id: string) => Promise<Transaction | null>
 
   // CSV Import/Export
   exportBudgetsCSV: (options?: { months?: string[] }) => Promise<{
