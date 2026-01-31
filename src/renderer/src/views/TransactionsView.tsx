@@ -54,6 +54,8 @@ export function TransactionsView({
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
   const [showBulkMapDialog, setShowBulkMapDialog] = useState(false)
   const [bulkMapCategory, setBulkMapCategory] = useState<string>('')
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const uncategorizedItem = items.find((item) => item.name === 'Uncategorized')
 
@@ -79,6 +81,17 @@ export function TransactionsView({
     setSelectedTransactions([])
     setShowBulkMapDialog(false)
     setBulkMapCategory('')
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedTransactions.length === 0) return
+    setBulkDeleting(true)
+    for (const id of selectedTransactions) {
+      await onDeleteTransaction(id)
+    }
+    setSelectedTransactions([])
+    setShowBulkDeleteDialog(false)
+    setBulkDeleting(false)
   }
 
   // Filter transactions
@@ -199,6 +212,14 @@ export function TransactionsView({
                   >
                     <CheckSquare className="h-4 w-4 mr-2" />
                     Bulk Map Category
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setShowBulkDeleteDialog(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected
                   </Button>
                 </>
               )}
@@ -374,6 +395,26 @@ export function TransactionsView({
             </Button>
             <Button onClick={handleBulkMap} disabled={!bulkMapCategory}>
               Map Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedTransactions.length} Transaction{selectedTransactions.length !== 1 ? 's' : ''}?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete {selectedTransactions.length} selected transaction{selectedTransactions.length !== 1 ? 's' : ''}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)} disabled={bulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedTransactions.length} Transaction${selectedTransactions.length !== 1 ? 's' : ''}`}
             </Button>
           </DialogFooter>
         </DialogContent>
