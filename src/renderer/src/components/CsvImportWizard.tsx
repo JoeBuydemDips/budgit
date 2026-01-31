@@ -346,7 +346,7 @@ export function CsvImportWizard({
   const updateMapping = (field: keyof ColumnMapping, value: string) => {
     setMapping((prev) => ({
       ...prev,
-      [field]: value || undefined
+      [field]: value === '__none__' ? undefined : value || undefined
     }))
   }
 
@@ -546,14 +546,14 @@ export function CsvImportWizard({
             <div className="space-y-1">
               <Label className="text-sm">Single Amount</Label>
               <Select
-                value={mapping.amount || ''}
+                value={mapping.amount || '__none__'}
                 onValueChange={(v) => updateMapping('amount', v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="(optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {headers.map((h) => (
                     <SelectItem key={h} value={h}>
                       {h}
@@ -566,14 +566,14 @@ export function CsvImportWizard({
             <div className="space-y-1">
               <Label className="text-sm">Debit Column</Label>
               <Select
-                value={mapping.debitAmount || ''}
+                value={mapping.debitAmount || '__none__'}
                 onValueChange={(v) => updateMapping('debitAmount', v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="(optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {headers.map((h) => (
                     <SelectItem key={h} value={h}>
                       {h}
@@ -586,14 +586,14 @@ export function CsvImportWizard({
             <div className="space-y-1">
               <Label className="text-sm">Credit Column</Label>
               <Select
-                value={mapping.creditAmount || ''}
+                value={mapping.creditAmount || '__none__'}
                 onValueChange={(v) => updateMapping('creditAmount', v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="(optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {headers.map((h) => (
                     <SelectItem key={h} value={h}>
                       {h}
@@ -611,14 +611,14 @@ export function CsvImportWizard({
           <div className="space-y-1">
             <Label>Category Column</Label>
             <Select
-              value={mapping.category || ''}
+              value={mapping.category || '__none__'}
               onValueChange={(v) => updateMapping('category', v)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="(optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None (auto-detect)</SelectItem>
+                <SelectItem value="__none__">No category column (auto-infer from description)</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>
                     {h}
@@ -626,16 +626,19 @@ export function CsvImportWizard({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              If your CSV has no category, we&apos;ll try to infer it from the description
+            </p>
           </div>
 
           <div className="space-y-1">
             <Label>Card/Account Column</Label>
-            <Select value={mapping.card || ''} onValueChange={(v) => updateMapping('card', v)}>
+            <Select value={mapping.card || '__none__'} onValueChange={(v) => updateMapping('card', v)}>
               <SelectTrigger>
                 <SelectValue placeholder="(optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>
                     {h}
@@ -648,14 +651,14 @@ export function CsvImportWizard({
           <div className="space-y-1">
             <Label>Transaction Type</Label>
             <Select
-              value={mapping.transactionType || ''}
+              value={mapping.transactionType || '__none__'}
               onValueChange={(v) => updateMapping('transactionType', v)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="(optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>
                     {h}

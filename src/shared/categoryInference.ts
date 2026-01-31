@@ -126,6 +126,42 @@ function cleanMerchantName(description: string): string {
     .trim()
 }
 
+// Check if a category matches the expected ID or a similar name
+// This handles cases where users rename default categories
+function findMatchingCategory(expectedId: string, categories: Category[]): Category | null {
+  // First, try exact ID match
+  const exactMatch = categories.find((c) => c.id === expectedId)
+  if (exactMatch) return exactMatch
+
+  // If ID not found, try to find by similar name
+  // Map expected IDs to possible category names
+  const idToNames: Record<string, string[]> = {
+    personal: ['personal', 'fun', 'personal/fun', 'lifestyle', 'misc'],
+    groceries: ['groceries', 'grocery', 'food'],
+    'dining-out': ['dining out', 'dining', 'restaurants', 'eating out'],
+    transportation: ['transportation', 'gas', 'auto', 'car'],
+    health: ['health', 'medical', 'healthcare', 'doctor'],
+    entertainment: ['entertainment', 'fun', 'movies'],
+    clothing: ['clothing', 'clothes', 'apparel'],
+    housing: ['housing', 'rent', 'mortgage', 'home'],
+    utilities: ['utilities', 'bills', 'electric', 'water'],
+    insurance: ['insurance'],
+    debt: ['debt', 'loans', 'credit card'],
+    savings: ['savings', 'save'],
+    giving: ['giving', 'charity', 'donations', 'tithe']
+  }
+
+  const possibleNames = idToNames[expectedId] || [expectedId]
+  for (const name of possibleNames) {
+    const match = categories.find(
+      (c) => c.name.toLowerCase().includes(name) || name.includes(c.name.toLowerCase())
+    )
+    if (match) return match
+  }
+
+  return null
+}
+
 // Infer category from transaction description
 export function inferCategoryFromDescription(
   description: string,
@@ -148,17 +184,18 @@ export function inferCategoryFromDescription(
   // Then, try exact merchant match
   const merchantMatch = MERCHANT_CATEGORIES[cleanDesc]
   if (merchantMatch) {
-    // Verify the category exists
-    const categoryExists = categories.some((c) => c.id === merchantMatch)
-    if (categoryExists) return merchantMatch
+    // Use smarter matching that handles renamed categories
+    const matchedCategory = findMatchingCategory(merchantMatch, categories)
+    if (matchedCategory) return matchedCategory.id
   }
 
   // Then, try keyword patterns, sorted by priority
   const sortedPatterns = KEYWORD_PATTERNS.sort((a, b) => b.priority - a.priority)
   for (const { pattern, categoryId } of sortedPatterns) {
     if (pattern.test(cleanDesc)) {
-      const categoryExists = categories.some((c) => c.id === categoryId)
-      if (categoryExists) return categoryId
+      // Use smarter matching that handles renamed categories
+      const matchedCategory = findMatchingCategory(categoryId, categories)
+      if (matchedCategory) return matchedCategory.id
     }
   }
 
@@ -201,10 +238,8 @@ export function getCategorySuggestions(
     if (categories.some((c) => c.id === 'investments')) suggestions.push('investments')
   }
 
-  // Default fallback
-  if (suggestions.length === 0) {
-    if (categories.some((c) => c.id === 'personal')) suggestions.push('personal')
-  }
+  // Note: No default fallback - if nothing matches, return empty array
+  // and let the caller decide (usually defaults to 'Uncategorized')
 
   return suggestions
 }
