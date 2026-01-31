@@ -141,6 +141,8 @@ export function BudgetView({
   const { budgets } = useBudgetIndex()
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false)
+  const [addCategoryMode, setAddCategoryMode] = useState<'existing' | 'new'>('existing')
+  const [selectedExistingCategory, setSelectedExistingCategory] = useState('')
   const [showAddIncomeDialog, setShowAddIncomeDialog] = useState(false)
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
   const [quickAddAmount, setQuickAddAmount] = useState('')
@@ -727,58 +729,121 @@ export function BudgetView({
 
       {/* Dialogs */}
 
-      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+      <Dialog open={showAddCategoryDialog} onOpenChange={(open) => {
+        setShowAddCategoryDialog(open)
+        if (!open) {
+          setAddCategoryMode('existing')
+          setSelectedExistingCategory('')
+          setNewCategoryName('')
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Category</DialogTitle>
-            <DialogDescription>Create a new category to track your spending.</DialogDescription>
+            <DialogTitle>Add Category to Budget</DialogTitle>
+            <DialogDescription>Add an existing category or create a new one.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Category Name</Label>
-              <Input
-                placeholder="e.g., Groceries, Rent, Netflix"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Category Type</Label>
-              <Select
-                value={newCategoryType}
-                onValueChange={(val) => setNewCategoryType(val as CategoryType)}
+            {/* Mode tabs */}
+            <div className="flex gap-2">
+              <Button
+                variant={addCategoryMode === 'existing' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAddCategoryMode('existing')}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_TYPE_ORDER.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {CATEGORY_TYPE_LABELS[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                Existing Category
+              </Button>
+              <Button
+                variant={addCategoryMode === 'new' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAddCategoryMode('new')}
+              >
+                New Category
+              </Button>
             </div>
+
+            {addCategoryMode === 'existing' ? (
+              <div className="space-y-2">
+                <Label>Select Category</Label>
+                <Select
+                  value={selectedExistingCategory}
+                  onValueChange={setSelectedExistingCategory}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories
+                      .filter((c) => !allocatedCategoryIds.has(c.id))
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name} ({CATEGORY_TYPE_LABELS[cat.type]})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {categories.filter((c) => !allocatedCategoryIds.has(c.id)).length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    All categories are already in this budget. Create a new one instead.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Category Name</Label>
+                  <Input
+                    placeholder="e.g., Groceries, Rent, Netflix"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category Type</Label>
+                  <Select
+                    value={newCategoryType}
+                    onValueChange={(val) => setNewCategoryType(val as CategoryType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORY_TYPE_ORDER.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {CATEGORY_TYPE_LABELS[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddCategoryDialog(false)}>
               Cancel
             </Button>
             <Button
-              disabled={!newCategoryName}
+              disabled={addCategoryMode === 'existing' ? !selectedExistingCategory : !newCategoryName}
               onClick={async () => {
-                await onAddCategory({
-                  name: newCategoryName,
-                  type: newCategoryType,
-                  rolloverEnabled: false,
-                  sortOrder: 0
-                })
+                if (addCategoryMode === 'existing' && selectedExistingCategory) {
+                  // Add existing category to this month's budget with $0 allocation
+                  await onUpdateAllocation(selectedExistingCategory, 0)
+                } else if (addCategoryMode === 'new' && newCategoryName) {
+                  // Create new category (which automatically gets added to the budget)
+                  await onAddCategory({
+                    name: newCategoryName,
+                    type: newCategoryType,
+                    rolloverEnabled: false,
+                    sortOrder: 0
+                  })
+                }
                 setShowAddCategoryDialog(false)
+                setSelectedExistingCategory('')
                 setNewCategoryName('')
               }}
             >
-              Add Category
+              {addCategoryMode === 'existing' ? 'Add to Budget' : 'Create Category'}
             </Button>
           </DialogFooter>
         </DialogContent>
