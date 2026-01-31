@@ -141,8 +141,6 @@ export function BudgetView({
   const { budgets } = useBudgetIndex()
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false)
   const [showAddItemDialog, setShowAddItemDialog] = useState(false)
-  const [addItemMode, setAddItemMode] = useState<'existing' | 'new'>('existing')
-  const [selectedExistingItem, setSelectedExistingItem] = useState('')
   const [showAddIncomeDialog, setShowAddIncomeDialog] = useState(false)
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
   const [quickAddAmount, setQuickAddAmount] = useState('')
@@ -732,120 +730,52 @@ export function BudgetView({
       <Dialog open={showAddItemDialog} onOpenChange={(open) => {
         setShowAddItemDialog(open)
         if (!open) {
-          setAddItemMode('existing')
-          setSelectedExistingItem('')
           setNewItemName('')
         }
       }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[340px]">
           <DialogHeader>
-            <DialogTitle>Add Item to Budget</DialogTitle>
-            <DialogDescription>Add an existing item or create a new one.</DialogDescription>
+            <DialogTitle>Add {GROUP_LABELS[newItemGroup]} Item</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Mode tabs */}
-            <div className="flex gap-2">
-              <Button
-                variant={addItemMode === 'existing' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAddItemMode('existing')}
-              >
-                Existing Item
-              </Button>
-              <Button
-                variant={addItemMode === 'new' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAddItemMode('new')}
-              >
-                New Item
-              </Button>
-            </div>
-
-            {addItemMode === 'existing' ? (
-              <div className="space-y-2">
-                <Label>Select Item</Label>
-                <Select
-                  value={selectedExistingItem}
-                  onValueChange={setSelectedExistingItem}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose an item..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {items
-                      .filter((i) => !allocatedItemIds.has(i.id))
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name} ({GROUP_LABELS[item.group]})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                {items.filter((i) => !allocatedItemIds.has(i.id)).length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    All items are already in this budget. Create a new one instead.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label>Item Name</Label>
-                  <Input
-                    placeholder="e.g., Groceries, Rent, Netflix"
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Item Group</Label>
-                  <Select
-                    value={newItemGroup}
-                    onValueChange={(val) => setNewItemGroup(val as Group)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GROUP_ORDER.map((grp) => (
-                        <SelectItem key={grp} value={grp}>
-                          {GROUP_LABELS[grp]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={addItemMode === 'existing' ? !selectedExistingItem : !newItemName}
-              onClick={async () => {
-                if (addItemMode === 'existing' && selectedExistingItem) {
-                  // Add existing item to this month's budget with $0 allocation
-                  await onUpdateAllocation(selectedExistingItem, 0)
-                } else if (addItemMode === 'new' && newItemName) {
-                  // Create new item and add it to this month's budget
+          <div className="py-4">
+            <Input
+              placeholder="Item name..."
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && newItemName.trim()) {
                   const createdItem = await onAddItem({
-                    name: newItemName,
+                    name: newItemName.trim(),
                     group: newItemGroup,
                     rolloverEnabled: false,
                     sortOrder: 0
                   })
-                  // Add the newly created item to this month's budget with $0 allocation
+                  await onUpdateAllocation(createdItem.id, 0)
+                  setShowAddItemDialog(false)
+                  setNewItemName('')
+                }
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={!newItemName.trim()}
+              onClick={async () => {
+                if (newItemName.trim()) {
+                  const createdItem = await onAddItem({
+                    name: newItemName.trim(),
+                    group: newItemGroup,
+                    rolloverEnabled: false,
+                    sortOrder: 0
+                  })
                   await onUpdateAllocation(createdItem.id, 0)
                 }
                 setShowAddItemDialog(false)
-                setSelectedExistingItem('')
                 setNewItemName('')
               }}
             >
-              {addItemMode === 'existing' ? 'Add to Budget' : 'Create Item'}
+              Add
             </Button>
           </DialogFooter>
         </DialogContent>
