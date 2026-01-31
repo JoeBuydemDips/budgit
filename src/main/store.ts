@@ -17,10 +17,18 @@ import {
 import { learnItemMapping } from '../shared/categoryInference'
 
 // Migration: Convert old 'categories' key to 'items' and update allocations
+// This migration runs ONCE and stores a version flag to prevent re-running
 function migrateStore(storeInstance: Store<StoreSchema>): void {
-  // Check if we have old 'categories' data that needs migration
+  // Check if migration has already been completed
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawData = storeInstance.store as any
+
+  // If migration is already done (version 2+), skip everything
+  if (rawData.migrationVersion && rawData.migrationVersion >= 2) {
+    return
+  }
+
+  console.log('Running one-time data migration...')
 
   // Migrate categories -> items (if categories exists with data, use it instead of defaults)
   if (
@@ -30,7 +38,9 @@ function migrateStore(storeInstance: Store<StoreSchema>): void {
   ) {
     console.log('Migrating categories to items...')
     storeInstance.set('items', rawData.categories as BudgetItem[])
-    delete rawData.categories
+    // Properly delete the old key from the store file
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(storeInstance as any).delete('categories')
   }
 
   // Migrate items: type -> group (old terminology)
@@ -160,6 +170,11 @@ function migrateStore(storeInstance: Store<StoreSchema>): void {
     storeInstance.set('items', newItems)
     console.log('Placeholder items created. Please rename them in Settings.')
   }
+
+  // Mark migration as complete so it doesn't run again
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(storeInstance as any).set('migrationVersion', 2)
+  console.log('Migration complete.')
 }
 
 // Create the store with schema defaults

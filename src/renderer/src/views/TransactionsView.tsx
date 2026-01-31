@@ -49,11 +49,11 @@ export function TransactionsView({
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [filterItem, setFilterItem] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
   const [showBulkMapDialog, setShowBulkMapDialog] = useState(false)
-  const [bulkMapCategory, setBulkMapCategory] = useState<string>('')
+  const [bulkMapItem, setBulkMapItem] = useState<string>('')
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
@@ -74,13 +74,13 @@ export function TransactionsView({
   }
 
   const handleBulkMap = async () => {
-    if (!bulkMapCategory || selectedTransactions.length === 0) return
+    if (!bulkMapItem || selectedTransactions.length === 0) return
     for (const id of selectedTransactions) {
-      await onUpdateTransaction(id, { itemId: bulkMapCategory })
+      await onUpdateTransaction(id, { itemId: bulkMapItem })
     }
     setSelectedTransactions([])
     setShowBulkMapDialog(false)
-    setBulkMapCategory('')
+    setBulkMapItem('')
   }
 
   const handleBulkDelete = async () => {
@@ -96,7 +96,7 @@ export function TransactionsView({
 
   // Filter transactions
   const filteredTransactions = transactions.filter((txn) => {
-    if (filterCategory !== 'all' && txn.itemId !== filterCategory) return false
+    if (filterItem !== 'all' && txn.itemId !== filterItem) return false
     if (searchQuery) {
       const item = items.find((i) => i.id === txn.itemId)
       const searchLower = searchQuery.toLowerCase()
@@ -173,12 +173,12 @@ export function TransactionsView({
                 />
               </div>
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <Select value={filterItem} onValueChange={setFilterItem}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All categories" />
+                <SelectValue placeholder="All items" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="all">All items</SelectItem>
                 {items.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
                     {item.name}
@@ -208,10 +208,10 @@ export function TransactionsView({
                   <Button
                     size="sm"
                     onClick={() => setShowBulkMapDialog(true)}
-                    disabled={!bulkMapCategory && selectedTransactions.length === 0}
+                    disabled={!bulkMapItem && selectedTransactions.length === 0}
                   >
                     <CheckSquare className="h-4 w-4 mr-2" />
-                    Bulk Map Category
+                    Bulk Assign Item
                   </Button>
                   <Button
                     size="sm"
@@ -227,7 +227,7 @@ export function TransactionsView({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setFilterCategory(uncategorizedItem.id)}
+                  onClick={() => setFilterItem(uncategorizedItem.id)}
                 >
                   Show Uncategorized (
                   {transactions.filter((t) => t.itemId === uncategorizedItem.id).length})
@@ -263,12 +263,12 @@ export function TransactionsView({
               <div>
                 <p className="font-medium">No transactions found</p>
                 <p className="text-sm text-muted-foreground">
-                  {searchQuery || filterCategory !== 'all'
+                  {searchQuery || filterItem !== 'all'
                     ? 'Try adjusting your filters'
                     : 'Start tracking your expenses'}
                 </p>
               </div>
-              {!searchQuery && filterCategory === 'all' && (
+              {!searchQuery && filterItem === 'all' && (
                 <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add your first expense
@@ -297,7 +297,7 @@ export function TransactionsView({
                             onCheckedChange={() => handleToggleSelect(txn.id)}
                             className="mt-0.5"
                           />
-                          {/* Description & Category */}
+                          {/* Description & Item */}
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{txn.description || 'Expense'}</p>
                             <Badge
@@ -364,18 +364,18 @@ export function TransactionsView({
       <Dialog open={showBulkMapDialog} onOpenChange={setShowBulkMapDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Bulk Map Transactions</DialogTitle>
+            <DialogTitle>Bulk Assign Item</DialogTitle>
             <DialogDescription>
-              Assign a category to {selectedTransactions.length} selected transaction
+              Assign an item to {selectedTransactions.length} selected transaction
               {selectedTransactions.length !== 1 ? 's' : ''}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="bulk-category">Category</Label>
-              <Select value={bulkMapCategory} onValueChange={setBulkMapCategory}>
+              <Label htmlFor="bulk-item">Item</Label>
+              <Select value={bulkMapItem} onValueChange={setBulkMapItem}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select an item" />
                 </SelectTrigger>
                 <SelectContent>
                   {items
@@ -393,8 +393,8 @@ export function TransactionsView({
             <Button variant="outline" onClick={() => setShowBulkMapDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleBulkMap} disabled={!bulkMapCategory}>
-              Map Category
+            <Button onClick={handleBulkMap} disabled={!bulkMapItem}>
+              Assign Item
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -571,10 +571,10 @@ function TransactionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
+            <Label htmlFor="item">Item</Label>
             <Select value={itemId} onValueChange={setItemId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
+                <SelectValue placeholder="Select an item" />
               </SelectTrigger>
               <SelectContent>
                 {items.map((item) => (
