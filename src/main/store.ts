@@ -11,7 +11,8 @@ import {
   DEFAULT_SETTINGS,
   CategoryAllocation,
   ChatMessage,
-  ChatSession
+  ChatSession,
+  CsvImportProfile
 } from '../shared/types'
 import { learnCategoryMapping } from '../shared/categoryInference'
 
@@ -25,7 +26,8 @@ const store = new Store<StoreSchema>({
     settings: DEFAULT_SETTINGS,
     learnedMappings: [],
     chatSessions: [],
-    currentSessionId: null
+    currentSessionId: null,
+    csvImportProfiles: []
   }
 })
 
@@ -1001,4 +1003,55 @@ export function deleteChatSession(sessionId: string): void {
 export function clearAllChatSessions(): void {
   store.set('chatSessions', [])
   store.set('currentSessionId', null)
+}
+
+// ============== CSV Import Profiles ==============
+export function getCsvImportProfiles(): CsvImportProfile[] {
+  return store.get('csvImportProfiles') || []
+}
+
+export function getCsvImportProfile(id: string): CsvImportProfile | null {
+  const profiles = store.get('csvImportProfiles') || []
+  return profiles.find((p) => p.id === id) || null
+}
+
+export function addCsvImportProfile(
+  profile: Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>
+): CsvImportProfile {
+  const profiles = store.get('csvImportProfiles') || []
+  const now = new Date().toISOString()
+  const newProfile: CsvImportProfile = {
+    ...profile,
+    id: uuidv4(),
+    createdAt: now,
+    updatedAt: now
+  }
+  store.set('csvImportProfiles', [...profiles, newProfile])
+  return newProfile
+}
+
+export function updateCsvImportProfile(
+  id: string,
+  updates: Partial<Omit<CsvImportProfile, 'id' | 'createdAt'>>
+): CsvImportProfile | null {
+  const profiles = store.get('csvImportProfiles') || []
+  const index = profiles.findIndex((p) => p.id === id)
+  if (index === -1) return null
+
+  const updated: CsvImportProfile = {
+    ...profiles[index],
+    ...updates,
+    updatedAt: new Date().toISOString()
+  }
+  profiles[index] = updated
+  store.set('csvImportProfiles', profiles)
+  return updated
+}
+
+export function deleteCsvImportProfile(id: string): boolean {
+  const profiles = store.get('csvImportProfiles') || []
+  const filtered = profiles.filter((p) => p.id !== id)
+  if (filtered.length === profiles.length) return false
+  store.set('csvImportProfiles', filtered)
+  return true
 }

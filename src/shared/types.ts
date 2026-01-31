@@ -95,6 +95,7 @@ export interface StoreSchema {
   learnedMappings: LearnedCategoryMapping[]
   chatSessions: ChatSession[]
   currentSessionId: string | null
+  csvImportProfiles: CsvImportProfile[]
 }
 
 // Default categories following EveryDollar / zero-based budgeting principles
@@ -156,4 +157,66 @@ export interface ChatSession {
   messages: ChatMessage[]
   createdAt: string // ISO date
   lastUpdated: string // ISO date
+}
+
+// ============== CSV Import Profile Types ==============
+
+// Column mapping for flexible CSV imports
+export interface ColumnMapping {
+  date: string // Which CSV column contains the date
+  amount?: string // Single amount column (for formats with one amount field)
+  debitAmount?: string // Debit/expense column (for split format)
+  creditAmount?: string // Credit/income column (for split format)
+  description: string // Description/merchant name column
+  category?: string // Optional category column
+  card?: string // Optional card/account column
+  transactionType?: string // Column that determines credit/debit (e.g., "Transaction Type")
+}
+
+// Date format presets
+export type DateFormatPreset = 'MM/DD/YY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'auto'
+
+// Amount interpretation modes
+export type AmountSignMode =
+  | 'standard' // Positive = expense, negative = income
+  | 'inverted' // Positive = income, negative = expense (some credit cards)
+  | 'absolute-with-type' // Always positive, uses transactionType column
+
+// Payment/Credit row handling
+export type PaymentRowHandling =
+  | 'skip' // Skip payment rows entirely
+  | 'income' // Import as income
+  | 'include' // Include as-is
+
+// Saved import profile for reuse
+export interface CsvImportProfile {
+  id: string
+  name: string // User-friendly name: "Chase Credit Card", "Daily Bread Debit"
+  mapping: ColumnMapping
+  dateFormat: DateFormatPreset
+  amountSignMode: AmountSignMode
+  paymentHandling: PaymentRowHandling
+  paymentKeywords: string[] // Keywords to identify payment rows (e.g., "PAYMENT", "CREDIT")
+  createdAt: string
+  updatedAt: string
+}
+
+// Common column name aliases for auto-detection
+export const COLUMN_ALIASES: Record<keyof ColumnMapping, string[]> = {
+  date: ['date', 'transaction date', 'trans date', 'posted date', 'post date', 'txn date'],
+  amount: ['amount', 'transaction amount', 'trans amount', 'total', 'value'],
+  debitAmount: ['debit', 'debit amount', 'withdrawal', 'expense', 'charge'],
+  creditAmount: ['credit', 'credit amount', 'deposit', 'payment'],
+  description: [
+    'description',
+    'transaction description',
+    'merchant',
+    'memo',
+    'details',
+    'payee',
+    'name'
+  ],
+  category: ['category', 'type', 'expense type', 'classification'],
+  card: ['card', 'card no', 'card no.', 'card number', 'account', 'account number'],
+  transactionType: ['transaction type', 'type', 'trans type', 'dr/cr', 'debit/credit']
 }

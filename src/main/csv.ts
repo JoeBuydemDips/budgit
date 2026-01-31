@@ -1,7 +1,18 @@
-import { Budget, Transaction, Category, CategoryType } from '../shared/types'
+import {
+  Budget,
+  Transaction,
+  Category,
+  CategoryType,
+  ColumnMapping,
+  CsvImportProfile,
+  DateFormatPreset,
+  AmountSignMode,
+  PaymentRowHandling,
+  COLUMN_ALIASES
+} from '../shared/types'
 import { getCategorySuggestions } from '../shared/categoryInference'
 
-// CSV format types for import
+// CSV format types for import (legacy - keeping for backwards compatibility)
 export enum CsvFormat {
   BUDGIT = 'budgit', // Standard Budgit format
   CREDIT_CARD = 'credit_card', // Credit card statements (negative amounts = income)
@@ -612,4 +623,357 @@ export function parseCategoriesCSV(csvContent: string): ParseCategoriesResult {
   }
 
   return { categories, errors }
+}
+
+// ============== Dynamic Column Mapping Functions ==============
+
+// Extract CSV headers from content
+export function extractCsvHeaders(csvContent: string): string[] {
+  const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
+  if (lines.length === 0) return []
+  return parseCSVLine(lines[0])
+}
+
+// Get preview rows (first N data rows)
+export function getCsvPreviewRows(csvContent: string, maxRows: number = 5): string[][] {
+  const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
+  if (lines.length <= 1) return []
+
+  const dataLines = lines.slice(1, 1 + maxRows)
+  return dataLines.map((line) => parseCSVLine(line))
+}
+
+// Auto-detect column mappings based on header names
+export function autoDetectColumnMapping(headers: string[]): Partial<ColumnMapping> {
+  const mapping: Partial<ColumnMapping> = {}
+  const lowerHeaders = headers.map((h) => h.toLowerCase().trim())
+
+  // For each mapping field, try to find a matching header
+  for (const [field, aliases] of Object.entries(COLUMN_ALIASES)) {
+    for (const alias of aliases) {
+      const index = lowerHeaders.findIndex((h) => h === alias.toLowerCase())
+      if (index !== -1) {
+        mapping[field as keyof ColumnMapping] = headers[index]
+        break
+      }
+    }
+  }
+
+  return mapping
+}
+
+// Parse date based on format preset
+function parseDateWithFormat(dateStr: string, format: DateFormatPreset): Date | null {
+  if (!dateStr) return null
+
+  if (format === 'auto') {
+    // Try to auto-detect format
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      return new Date(dateStr)
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+      const [month, day, year] = dateStr.split('/').map(Number)
+      return new Date(year, month - 1, day)
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(dateStr)) {
+      const [month, day, yearShort] = dateStr.split('/').map(Number)
+      const year = yearShort + 2000
+      return new Date(year, month - 1, day)
+    }
+    return null
+  }
+
+  switch (format) {
+    case 'YYYY-MM-DD':
+      return new Date(dateStr)
+    case 'MM/DD/YYYY': {
+      const [month, day, year] = dateStr.split('/').map(Number)
+      return new Date(year, month - 1, day)
+    }
+    case 'MM/DD/YY': {
+      const [month, day, yearShort] = dateStr.split('/').map(Number)
+      const year = yearShort + 2000
+      return new Date(year, month - 1, day)
+    }
+    case 'DD/MM/YYYY': {
+      const [day, month, year] = dateStr.split('/').map(Number)
+      return new Date(year, month - 1, day)
+    }
+    default:
+      return null
+  }
+}
+
+// Parse amount based on column mapping and sign mode
+function parseAmountWithMapping(
+  row: Record<string, string>,
+  mapping: ColumnMapping,
+  signMode: AmountSignMode
+): number {
+  // Check for split debit/credit columns
+  if (mapping.debitAmount && mapping.creditAmount) {
+    const debitStr = row[mapping.debitAmount] || ''
+    const creditStr = row[mapping.creditAmount] || ''
+    const debit = parseFloat(debitStr.replace(/[^0-9.-]/g, '')) || 0
+    const credit = parseFloat(creditStr.replace(/[^0-9.-]/g, '')) || 0
+
+    // Debit = expense (positive), Credit = income (negative)
+    if (debit > 0) return Math.abs(debit)
+    if (credit > 0) return -Math.abs(credit)
+    return 0
+  }
+
+  // Single amount column with transaction type
+  if (mapping.amount && mapping.transactionType) {
+    const amountStr = row[mapping.amount] || ''
+    const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0
+    const txType = (row[mapping.transactionType] || '').toLowerCase()
+
+    if (signMode === 'absolute-with-type') {
+      if (txType === 'credit' || txType === 'deposit') {
+        return -Math.abs(amount) // Income
+      } else {
+        return Math.abs(amount) // Expense
+      }
+    }
+    return amount
+  }
+
+  // Single amount column only
+  if (mapping.amount) {
+    const amountStr = row[mapping.amount] || ''
+    const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0
+
+    if (signMode === 'inverted') {
+      return -amount // Flip sign
+    }
+    return amount
+  }
+
+  return 0
+}
+
+// Check if row is a payment/credit row
+function isPaymentRow(
+  row: Record<string, string>,
+  mapping: ColumnMapping,
+  keywords: string[]
+): boolean {
+  if (keywords.length === 0) return false
+
+  // Check description
+  const description = (row[mapping.description] || '').toLowerCase()
+
+  // Check category if mapped
+  const category = mapping.category ? (row[mapping.category] || '').toLowerCase() : ''
+
+  for (const keyword of keywords) {
+    const lowerKeyword = keyword.toLowerCase()
+    if (description.includes(lowerKeyword) || category.includes(lowerKeyword)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+export interface ParseWithMappingResult {
+  transactions: ParsedTransaction[]
+  errors: ParseError[]
+  skippedPayments: number
+}
+
+// Parse CSV with dynamic column mapping
+export function parseTransactionsWithMapping(
+  csvContent: string,
+  categories: Category[],
+  mapping: ColumnMapping,
+  options: {
+    dateFormat?: DateFormatPreset
+    amountSignMode?: AmountSignMode
+    paymentHandling?: PaymentRowHandling
+    paymentKeywords?: string[]
+    defaultCategoryId?: string
+  } = {}
+): ParseWithMappingResult {
+  const {
+    dateFormat = 'auto',
+    amountSignMode = 'standard',
+    paymentHandling = 'skip',
+    paymentKeywords = ['PAYMENT', 'MOBILE PYMT', 'CREDIT'],
+    defaultCategoryId
+  } = options
+
+  const lines = csvContent.split(/\r?\n/).filter((line) => line.trim())
+  const errors: ParseError[] = []
+  const transactions: ParsedTransaction[] = []
+  let skippedPayments = 0
+
+  if (lines.length === 0) {
+    return {
+      transactions: [],
+      errors: [{ row: 0, field: '', message: 'Empty CSV file' }],
+      skippedPayments: 0
+    }
+  }
+
+  // Parse headers and create index map
+  const headers = parseCSVLine(lines[0])
+  const headerIndexMap = new Map<string, number>()
+  headers.forEach((h, i) => headerIndexMap.set(h, i))
+
+  // Validate required mappings
+  if (!mapping.date || !headerIndexMap.has(mapping.date)) {
+    errors.push({
+      row: 1,
+      field: 'date',
+      message: `Date column "${mapping.date}" not found in CSV`
+    })
+  }
+  if (!mapping.description || !headerIndexMap.has(mapping.description)) {
+    errors.push({
+      row: 1,
+      field: 'description',
+      message: `Description column "${mapping.description}" not found in CSV`
+    })
+  }
+
+  // Check amount columns
+  const hasAmount = mapping.amount && headerIndexMap.has(mapping.amount)
+  const hasSplitAmount =
+    mapping.debitAmount &&
+    mapping.creditAmount &&
+    headerIndexMap.has(mapping.debitAmount) &&
+    headerIndexMap.has(mapping.creditAmount)
+
+  if (!hasAmount && !hasSplitAmount) {
+    errors.push({
+      row: 1,
+      field: 'amount',
+      message: 'No valid amount column(s) found. Need either Amount or Debit/Credit columns.'
+    })
+  }
+
+  if (errors.length > 0) {
+    return { transactions: [], errors, skippedPayments: 0 }
+  }
+
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i])
+    const rowNum = i + 1
+
+    // Create row object with header keys
+    const row: Record<string, string> = {}
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] || ''
+    })
+
+    // Check for payment row
+    if (paymentHandling === 'skip' && isPaymentRow(row, mapping, paymentKeywords)) {
+      skippedPayments++
+      continue
+    }
+
+    // Parse date
+    const dateStr = row[mapping.date]
+    const parsedDate = parseDateWithFormat(dateStr, dateFormat)
+    if (!parsedDate || isNaN(parsedDate.getTime())) {
+      errors.push({ row: rowNum, field: 'date', message: `Invalid date: "${dateStr}"` })
+      continue
+    }
+    const isoDate = parsedDate.toISOString().split('T')[0]
+
+    // Parse amount
+    let amount = parseAmountWithMapping(row, mapping, amountSignMode)
+
+    // Handle payment rows as income if configured
+    if (paymentHandling === 'income' && isPaymentRow(row, mapping, paymentKeywords)) {
+      amount = -Math.abs(amount) // Force negative (income)
+    }
+
+    if (amount === 0) {
+      // Skip zero amount rows
+      continue
+    }
+
+    // Determine budget month from date
+    const budgetMonth = `${parsedDate.getFullYear()}-${(parsedDate.getMonth() + 1).toString().padStart(2, '0')}`
+
+    // Get description
+    const description = row[mapping.description] || ''
+
+    // Determine category
+    let categoryName = ''
+    if (mapping.category && row[mapping.category]) {
+      categoryName = row[mapping.category].trim()
+    }
+
+    // If no category, try to infer
+    if (!categoryName && description) {
+      const suggestions = getCategorySuggestions(description, categories)
+      if (suggestions.length > 0) {
+        const suggestedCategory = categories.find((c) => c.id === suggestions[0])
+        if (suggestedCategory) {
+          categoryName = suggestedCategory.name
+        }
+      }
+    }
+
+    // Fallback to uncategorized or default
+    if (!categoryName) {
+      if (defaultCategoryId) {
+        const defaultCat = categories.find((c) => c.id === defaultCategoryId)
+        categoryName = defaultCat ? defaultCat.name : 'Uncategorized'
+      } else {
+        categoryName = 'Uncategorized'
+      }
+    }
+
+    // Get card if mapped
+    const card = mapping.card ? row[mapping.card] : undefined
+
+    transactions.push({
+      budgetMonth,
+      categoryName,
+      amount,
+      description,
+      date: isoDate,
+      card
+    })
+  }
+
+  return { transactions, errors, skippedPayments }
+}
+
+// Create a default profile based on detected headers
+export function createDefaultProfile(
+  name: string,
+  _headers: string[],
+  detectedMapping: Partial<ColumnMapping>
+): Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'> {
+  // Detect date format from sample if possible
+  const dateFormat: DateFormatPreset = 'auto'
+
+  // Detect amount sign mode based on presence of transaction type column
+  let amountSignMode: AmountSignMode = 'standard'
+  if (detectedMapping.transactionType) {
+    amountSignMode = 'absolute-with-type'
+  }
+
+  return {
+    name,
+    mapping: {
+      date: detectedMapping.date || '',
+      amount: detectedMapping.amount,
+      debitAmount: detectedMapping.debitAmount,
+      creditAmount: detectedMapping.creditAmount,
+      description: detectedMapping.description || '',
+      category: detectedMapping.category,
+      card: detectedMapping.card,
+      transactionType: detectedMapping.transactionType
+    },
+    dateFormat,
+    amountSignMode,
+    paymentHandling: 'skip',
+    paymentKeywords: ['PAYMENT', 'MOBILE PYMT', 'PYMT', 'CREDIT', 'PMT']
+  }
 }

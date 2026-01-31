@@ -10,7 +10,12 @@ import type {
   IncomeSource,
   ChatMessage,
   ChatSession,
-  AiContextMonths
+  AiContextMonths,
+  ColumnMapping,
+  CsvImportProfile,
+  DateFormatPreset,
+  AmountSignMode,
+  PaymentRowHandling
 } from '../shared/types'
 
 interface BudgetAPI {
@@ -109,6 +114,73 @@ interface BudgetAPI {
     }>
     errors: { row: number; message: string }[]
   }>
+
+  // CSV Import Wizard (Dynamic Column Mapping)
+  selectCsvFile: () => Promise<{
+    success: boolean
+    content?: string
+    fileName?: string
+    canceled?: boolean
+    error?: string
+  }>
+  extractCsvHeaders: (csvContent: string) => Promise<string[]>
+  getCsvPreviewRows: (csvContent: string, maxRows?: number) => Promise<string[][]>
+  autoDetectMapping: (headers: string[]) => Promise<Partial<ColumnMapping>>
+  parseWithMapping: (
+    csvContent: string,
+    mapping: ColumnMapping,
+    options?: {
+      dateFormat?: DateFormatPreset
+      amountSignMode?: AmountSignMode
+      paymentHandling?: PaymentRowHandling
+      paymentKeywords?: string[]
+      defaultCategoryId?: string
+    }
+  ) => Promise<{
+    transactions: Array<{
+      budgetMonth: string
+      categoryName: string
+      amount: number
+      description: string
+      date: string
+      card?: string
+    }>
+    errors: { row: number; field: string; message: string }[]
+    skippedPayments: number
+  }>
+  importWithMapping: (
+    csvContent: string,
+    mapping: ColumnMapping,
+    options?: {
+      dateFormat?: DateFormatPreset
+      amountSignMode?: AmountSignMode
+      paymentHandling?: PaymentRowHandling
+      paymentKeywords?: string[]
+      targetMonth?: string
+    }
+  ) => Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    skippedPayments?: number
+  }>
+
+  // CSV Import Profiles
+  getCsvProfiles: () => Promise<CsvImportProfile[]>
+  getCsvProfile: (id: string) => Promise<CsvImportProfile | null>
+  addCsvProfile: (
+    profile: Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>
+  ) => Promise<CsvImportProfile>
+  updateCsvProfile: (
+    id: string,
+    updates: Partial<Omit<CsvImportProfile, 'id' | 'createdAt'>>
+  ) => Promise<CsvImportProfile | null>
+  deleteCsvProfile: (id: string) => Promise<boolean>
+  createDefaultProfile: (
+    name: string,
+    headers: string[]
+  ) => Promise<Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>>
 
   // AI Chat
   getSessions: () => Promise<ChatSession[]>

@@ -10,7 +10,12 @@ import type {
   CategoryAllocation,
   ChatMessage,
   ChatSession,
-  AiContextMonths
+  AiContextMonths,
+  ColumnMapping,
+  CsvImportProfile,
+  DateFormatPreset,
+  AmountSignMode,
+  PaymentRowHandling
 } from '../shared/types'
 
 // Budget API for renderer
@@ -135,6 +140,88 @@ const budgetApi = {
     }>
     errors: { row: number; message: string }[]
   }> => ipcRenderer.invoke('csv:parseTransactions', csvContent, options),
+
+  // CSV Import Wizard (Dynamic Column Mapping)
+  selectCsvFile: (): Promise<{
+    success: boolean
+    content?: string
+    fileName?: string
+    canceled?: boolean
+    error?: string
+  }> => ipcRenderer.invoke('csv:selectFile'),
+
+  extractCsvHeaders: (csvContent: string): Promise<string[]> =>
+    ipcRenderer.invoke('csv:extractHeaders', csvContent),
+
+  getCsvPreviewRows: (csvContent: string, maxRows?: number): Promise<string[][]> =>
+    ipcRenderer.invoke('csv:getPreviewRows', csvContent, maxRows),
+
+  autoDetectMapping: (headers: string[]): Promise<Partial<ColumnMapping>> =>
+    ipcRenderer.invoke('csv:autoDetectMapping', headers),
+
+  parseWithMapping: (
+    csvContent: string,
+    mapping: ColumnMapping,
+    options?: {
+      dateFormat?: DateFormatPreset
+      amountSignMode?: AmountSignMode
+      paymentHandling?: PaymentRowHandling
+      paymentKeywords?: string[]
+      defaultCategoryId?: string
+    }
+  ): Promise<{
+    transactions: Array<{
+      budgetMonth: string
+      categoryName: string
+      amount: number
+      description: string
+      date: string
+      card?: string
+    }>
+    errors: { row: number; field: string; message: string }[]
+    skippedPayments: number
+  }> => ipcRenderer.invoke('csv:parseWithMapping', csvContent, mapping, options),
+
+  importWithMapping: (
+    csvContent: string,
+    mapping: ColumnMapping,
+    options?: {
+      dateFormat?: DateFormatPreset
+      amountSignMode?: AmountSignMode
+      paymentHandling?: PaymentRowHandling
+      paymentKeywords?: string[]
+      targetMonth?: string
+    }
+  ): Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    skippedPayments?: number
+  }> => ipcRenderer.invoke('csv:importWithMapping', csvContent, mapping, options),
+
+  // CSV Import Profiles
+  getCsvProfiles: (): Promise<CsvImportProfile[]> => ipcRenderer.invoke('csv:getProfiles'),
+
+  getCsvProfile: (id: string): Promise<CsvImportProfile | null> =>
+    ipcRenderer.invoke('csv:getProfile', id),
+
+  addCsvProfile: (
+    profile: Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<CsvImportProfile> => ipcRenderer.invoke('csv:addProfile', profile),
+
+  updateCsvProfile: (
+    id: string,
+    updates: Partial<Omit<CsvImportProfile, 'id' | 'createdAt'>>
+  ): Promise<CsvImportProfile | null> => ipcRenderer.invoke('csv:updateProfile', id, updates),
+
+  deleteCsvProfile: (id: string): Promise<boolean> => ipcRenderer.invoke('csv:deleteProfile', id),
+
+  createDefaultProfile: (
+    name: string,
+    headers: string[]
+  ): Promise<Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>> =>
+    ipcRenderer.invoke('csv:createDefaultProfile', name, headers),
 
   // AI Chat
   getSessions: (): Promise<ChatSession[]> => ipcRenderer.invoke('ai:getSessions'),

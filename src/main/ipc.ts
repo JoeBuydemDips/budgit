@@ -41,7 +41,12 @@ import {
   saveChatMessage,
   renameChatSession,
   deleteChatSession,
-  clearAllChatSessions
+  clearAllChatSessions,
+  getCsvImportProfiles,
+  getCsvImportProfile,
+  addCsvImportProfile,
+  updateCsvImportProfile,
+  deleteCsvImportProfile
 } from './store'
 import {
   generateBudgetsCSV,
@@ -50,9 +55,23 @@ import {
   parseBudgetsCSV,
   parseTransactionsCSV,
   parseCategoriesCSV,
-  CsvFormat
+  CsvFormat,
+  extractCsvHeaders,
+  getCsvPreviewRows,
+  autoDetectColumnMapping,
+  parseTransactionsWithMapping,
+  createDefaultProfile
 } from './csv'
-import type { Category, AppSettings, Transaction } from '../shared/types'
+import type {
+  Category,
+  AppSettings,
+  Transaction,
+  ColumnMapping,
+  CsvImportProfile,
+  DateFormatPreset,
+  AmountSignMode,
+  PaymentRowHandling
+} from '../shared/types'
 import type { ChatMessage, AiContextMonths } from '../shared/types'
 
 export function registerIpcHandlers(): void {
@@ -340,6 +359,178 @@ export function registerIpcHandlers(): void {
       } catch (error) {
         return { transactions: [], errors: [{ row: 0, message: String(error) }] }
       }
+    }
+  )
+
+  // ============== CSV Import Wizard (Dynamic Column Mapping) ==============
+
+  // Open file dialog and return CSV content for wizard
+  ipcMain.handle(
+    'csv:selectFile',
+    async (): Promise<{
+      success: boolean
+      content?: string
+      fileName?: string
+      canceled?: boolean
+      error?: string
+    }> => {
+      const window = BrowserWindow.getFocusedWindow()
+      if (!window) return { success: false, error: 'No active window' }
+
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Select CSV File',
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+        properties: ['openFile']
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, canceled: true }
+      }
+
+      try {
+        const content = await readFile(result.filePaths[0], 'utf-8')
+        const fileName = result.filePaths[0].split('/').pop() || 'unknown.csv'
+        return { success: true, content, fileName }
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
+    }
+  )
+
+  // Extract headers from CSV content
+  ipcMain.handle('csv:extractHeaders', (_, csvContent: string): string[] => {
+    return extractCsvHeaders(csvContent)
+  })
+
+  // Get preview rows from CSV
+  ipcMain.handle('csv:getPreviewRows', (_, csvContent: string, maxRows?: number): string[][] => {
+    return getCsvPreviewRows(csvContent, maxRows)
+  })
+
+  // Auto-detect column mapping from headers
+  ipcMain.handle('csv:autoDetectMapping', (_, headers: string[]): Partial<ColumnMapping> => {
+    return autoDetectColumnMapping(headers)
+  })
+
+  // Parse CSV with dynamic column mapping
+  ipcMain.handle(
+    'csv:parseWithMapping',
+    async (
+      _,
+      csvContent: string,
+      mapping: ColumnMapping,
+      options?: {
+        dateFormat?: DateFormatPreset
+        amountSignMode?: AmountSignMode
+        paymentHandling?: PaymentRowHandling
+        paymentKeywords?: string[]
+        defaultCategoryId?: string
+      }
+    ): Promise<{
+      transactions: Array<{
+        budgetMonth: string
+        categoryName: string
+        amount: number
+        description: string
+        date: string
+        card?: string
+      }>
+      errors: { row: number; field: string; message: string }[]
+      skippedPayments: number
+    }> => {
+      try {
+        const categories = getCategories()
+        const result = parseTransactionsWithMapping(csvContent, categories, mapping, options)
+        return result
+      } catch (error) {
+        return {
+          transactions: [],
+          errors: [{ row: 0, field: '', message: String(error) }],
+          skippedPayments: 0
+        }
+      }
+    }
+  )
+
+  // Import transactions with dynamic mapping (full flow)
+  ipcMain.handle(
+    'csv:importWithMapping',
+    async (
+      _,
+      csvContent: string,
+      mapping: ColumnMapping,
+      options?: {
+        dateFormat?: DateFormatPreset
+        amountSignMode?: AmountSignMode
+        paymentHandling?: PaymentRowHandling
+        paymentKeywords?: string[]
+        targetMonth?: string
+      }
+    ): Promise<ImportResult & { skippedPayments?: number }> => {
+      try {
+        const categories = getCategories()
+        const parsed = parseTransactionsWithMapping(csvContent, categories, mapping, options)
+
+        if (parsed.errors.length > 0) {
+          return {
+            success: false,
+            imported: 0,
+            skipped: 0,
+            errors: parsed.errors.map((e) => `Row ${e.row}: ${e.message}`),
+            skippedPayments: parsed.skippedPayments
+          }
+        }
+
+        const result = importTransactions(parsed.transactions, options?.targetMonth)
+        return { ...result, skippedPayments: parsed.skippedPayments }
+      } catch (error) {
+        return { success: false, imported: 0, skipped: 0, errors: [String(error)] }
+      }
+    }
+  )
+
+  // ============== CSV Import Profiles ==============
+
+  ipcMain.handle('csv:getProfiles', (): CsvImportProfile[] => {
+    return getCsvImportProfiles()
+  })
+
+  ipcMain.handle('csv:getProfile', (_, id: string): CsvImportProfile | null => {
+    return getCsvImportProfile(id)
+  })
+
+  ipcMain.handle(
+    'csv:addProfile',
+    (_, profile: Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>): CsvImportProfile => {
+      return addCsvImportProfile(profile)
+    }
+  )
+
+  ipcMain.handle(
+    'csv:updateProfile',
+    (
+      _,
+      id: string,
+      updates: Partial<Omit<CsvImportProfile, 'id' | 'createdAt'>>
+    ): CsvImportProfile | null => {
+      return updateCsvImportProfile(id, updates)
+    }
+  )
+
+  ipcMain.handle('csv:deleteProfile', (_, id: string): boolean => {
+    return deleteCsvImportProfile(id)
+  })
+
+  // Create default profile from headers
+  ipcMain.handle(
+    'csv:createDefaultProfile',
+    (
+      _,
+      name: string,
+      headers: string[]
+    ): Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'> => {
+      const detectedMapping = autoDetectColumnMapping(headers)
+      return createDefaultProfile(name, headers, detectedMapping)
     }
   )
 

@@ -13,7 +13,8 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
-  Sparkles
+  Sparkles,
+  Wand2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { formatMonth, parseMonthKey } from '@/lib/utils'
+import { CsvImportWizard } from '@/components/CsvImportWizard'
 import type { Budget, Category, CategoryType, AiContextMonths } from '../../../shared/types'
 
 interface SettingsViewProps {
@@ -98,6 +100,9 @@ export function SettingsView({
   const [claudeApiKey, setClaudeApiKey] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
   const [aiContextMonths, setAiContextMonths] = useState<AiContextMonths>(3)
+
+  // CSV Import Wizard
+  const [showImportWizard, setShowImportWizard] = useState(false)
   const [aiSettingsLoaded, setAiSettingsLoaded] = useState(false)
   const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false)
 
@@ -505,6 +510,16 @@ export function SettingsView({
               will be skipped.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full sm:w-auto"
+                disabled={isProcessing}
+                onClick={() => setShowImportWizard(true)}
+              >
+                <Wand2 className="h-4 w-4 mr-2" />
+                Import Wizard (Recommended)
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1085,6 +1100,39 @@ export function SettingsView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Wizard */}
+      <CsvImportWizard
+        open={showImportWizard}
+        onOpenChange={setShowImportWizard}
+        budgets={budgets}
+        onImportComplete={(result) => {
+          if (result.success) {
+            let message = `Imported ${result.imported} transactions`
+            if (result.skipped > 0) {
+              message += `, skipped ${result.skipped} duplicates`
+            }
+            if (result.skippedPayments && result.skippedPayments > 0) {
+              message += `, ${result.skippedPayments} payment rows skipped`
+            }
+            setImportExportFeedback({
+              type: 'success',
+              message
+            })
+          } else {
+            setImportExportFeedback({
+              type: 'error',
+              message: result.errors.length > 0 ? result.errors[0] : 'Import failed'
+            })
+          }
+        }}
+        onRefresh={async () => {
+          await onRefreshCategories()
+          await onRefreshBudget()
+          await onRefreshBudgets()
+          await onRefreshTransactions()
+        }}
+      />
     </div>
   )
 }
