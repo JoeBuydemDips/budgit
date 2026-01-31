@@ -1,23 +1,17 @@
 import { useEffect, useState } from 'react'
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  GripVertical,
   Download,
   Upload,
   CheckCircle,
   XCircle,
-  Search,
-  ChevronDown,
-  ChevronUp,
   Eye,
   EyeOff,
-  Sparkles
+  Sparkles,
+  Wand2,
+  Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -38,11 +32,10 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { formatMonth, parseMonthKey } from '@/lib/utils'
-import type { Budget, Category, CategoryType, AiContextMonths } from '../../../shared/types'
+import { CsvImportWizard } from '@/components/CsvImportWizard'
+import type { Budget, AiContextMonths } from '../../../shared/types'
 
 interface SettingsViewProps {
-  categories: Category[]
-  onRefreshCategories: () => Promise<void>
   onRefreshBudgets: () => Promise<void>
   onRefreshBudget: () => Promise<void>
   onRefreshTransactions: () => Promise<void>
@@ -56,33 +49,16 @@ interface ImportExportFeedback {
 type ExportDialogType = 'budgets' | 'transactions' | null
 type ImportDialogType = 'budgets' | 'transactions' | null
 
-const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
-  { value: 'GIVING', label: 'Giving' },
-  { value: 'SAVINGS', label: 'Savings' },
-  { value: 'NEEDS', label: 'Essentials' },
-  { value: 'WANTS', label: 'Lifestyle' },
-  { value: 'DEBT', label: 'Debt' },
-  { value: 'FOOD', label: 'Food' },
-  { value: 'MISC', label: 'Miscellaneous' }
-]
-
 export function SettingsView({
-  categories,
-  onRefreshCategories,
   onRefreshBudgets,
   onRefreshBudget,
   onRefreshTransactions
 }: SettingsViewProps): React.JSX.Element {
   const { theme, setTheme } = useTheme()
-  const [showAddCategory, setShowAddCategory] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [importExportFeedback, setImportExportFeedback] = useState<ImportExportFeedback | null>(
     null
   )
   const [isProcessing, setIsProcessing] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [categoriesExpanded, setCategoriesExpanded] = useState(true)
 
   // Export/Import dialog states
   const [exportDialogType, setExportDialogType] = useState<ExportDialogType>(null)
@@ -98,6 +74,9 @@ export function SettingsView({
   const [claudeApiKey, setClaudeApiKey] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
   const [aiContextMonths, setAiContextMonths] = useState<AiContextMonths>(3)
+
+  // CSV Import Wizard
+  const [showImportWizard, setShowImportWizard] = useState(false)
   const [aiSettingsLoaded, setAiSettingsLoaded] = useState(false)
   const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false)
 
@@ -127,18 +106,6 @@ export function SettingsView({
     }
     return undefined
   }, [importExportFeedback])
-
-  // Filter categories based on search term
-  const filteredCategories = categories.filter((category) => {
-    if (!searchTerm.trim()) return true
-
-    const searchLower = searchTerm.toLowerCase()
-    const categoryName = category.name.toLowerCase()
-    const categoryTypeLabel =
-      CATEGORY_TYPES.find((t) => t.value === category.type)?.label.toLowerCase() || ''
-
-    return categoryName.includes(searchLower) || categoryTypeLabel.includes(searchLower)
-  })
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -303,98 +270,6 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* Categories */}
-      <Card>
-        <Collapsible open={categoriesExpanded} onOpenChange={setCategoriesExpanded}>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <CardTitle>Categories</CardTitle>
-                    <CardDescription>Manage your budget categories</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => setShowAddCategory(true)}
-                    className="w-full sm:w-auto"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Category
-                  </Button>
-                  {categoriesExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent>
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search categories by name or type..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {filteredCategories.map((category, index) => (
-                  <div key={category.id}>
-                    {index > 0 && <Separator className="my-2" />}
-                    <div className="flex items-center justify-between py-2 group">
-                      <div className="flex items-center gap-3">
-                        <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab" />
-                        <div>
-                          <p className="font-medium">{category.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {CATEGORY_TYPES.find((t) => t.value === category.type)?.label}
-                            {category.rolloverEnabled && ' • Rollover enabled'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setEditingCategory(category)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700"
-                          onClick={() => setDeleteConfirm(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {filteredCategories.length === 0 && searchTerm.trim() && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No categories found matching &quot;{searchTerm}&quot;</p>
-                    <p className="text-sm">Try searching by category name or type</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
-
       {/* Import/Export Data */}
       <Card>
         <CardHeader>
@@ -456,42 +331,6 @@ export function SettingsView({
                 <Download className="h-4 w-4 mr-2" />
                 Export Transactions
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                disabled={isProcessing}
-                onClick={async () => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.exportCategoriesCSV()
-                    if (result.canceled) {
-                      // User canceled, no feedback needed
-                    } else if (result.success) {
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: 'Categories exported successfully!'
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message: result.error || 'Export failed'
-                      })
-                    }
-                  } catch (error) {
-                    setImportExportFeedback({
-                      type: 'error',
-                      message: String(error)
-                    })
-                  } finally {
-                    setIsProcessing(false)
-                  }
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Categories
-              </Button>
             </div>
           </div>
 
@@ -501,10 +340,20 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Import Data</Label>
             <p className="text-sm text-muted-foreground">
-              Import budgets, transactions, or categories from CSV files. Duplicate transactions
-              will be skipped.
+              Import budgets or transactions from CSV files. Duplicate transactions will be
+              skipped.
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full sm:w-auto"
+                disabled={isProcessing}
+                onClick={() => setShowImportWizard(true)}
+              >
+                <Wand2 className="h-4 w-4 mr-2" />
+                Import Wizard (Recommended)
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -531,43 +380,6 @@ export function SettingsView({
                 <Upload className="h-4 w-4 mr-2" />
                 Import Transactions
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                disabled={isProcessing}
-                onClick={async () => {
-                  setIsProcessing(true)
-                  setImportExportFeedback(null)
-                  try {
-                    const result = await window.api.importCategoriesCSV({ mode: 'merge' })
-                    if (result.canceled) {
-                      // User canceled, no feedback needed
-                    } else if (result.success) {
-                      await onRefreshCategories()
-                      setImportExportFeedback({
-                        type: 'success',
-                        message: `Categories imported: ${result.imported} new, ${result.updated} updated`
-                      })
-                    } else {
-                      setImportExportFeedback({
-                        type: 'error',
-                        message: result.errors.join(', ') || 'Import failed'
-                      })
-                    }
-                  } catch (error) {
-                    setImportExportFeedback({
-                      type: 'error',
-                      message: String(error)
-                    })
-                  } finally {
-                    setIsProcessing(false)
-                  }
-                }}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Import Categories
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -583,7 +395,7 @@ export function SettingsView({
           <div className="space-y-2">
             <Label className="text-base font-medium">Clean Up Orphaned Allocations</Label>
             <p className="text-sm text-muted-foreground">
-              Remove budget allocations for categories that no longer exist. This fixes calculation
+              Remove budget allocations for items that no longer exist. This fixes calculation
               errors from previous bugs.
             </p>
             <Button
@@ -595,7 +407,6 @@ export function SettingsView({
                 setImportExportFeedback(null)
                 try {
                   const result = await window.api.cleanupOrphanedAllocations()
-                  await onRefreshCategories()
                   await onRefreshBudgets()
                   setImportExportFeedback({
                     type: 'success',
@@ -630,64 +441,6 @@ export function SettingsView({
           <p>Zero-based budgeting for families. Give every dollar a job.</p>
         </CardContent>
       </Card>
-
-      {/* Add Category Dialog */}
-      <CategoryDialog
-        open={showAddCategory}
-        onOpenChange={setShowAddCategory}
-        onSave={async (data) => {
-          await window.api.addCategory({
-            ...data,
-            sortOrder: categories.length
-          })
-          await onRefreshCategories()
-          setShowAddCategory(false)
-        }}
-      />
-
-      {/* Edit Category Dialog */}
-      <CategoryDialog
-        open={!!editingCategory}
-        onOpenChange={(open) => !open && setEditingCategory(null)}
-        category={editingCategory || undefined}
-        onSave={async (data) => {
-          if (editingCategory) {
-            await window.api.updateCategory(editingCategory.id, data)
-            await onRefreshCategories()
-          }
-          setEditingCategory(null)
-        }}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this category? Transactions in this category will
-              become uncategorized.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (deleteConfirm) {
-                  await window.api.deleteCategory(deleteConfirm)
-                  await onRefreshCategories()
-                }
-                setDeleteConfirm(null)
-              }}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Export Budgets Dialog */}
       <Dialog
@@ -1050,7 +803,6 @@ export function SettingsView({
                     // User cancelled
                   } else if (result.success) {
                     // Refresh data after import
-                    await onRefreshCategories()
                     await onRefreshBudget()
                     await onRefreshBudgets()
                     await onRefreshTransactions()
@@ -1085,119 +837,38 @@ export function SettingsView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Wizard */}
+      <CsvImportWizard
+        open={showImportWizard}
+        onOpenChange={setShowImportWizard}
+        budgets={budgets}
+        onImportComplete={(result) => {
+          if (result.success) {
+            let message = `Imported ${result.imported} transactions`
+            if (result.skipped > 0) {
+              message += `, skipped ${result.skipped} duplicates`
+            }
+            if (result.skippedPayments && result.skippedPayments > 0) {
+              message += `, ${result.skippedPayments} payment rows skipped`
+            }
+            setImportExportFeedback({
+              type: 'success',
+              message
+            })
+          } else {
+            setImportExportFeedback({
+              type: 'error',
+              message: result.errors.length > 0 ? result.errors[0] : 'Import failed'
+            })
+          }
+        }}
+        onRefresh={async () => {
+          await onRefreshBudget()
+          await onRefreshBudgets()
+          await onRefreshTransactions()
+        }}
+      />
     </div>
-  )
-}
-
-interface CategoryDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  category?: Category
-  onSave: (data: Omit<Category, 'id' | 'sortOrder'>) => Promise<void>
-}
-
-function CategoryDialog({
-  open,
-  onOpenChange,
-  category,
-  onSave
-}: CategoryDialogProps): React.JSX.Element {
-  const [name, setName] = useState(category?.name || '')
-  const [type, setType] = useState<CategoryType>(category?.type || 'NEEDS')
-  const [rolloverEnabled, setRolloverEnabled] = useState(category?.rolloverEnabled || false)
-  const [saving, setSaving] = useState(false)
-
-  // Reset form when category changes
-  useEffect(() => {
-    if (category) {
-      setName(category.name)
-      setType(category.type)
-      setRolloverEnabled(category.rolloverEnabled)
-    } else {
-      setName('')
-      setType('NEEDS')
-      setRolloverEnabled(false)
-    }
-  }, [category])
-
-  const handleSave = async (): Promise<void> => {
-    if (!name.trim()) return
-
-    setSaving(true)
-    await onSave({
-      name: name.trim(),
-      type,
-      rolloverEnabled
-    })
-    setSaving(false)
-
-    // Reset form
-    setName('')
-    setType('NEEDS')
-    setRolloverEnabled(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{category ? 'Edit' : 'Add'} Category</DialogTitle>
-          <DialogDescription>
-            {category ? 'Update the category details' : 'Create a new budget category'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Groceries"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="type">Type</Label>
-            <Select value={type} onValueChange={(value: CategoryType) => setType(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORY_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="rollover"
-              checked={rolloverEnabled}
-              onChange={(e) => setRolloverEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-input"
-              aria-label="Enable rollover for this category"
-            />
-            <Label htmlFor="rollover" className="text-sm font-normal">
-              Enable rollover (carry unused funds to next month)
-            </Label>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button disabled={!name.trim() || saving} onClick={handleSave}>
-            {saving ? 'Saving...' : category ? 'Update' : 'Add'} Category
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

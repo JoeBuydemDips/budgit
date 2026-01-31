@@ -17,67 +17,67 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type { Category, Transaction, LearnedCategoryMapping } from '../../../shared/types'
-import { getCategorySuggestions } from '../../../shared/categoryInference'
+import type { BudgetItem, Transaction, LearnedItemMapping } from '../../../shared/types'
+import { getItemSuggestions } from '../../../shared/categoryInference'
 
 interface AddTransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  categories: Category[]
-  learnedMappings?: LearnedCategoryMapping[]
+  items: BudgetItem[]
+  learnedMappings?: LearnedItemMapping[]
   currentMonth: string
-  defaultCategoryId?: string
+  defaultItemId?: string
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
 
 export function AddTransactionDialog({
   open,
   onOpenChange,
-  categories,
+  items,
   learnedMappings,
   currentMonth,
-  defaultCategoryId,
+  defaultItemId,
   onAddTransaction
 }: AddTransactionDialogProps) {
   const [amount, setAmount] = useState('')
-  const [categoryId, setCategoryId] = useState(defaultCategoryId || '')
+  const [itemId, setItemId] = useState(defaultItemId || '')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
-  const [categorySuggestions, setCategorySuggestions] = useState<string[]>([])
+  const [itemSuggestions, setItemSuggestions] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-      setCategoryId(defaultCategoryId || '')
+      setItemId(defaultItemId || '')
       setAmount('')
       setDescription('')
       setDate(new Date().toISOString().split('T')[0])
-      setCategorySuggestions([])
+      setItemSuggestions([])
     }
-  }, [open, defaultCategoryId])
+  }, [open, defaultItemId])
 
-  // Update category suggestions when description changes
+  // Update item suggestions when description changes
   useEffect(() => {
     if (description.trim()) {
       try {
-        const suggestions = getCategorySuggestions(
+        const suggestions = getItemSuggestions(
           description,
-          categories || [],
+          items || [],
           learnedMappings ?? []
         )
-        setCategorySuggestions(suggestions)
+        setItemSuggestions(suggestions)
       } catch (err) {
-        console.error('Error computing category suggestions', err)
-        setCategorySuggestions([])
+        console.error('Error computing item suggestions', err)
+        setItemSuggestions([])
       }
     } else {
-      setCategorySuggestions([])
+      setItemSuggestions([])
     }
-  }, [description, categories, learnedMappings])
+  }, [description, items, learnedMappings])
 
   const handleSave = async () => {
-    if (!amount || !categoryId || saving) return
+    if (!amount || !itemId || saving) return
 
     setSaving(true)
     setErrorMessage(null)
@@ -85,7 +85,7 @@ export function AddTransactionDialog({
     try {
       await onAddTransaction({
         amount: parseFloat(amount),
-        categoryId,
+        itemId,
         description,
         date: new Date(date).toISOString(),
         budgetMonth: currentMonth
@@ -93,10 +93,10 @@ export function AddTransactionDialog({
 
       // Reset form only on success
       setAmount('')
-      setCategoryId('')
+      setItemId('')
       setDescription('')
       setDate(new Date().toISOString().split('T')[0])
-      setCategorySuggestions([])
+      setItemSuggestions([])
 
       onOpenChange(false)
     } catch (err: unknown) {
@@ -140,36 +140,36 @@ export function AddTransactionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            {categorySuggestions.length > 0 && (
+            <Label htmlFor="item">Item</Label>
+            {itemSuggestions.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 <span className="text-sm text-muted-foreground">Suggestions:</span>
-                {categorySuggestions.slice(0, 3).map((suggestionId) => {
-                  const category = categories.find((c) => c.id === suggestionId)
-                  return category ? (
+                {itemSuggestions.slice(0, 3).map((suggestionId) => {
+                  const item = items.find((c) => c.id === suggestionId)
+                  return item ? (
                     <Button
                       key={suggestionId}
                       variant="outline"
                       size="sm"
-                      onClick={() => setCategoryId(suggestionId)}
+                      onClick={() => setItemId(suggestionId)}
                       className={
-                        categoryId === suggestionId ? 'bg-primary text-primary-foreground' : ''
+                        itemId === suggestionId ? 'bg-primary text-primary-foreground' : ''
                       }
                     >
-                      {category.name}
+                      {item.name}
                     </Button>
                   ) : null
                 })}
               </div>
             )}
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Select value={itemId} onValueChange={setItemId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
+                <SelectValue placeholder="Select an item" />
               </SelectTrigger>
               <SelectContent>
-                {(categories || []).map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
+                {(items || []).map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -197,7 +197,7 @@ export function AddTransactionDialog({
             Cancel
           </Button>
           <Button
-            disabled={!amount || parseFloat(amount) <= 0 || !categoryId || saving}
+            disabled={!amount || parseFloat(amount) <= 0 || !itemId || saving}
             onClick={handleSave}
           >
             {saving ? 'Saving...' : 'Add Expense'}

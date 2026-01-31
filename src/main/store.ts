@@ -4,30 +4,197 @@ import {
   StoreSchema,
   Budget,
   Transaction,
-  Category,
+  BudgetItem,
   AppSettings,
   BudgetWithComputed,
-  DEFAULT_CATEGORIES,
+  DEFAULT_ITEMS,
   DEFAULT_SETTINGS,
-  CategoryAllocation,
+  Allocation,
   ChatMessage,
-  ChatSession
+  ChatSession,
+  CsvImportProfile
 } from '../shared/types'
-import { learnCategoryMapping } from '../shared/categoryInference'
+import { learnItemMapping } from '../shared/categoryInference'
+
+// Migration: Convert old 'categories' key to 'items' and update allocations
+// This migration runs ONCE and stores a version flag to prevent re-running
+function migrateStore(storeInstance: Store<StoreSchema>): void {
+  // Check if migration has already been completed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawData = storeInstance.store as any
+
+  // If migration is already done (version 2+), skip everything
+  if (rawData.migrationVersion && rawData.migrationVersion >= 2) {
+    return
+  }
+
+  console.log('Running one-time data migration...')
+
+  // Migrate categories -> items (if categories exists with data, use it instead of defaults)
+  if (
+    'categories' in rawData &&
+    Array.isArray(rawData.categories) &&
+    rawData.categories.length > 0
+  ) {
+    console.log('Migrating categories to items...')
+    storeInstance.set('items', rawData.categories as BudgetItem[])
+    // Properly delete the old key from the store file
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(storeInstance as any).delete('categories')
+  }
+
+  // Migrate items: type -> group (old terminology)
+  const currentItems = storeInstance.get('items')
+  let needsItemMigration = false
+  const migratedItems = currentItems.map((item) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawItem = item as any
+    if ('type' in rawItem && !('group' in rawItem)) {
+      needsItemMigration = true
+      const { type, ...rest } = rawItem
+      return { ...rest, group: type }
+    }
+    return item
+  })
+
+  if (needsItemMigration) {
+    console.log('Migrating items from type to group...')
+    storeInstance.set('items', migratedItems)
+  }
+
+  // Migrate allocations: categoryId -> itemId
+  const budgets = storeInstance.get('budgets')
+  let needsBudgetMigration = false
+  const migratedBudgets = budgets.map((budget) => {
+    const migratedAllocations = budget.allocations.map((alloc) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawAlloc = alloc as any
+      if ('categoryId' in rawAlloc && !('itemId' in rawAlloc)) {
+        needsBudgetMigration = true
+        return {
+          ...alloc,
+          itemId: rawAlloc.categoryId as string
+        }
+      }
+      return alloc
+    })
+    return { ...budget, allocations: migratedAllocations }
+  })
+
+  if (needsBudgetMigration) {
+    console.log('Migrating budget allocations from categoryId to itemId...')
+    storeInstance.set('budgets', migratedBudgets)
+  }
+
+  // Migrate learnedMappings: categoryId -> itemId
+  const mappings = storeInstance.get('learnedMappings')
+  let needsMappingMigration = false
+  const migratedMappings = mappings.map((mapping) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawMapping = mapping as any
+    if ('categoryId' in rawMapping && !('itemId' in rawMapping)) {
+      needsMappingMigration = true
+      return {
+        ...mapping,
+        itemId: rawMapping.categoryId as string
+      }
+    }
+    return mapping
+  })
+
+  if (needsMappingMigration) {
+    console.log('Migrating learned mappings from categoryId to itemId...')
+    storeInstance.set('learnedMappings', migratedMappings)
+  }
+
+  // Migrate transactions: categoryId -> itemId
+  const transactions = storeInstance.get('transactions')
+  let needsTransactionMigration = false
+  const migratedTransactions = transactions.map((tx) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawTx = tx as any
+    if ('categoryId' in rawTx && !('itemId' in rawTx)) {
+      needsTransactionMigration = true
+      return {
+        ...tx,
+        itemId: rawTx.categoryId as string
+      }
+    }
+    return tx
+  })
+
+  if (needsTransactionMigration) {
+    console.log('Migrating transactions from categoryId to itemId...')
+    storeInstance.set('transactions', migratedTransactions)
+  }
+
+  // Recovery: Find orphaned item references and create placeholder items for them
+  const items = storeInstance.get('items')
+  const itemIds = new Set(items.map((item) => item.id))
+  const orphanedIds = new Set<string>()
+
+  // Find orphaned allocations
+  for (const budget of storeInstance.get('budgets')) {
+    for (const alloc of budget.allocations) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const id = (alloc as any).itemId || (alloc as any).categoryId
+      if (id && !itemIds.has(id)) {
+        orphanedIds.add(id)
+      }
+    }
+  }
+
+  // Find orphaned transactions
+  for (const tx of storeInstance.get('transactions')) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const id = (tx as any).itemId || (tx as any).categoryId
+    if (id && !itemIds.has(id)) {
+      orphanedIds.add(id)
+    }
+  }
+
+  // Create placeholder items for orphans so they show in the UI
+  if (orphanedIds.size > 0) {
+    console.log(`Creating ${orphanedIds.size} placeholder items for orphaned references...`)
+    const newItems = [...items]
+    let sortOrder = items.length
+    for (const orphanId of orphanedIds) {
+      newItems.push({
+        id: orphanId,
+        name: `Recovered Item (${orphanId.slice(0, 8)})`,
+        group: 'MISC',
+        rolloverEnabled: false,
+        sortOrder: sortOrder++
+      })
+    }
+    storeInstance.set('items', newItems)
+    console.log('Placeholder items created. Please rename them in Settings.')
+  }
+
+  // Mark migration as complete so it doesn't run again
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(storeInstance as any).set('migrationVersion', 2)
+  console.log('Migration complete.')
+}
 
 // Create the store with schema defaults
+// Note: Internal storage uses legacy keys for backward compatibility
 const store = new Store<StoreSchema>({
   name: 'budgit-data',
   defaults: {
-    categories: DEFAULT_CATEGORIES,
+    items: DEFAULT_ITEMS,
     budgets: [],
     transactions: [],
     settings: DEFAULT_SETTINGS,
     learnedMappings: [],
     chatSessions: [],
-    currentSessionId: null
+    currentSessionId: null,
+    csvImportProfiles: []
   }
 })
+
+// Run migration on startup
+migrateStore(store)
 
 // ============== Settings ==============
 export function getSettings(): AppSettings {
@@ -41,42 +208,42 @@ export function updateSettings(settings: Partial<AppSettings>): AppSettings {
   return updated
 }
 
-// ============== Categories ==============
-export function getCategories(): Category[] {
-  return store.get('categories').sort((a, b) => a.sortOrder - b.sortOrder)
+// ============== Budget Items ==============
+export function getItems(): BudgetItem[] {
+  return store.get('items').sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
-export function addCategory(category: Omit<Category, 'id'>): Category {
-  const categories = store.get('categories')
-  const newCategory: Category = {
-    ...category,
+export function addItem(item: Omit<BudgetItem, 'id'>): BudgetItem {
+  const items = store.get('items')
+  const newItem: BudgetItem = {
+    ...item,
     id: uuidv4()
   }
-  store.set('categories', [...categories, newCategory])
-  return newCategory
+  store.set('items', [...items, newItem])
+  return newItem
 }
 
-export function updateCategory(id: string, updates: Partial<Category>): Category | null {
-  const categories = store.get('categories')
-  const index = categories.findIndex((c) => c.id === id)
+export function updateItem(id: string, updates: Partial<BudgetItem>): BudgetItem | null {
+  const items = store.get('items')
+  const index = items.findIndex((c) => c.id === id)
   if (index === -1) return null
 
-  const updated = { ...categories[index], ...updates }
-  categories[index] = updated
-  store.set('categories', categories)
+  const updated = { ...items[index], ...updates }
+  items[index] = updated
+  store.set('items', items)
   return updated
 }
 
-export function deleteCategory(id: string): boolean {
-  const categories = store.get('categories')
-  const filtered = categories.filter((c) => c.id !== id)
-  if (filtered.length === categories.length) return false
-  store.set('categories', filtered)
+export function deleteItem(id: string): boolean {
+  const items = store.get('items')
+  const filtered = items.filter((c) => c.id !== id)
+  if (filtered.length === items.length) return false
+  store.set('items', filtered)
 
   // Clean up allocations in all budgets
   const budgets = store.get('budgets')
   const updatedBudgets = budgets.map((budget) => {
-    const filteredAllocations = budget.allocations.filter((a) => a.categoryId !== id)
+    const filteredAllocations = budget.allocations.filter((a) => a.itemId !== id)
     if (filteredAllocations.length !== budget.allocations.length) {
       const totalPlanned = filteredAllocations.reduce((sum, a) => sum + a.planned, 0)
       return {
@@ -92,11 +259,11 @@ export function deleteCategory(id: string): boolean {
   return true
 }
 
-export function removeCategoryFromBudget(month: string, categoryId: string): boolean {
+export function removeItemFromBudget(month: string, itemId: string): boolean {
   const budget = getBudgetByMonth(month)
   if (!budget) return false
 
-  const filteredAllocations = budget.allocations.filter((a) => a.categoryId !== categoryId)
+  const filteredAllocations = budget.allocations.filter((a) => a.itemId !== itemId)
   if (filteredAllocations.length === budget.allocations.length) return false
 
   updateBudget(month, { allocations: filteredAllocations })
@@ -107,15 +274,15 @@ export function cleanupOrphanedAllocations(): {
   cleanedBudgets: number
   removedAllocations: number
 } {
-  const categories = store.get('categories')
-  const categoryIds = new Set(categories.map((c) => c.id))
+  const items = store.get('items')
+  const itemIds = new Set(items.map((c) => c.id))
   const budgets = store.get('budgets')
   let cleanedBudgets = 0
   let removedAllocations = 0
 
   const updatedBudgets = budgets.map((budget) => {
     const originalLength = budget.allocations.length
-    const filteredAllocations = budget.allocations.filter((a) => categoryIds.has(a.categoryId))
+    const filteredAllocations = budget.allocations.filter((a) => itemIds.has(a.itemId))
     const removed = originalLength - filteredAllocations.length
     if (removed > 0) {
       cleanedBudgets++
@@ -135,84 +302,84 @@ export function cleanupOrphanedAllocations(): {
   return { cleanedBudgets, removedAllocations }
 }
 
-export function reorderCategories(categoryIds: string[]): void {
-  const categories = store.get('categories')
-  const updated = categories.map((cat) => {
-    const newIndex = categoryIds.indexOf(cat.id)
+export function reorderItems(itemIds: string[]): void {
+  const items = store.get('items')
+  const updated = items.map((item) => {
+    const newIndex = itemIds.indexOf(item.id)
     if (newIndex !== -1) {
-      return { ...cat, sortOrder: newIndex }
+      return { ...item, sortOrder: newIndex }
     }
-    return cat
+    return item
   })
-  store.set('categories', updated)
+  store.set('items', updated)
 }
 
-export interface ImportCategoriesResult {
+export interface ImportItemsResult {
   success: boolean
   imported: number
   updated: number
   errors: string[]
 }
 
-export interface ImportCategoryData {
+export interface ImportItemData {
   id: string
   name: string
-  type: Category['type']
+  group: BudgetItem['group']
   rolloverEnabled: boolean
   sortOrder: number
 }
 
-export function importCategories(
-  categoriesToImport: ImportCategoryData[],
+export function importItems(
+  itemsToImport: ImportItemData[],
   mode: 'merge' | 'replace' = 'merge'
-): ImportCategoriesResult {
-  const existingCategories = store.get('categories')
-  const existingIds = new Set(existingCategories.map((c) => c.id))
+): ImportItemsResult {
+  const existingItems = store.get('items')
+  const existingIds = new Set(existingItems.map((c) => c.id))
 
   const errors: string[] = []
   let imported = 0
   let updated = 0
 
   if (mode === 'replace') {
-    // Replace all categories
-    const newCategories: Category[] = categoriesToImport.map((c) => ({
+    // Replace all items
+    const newItems: BudgetItem[] = itemsToImport.map((c) => ({
       id: c.id,
       name: c.name,
-      type: c.type,
+      group: c.group,
       rolloverEnabled: c.rolloverEnabled,
       sortOrder: c.sortOrder
     }))
-    store.set('categories', newCategories)
-    imported = newCategories.length
+    store.set('items', newItems)
+    imported = newItems.length
   } else {
     // Merge - update existing, add new
-    const categoryMap = new Map(existingCategories.map((c) => [c.id, c]))
+    const itemMap = new Map(existingItems.map((c) => [c.id, c]))
 
-    for (const cat of categoriesToImport) {
-      if (existingIds.has(cat.id)) {
+    for (const item of itemsToImport) {
+      if (existingIds.has(item.id)) {
         // Update existing
-        categoryMap.set(cat.id, {
-          id: cat.id,
-          name: cat.name,
-          type: cat.type,
-          rolloverEnabled: cat.rolloverEnabled,
-          sortOrder: cat.sortOrder
+        itemMap.set(item.id, {
+          id: item.id,
+          name: item.name,
+          group: item.group,
+          rolloverEnabled: item.rolloverEnabled,
+          sortOrder: item.sortOrder
         })
         updated++
       } else {
         // Add new
-        categoryMap.set(cat.id, {
-          id: cat.id,
-          name: cat.name,
-          type: cat.type,
-          rolloverEnabled: cat.rolloverEnabled,
-          sortOrder: cat.sortOrder
+        itemMap.set(item.id, {
+          id: item.id,
+          name: item.name,
+          group: item.group,
+          rolloverEnabled: item.rolloverEnabled,
+          sortOrder: item.sortOrder
         })
         imported++
       }
     }
 
-    store.set('categories', Array.from(categoryMap.values()))
+    store.set('items', Array.from(itemMap.values()))
   }
 
   return {
@@ -240,7 +407,7 @@ export function getBudgetByMonth(month: string): Budget | null {
 
 export function createBudget(month: string, incomeTotal: number, copyFromMonth?: string): Budget {
   const budgets = store.get('budgets')
-  const categories = store.get('categories')
+  const items = store.get('items')
   const transactions = store.get('transactions')
 
   // Check if budget already exists for this month
@@ -249,7 +416,7 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     return existing
   }
 
-  let allocations: CategoryAllocation[]
+  let allocations: Allocation[]
   let incomeSources: Budget['incomeSources']
 
   if (copyFromMonth) {
@@ -278,21 +445,21 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
         incomeTotal = adjustedFirstPlanned + restPlanned
       }
 
-      allocations = categories.map((cat) => {
-        const prevAllocation = previousBudget.allocations.find((a) => a.categoryId === cat.id)
+      allocations = items.map((item) => {
+        const prevAllocation = previousBudget.allocations.find((a) => a.itemId === item.id)
         const prevSpent = previousTransactions
-          .filter((t) => t.categoryId === cat.id)
+          .filter((t) => t.itemId === item.id)
           .reduce((sum, t) => sum + t.amount, 0)
 
         // Calculate carryover (only positive, only if rollover enabled)
         let carryover = 0
-        if (cat.rolloverEnabled && prevAllocation) {
+        if (item.rolloverEnabled && prevAllocation) {
           const remaining = prevAllocation.planned - prevSpent
           carryover = Math.max(0, remaining)
         }
 
         return {
-          categoryId: cat.id,
+          itemId: item.id,
           planned: prevAllocation?.planned || 0,
           spent: 0,
           carryover
@@ -301,8 +468,8 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
     } else {
       // No previous budget found, start fresh
       incomeSources = [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }]
-      allocations = categories.map((cat) => ({
-        categoryId: cat.id,
+      allocations = items.map((item) => ({
+        itemId: item.id,
         planned: 0,
         spent: 0,
         carryover: 0
@@ -311,8 +478,8 @@ export function createBudget(month: string, incomeTotal: number, copyFromMonth?:
   } else {
     // Start fresh
     incomeSources = [{ id: uuidv4(), name: 'Primary Income', planned: incomeTotal, received: 0 }]
-    allocations = categories.map((cat) => ({
-      categoryId: cat.id,
+    allocations = items.map((item) => ({
+      itemId: item.id,
       planned: 0,
       spent: 0,
       carryover: 0
@@ -441,6 +608,29 @@ export function deleteTransaction(id: string): boolean {
   return true
 }
 
+// Unassign a transaction from its category (move to uncategorized)
+export function unassignTransaction(id: string): Transaction | null {
+  const transactions = store.get('transactions')
+  const index = transactions.findIndex((t) => t.id === id)
+  if (index === -1) return null
+
+  const oldTransaction = transactions[index]
+  const uncategorizedItemId = getOrCreateUncategorizedItem()
+
+  const updated: Transaction = {
+    ...oldTransaction,
+    itemId: uncategorizedItemId
+  }
+
+  transactions[index] = updated
+  store.set('transactions', transactions)
+
+  // Update spent amount in budget (recalculates allocations)
+  updateBudgetSpent(oldTransaction.budgetMonth)
+
+  return updated
+}
+
 // Helper to recalculate spent amounts in a budget
 function updateBudgetSpent(month: string): void {
   const budgets = store.get('budgets')
@@ -451,12 +641,32 @@ function updateBudgetSpent(month: string): void {
   const monthTransactions = transactions.filter((t) => t.budgetMonth === month)
   const budget = budgets[index]
 
+  // Calculate spent for existing allocations
   const updatedAllocations = budget.allocations.map((allocation) => {
     const spent = monthTransactions
-      .filter((t) => t.categoryId === allocation.categoryId)
+      .filter((t) => t.itemId === allocation.itemId)
       .reduce((sum, t) => sum + t.amount, 0)
     return { ...allocation, spent }
   })
+
+  // Find items with transactions that don't have allocations yet
+  const existingItemIds = new Set(budget.allocations.map((a) => a.itemId))
+  const itemsWithSpending = new Set(monthTransactions.map((t) => t.itemId))
+
+  for (const itemId of itemsWithSpending) {
+    if (!existingItemIds.has(itemId)) {
+      // Add a new allocation for this item with spent amount
+      const spent = monthTransactions
+        .filter((t) => t.itemId === itemId)
+        .reduce((sum, t) => sum + t.amount, 0)
+      updatedAllocations.push({
+        itemId,
+        planned: 0,
+        spent,
+        carryover: 0
+      })
+    }
+  }
 
   budgets[index] = {
     ...budget,
@@ -467,10 +677,10 @@ function updateBudgetSpent(month: string): void {
 }
 
 // ============== Computed helpers ==============
-function getUncategorizedCategoryIds(): Set<string> {
-  const categories = store.get('categories')
+function getUncategorizedItemIds(): Set<string> {
+  const items = store.get('items')
   return new Set(
-    categories.filter((c) => c.name.toLowerCase().includes('uncategorized')).map((c) => c.id)
+    items.filter((c) => c.name.toLowerCase().includes('uncategorized')).map((c) => c.id)
   )
 }
 
@@ -479,25 +689,26 @@ export function getBudgetWithSpent(month: string): BudgetWithComputed | null {
   if (!budget) return null
 
   const transactions = getTransactionsByMonth(month)
-  const categories = store.get('categories')
-  const categoryById = new Map(categories.map((c) => [c.id, c]))
-  const uncategorizedCategoryIds = getUncategorizedCategoryIds()
+  const items = store.get('items')
+  const itemById = new Map(items.map((c) => [c.id, c]))
+  const uncategorizedItemIds = getUncategorizedItemIds()
 
-  const spentByCategory: Record<string, number> = {}
+  const spentByItem: Record<string, number> = {}
   const totals = transactions.reduce(
     (acc, t) => {
-      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
+      // Only count positive amounts as spending (negative amounts are income/credits)
+      if (t.amount > 0) {
+        spentByItem[t.itemId] = (spentByItem[t.itemId] || 0) + t.amount
+        acc.totalSpentAll += t.amount
 
-      acc.totalSpentAll += t.amount
+        const item = t.itemId ? itemById.get(t.itemId) : undefined
+        const isUncategorized = !item || uncategorizedItemIds.has(t.itemId) || t.itemId === ''
 
-      const category = t.categoryId ? categoryById.get(t.categoryId) : undefined
-      const isUncategorized =
-        !category || uncategorizedCategoryIds.has(t.categoryId) || t.categoryId === ''
-
-      if (isUncategorized) {
-        acc.uncategorizedSpent += t.amount
-      } else {
-        acc.totalSpentCategorized += t.amount
+        if (isUncategorized) {
+          acc.uncategorizedSpent += t.amount
+        } else {
+          acc.totalSpentCategorized += t.amount
+        }
       }
       return acc
     },
@@ -509,15 +720,15 @@ export function getBudgetWithSpent(month: string): BudgetWithComputed | null {
 
   const available: Record<string, number> = {}
   budget.allocations.forEach((a) => {
-    const spent = spentByCategory[a.categoryId] || 0
-    available[a.categoryId] = a.planned + a.carryover - spent
+    const spent = spentByItem[a.itemId] || 0
+    available[a.itemId] = a.planned + a.carryover - spent
   })
 
   return {
     ...budget,
     allocations: budget.allocations.map((a) => ({
       ...a,
-      spent: spentByCategory[a.categoryId] || 0
+      spent: spentByItem[a.itemId] || 0
     })),
     computed: {
       totalSpent: totals.totalSpentCategorized,
@@ -537,16 +748,16 @@ export function getBudgetsWithSpent(): Budget[] {
 
   return budgets.map((budget) => {
     const monthTransactions = transactions.filter((t) => t.budgetMonth === budget.month)
-    const spentByCategory: Record<string, number> = {}
+    const spentByItem: Record<string, number> = {}
     monthTransactions.forEach((t) => {
-      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount
+      spentByItem[t.itemId] = (spentByItem[t.itemId] || 0) + t.amount
     })
 
     return {
       ...budget,
       allocations: budget.allocations.map((a) => ({
         ...a,
-        spent: spentByCategory[a.categoryId] || 0
+        spent: spentByItem[a.itemId] || 0
       }))
     }
   })
@@ -568,7 +779,7 @@ export function getNextMonth(month: string): string {
 export interface ImportBudgetAllocation {
   month: string
   incomeTotal: number
-  categoryId: string
+  itemId: string
   planned: number
   spent: number
   carryover: number
@@ -587,8 +798,8 @@ export function importBudgets(
   allocations: ImportBudgetAllocation[],
   targetMonth?: string
 ): ImportResult {
-  const categories = store.get('categories')
-  const categoryIds = new Set(categories.map((c) => c.id))
+  const items = store.get('items')
+  const itemIds = new Set(items.map((c) => c.id))
   const budgets = store.get('budgets')
 
   const errors: string[] = []
@@ -598,9 +809,9 @@ export function importBudgets(
   // Group allocations by month (or use target month for all)
   const allocationsByMonth = new Map<string, ImportBudgetAllocation[]>()
   for (const allocation of allocations) {
-    // Validate category exists
-    if (!categoryIds.has(allocation.categoryId)) {
-      errors.push(`Unknown category ID: ${allocation.categoryId} for month ${allocation.month}`)
+    // Validate item exists
+    if (!itemIds.has(allocation.itemId)) {
+      errors.push(`Unknown item ID: ${allocation.itemId} for month ${allocation.month}`)
       skipped++
       continue
     }
@@ -618,8 +829,8 @@ export function importBudgets(
     // Use the maximum incomeTotal from all allocations in this month (they should be consistent)
     const incomeTotal = Math.max(...monthAllocations.map((a) => a.incomeTotal), 0)
 
-    const newAllocations: CategoryAllocation[] = monthAllocations.map((a) => ({
-      categoryId: a.categoryId,
+    const newAllocations: Allocation[] = monthAllocations.map((a) => ({
+      itemId: a.itemId,
       planned: a.planned,
       spent: a.spent,
       carryover: a.carryover
@@ -627,9 +838,9 @@ export function importBudgets(
 
     if (existingBudget) {
       // Merge with existing budget - update allocations that exist, add new ones
-      const existingAllocMap = new Map(existingBudget.allocations.map((a) => [a.categoryId, a]))
+      const existingAllocMap = new Map(existingBudget.allocations.map((a) => [a.itemId, a]))
       for (const newAlloc of newAllocations) {
-        existingAllocMap.set(newAlloc.categoryId, newAlloc)
+        existingAllocMap.set(newAlloc.itemId, newAlloc)
       }
 
       const mergedAllocations = Array.from(existingAllocMap.values())
@@ -648,11 +859,11 @@ export function importBudgets(
       imported += monthAllocations.length
     } else {
       // Create new budget
-      // Ensure all categories have allocations (fill missing with zeros)
-      const allocMap = new Map(newAllocations.map((a) => [a.categoryId, a]))
-      const fullAllocations: CategoryAllocation[] = categories.map((cat) => {
-        const existing = allocMap.get(cat.id)
-        return existing || { categoryId: cat.id, planned: 0, spent: 0, carryover: 0 }
+      // Ensure all items have allocations (fill missing with zeros)
+      const allocMap = new Map(newAllocations.map((a) => [a.itemId, a]))
+      const fullAllocations: Allocation[] = items.map((item) => {
+        const existing = allocMap.get(item.id)
+        return existing || { itemId: item.id, planned: 0, spent: 0, carryover: 0 }
       })
 
       const totalPlanned = fullAllocations.reduce((sum, a) => sum + a.planned, 0)
@@ -685,25 +896,25 @@ export function importBudgets(
   }
 }
 
-// Helper to get or create the "Uncategorized" category for transactions with unmatched categories
-function getOrCreateUncategorizedCategory(): string {
-  const categories = store.get('categories')
-  const existing = categories.find((c) => c.name === 'Uncategorized')
+// Helper to get or create the "Uncategorized" item for transactions with unmatched items
+function getOrCreateUncategorizedItem(): string {
+  const items = store.get('items')
+  const existing = items.find((c) => c.name === 'Uncategorized')
   if (existing) return existing.id
 
-  const newCategory: Category = {
+  const newItem: BudgetItem = {
     id: uuidv4(),
     name: 'Uncategorized',
-    type: 'MISC',
+    group: 'MISC',
     rolloverEnabled: false,
-    sortOrder: categories.length
+    sortOrder: items.length
   }
-  store.set('categories', [...categories, newCategory])
-  return newCategory.id
+  store.set('items', [...items, newItem])
+  return newItem.id
 }
 
-// Common category name aliases for better matching
-const CATEGORY_ALIASES: Record<string, string[]> = {
+// Common item name aliases for better matching
+const ITEM_ALIASES: Record<string, string[]> = {
   Groceries: ['Grocery', 'Groc', 'Food'],
   Transportation: ['Gas', 'Fuel', 'Car', 'Auto', 'Vehicle'],
   Housing: ['Rent', 'Mortgage', 'Home'],
@@ -718,30 +929,27 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   Miscellaneous: ['Misc', 'Other', 'Various', 'Sundry']
 }
 
-// Helper to find the best matching category, including aliases
-function findMatchingCategory(categoryName: string, categories: Category[]): string | null {
-  const normalizedInput = categoryName.toLowerCase().trim()
+// Helper to find the best matching item, including aliases
+function findMatchingItem(itemName: string, items: BudgetItem[]): string | null {
+  const normalizedInput = itemName.toLowerCase().trim()
 
   // Exact match (case-insensitive)
-  const exactMatch = categories.find((c) => c.name.toLowerCase() === normalizedInput)
+  const exactMatch = items.find((c) => c.name.toLowerCase() === normalizedInput)
   if (exactMatch) return exactMatch.id
 
   // Check aliases
-  for (const [canonical, aliases] of Object.entries(CATEGORY_ALIASES)) {
+  for (const [canonical, aliases] of Object.entries(ITEM_ALIASES)) {
     if (aliases.some((alias) => alias.toLowerCase() === normalizedInput)) {
-      const category = categories.find((c) => c.name === canonical)
-      if (category) return category.id
+      const item = items.find((c) => c.name === canonical)
+      if (item) return item.id
     }
   }
 
-  // Fuzzy match: check if input contains category name or vice versa
-  for (const category of categories) {
-    const normalizedCategory = category.name.toLowerCase()
-    if (
-      normalizedInput.includes(normalizedCategory) ||
-      normalizedCategory.includes(normalizedInput)
-    ) {
-      return category.id
+  // Fuzzy match: check if input contains item name or vice versa
+  for (const item of items) {
+    const normalizedItem = item.name.toLowerCase()
+    if (normalizedInput.includes(normalizedItem) || normalizedItem.includes(normalizedInput)) {
+      return item.id
     }
   }
 
@@ -753,7 +961,7 @@ function findMatchingCategory(categoryName: string, categories: Category[]): str
 export function importTransactions(
   transactions: Array<{
     budgetMonth: string
-    categoryName: string
+    itemName: string
     amount: number
     description: string
     date: string
@@ -761,8 +969,8 @@ export function importTransactions(
   }>,
   targetMonth?: string
 ): ImportResult {
-  const categories = store.get('categories')
-  const uncategorizedCategoryId = getOrCreateUncategorizedCategory()
+  const items = store.get('items')
+  const uncategorizedItemId = getOrCreateUncategorizedItem()
   const existingTransactions = store.get('transactions')
 
   const errors: string[] = []
@@ -772,52 +980,52 @@ export function importTransactions(
   const newTransactions: Transaction[] = []
 
   for (const tx of transactions) {
-    // Find matching category with improved matching
-    let categoryId = findMatchingCategory(tx.categoryName, categories)
+    // Find matching item with improved matching
+    let itemId = findMatchingItem(tx.itemName, items)
 
-    // For income transactions (positive amounts), prioritize income categories
-    if (!categoryId && tx.amount > 0) {
-      // This is an income transaction - try to match against income categories
-      const incomeCategories = categories.filter(
-        (cat) =>
-          cat.name.toLowerCase().includes('income') ||
-          cat.name.toLowerCase().includes('salary') ||
-          cat.name.toLowerCase().includes('payroll') ||
-          cat.name.toLowerCase().includes('freelance') ||
-          cat.name.toLowerCase().includes('dividend') ||
-          cat.name.toLowerCase().includes('interest') ||
-          cat.name.toLowerCase().includes('investment')
+    // For income transactions (positive amounts), prioritize income items
+    if (!itemId && tx.amount > 0) {
+      // This is an income transaction - try to match against income items
+      const incomeItems = items.filter(
+        (itm) =>
+          itm.name.toLowerCase().includes('income') ||
+          itm.name.toLowerCase().includes('salary') ||
+          itm.name.toLowerCase().includes('payroll') ||
+          itm.name.toLowerCase().includes('freelance') ||
+          itm.name.toLowerCase().includes('dividend') ||
+          itm.name.toLowerCase().includes('interest') ||
+          itm.name.toLowerCase().includes('investment')
       )
 
-      // Try fuzzy matching against income categories
-      for (const incomeCat of incomeCategories) {
+      // Try fuzzy matching against income items
+      for (const incomeItem of incomeItems) {
         const normalizedDesc = tx.description.toLowerCase()
-        const normalizedCatName = incomeCat.name.toLowerCase()
+        const normalizedItemName = incomeItem.name.toLowerCase()
 
         if (
-          normalizedDesc.includes(normalizedCatName) ||
-          normalizedCatName.includes(normalizedDesc) ||
+          normalizedDesc.includes(normalizedItemName) ||
+          normalizedItemName.includes(normalizedDesc) ||
           // Check for common income keywords in description
-          (normalizedDesc.includes('deposit') && normalizedCatName.includes('salary')) ||
-          (normalizedDesc.includes('payroll') && normalizedCatName.includes('salary')) ||
-          (normalizedDesc.includes('direct deposit') && normalizedCatName.includes('salary'))
+          (normalizedDesc.includes('deposit') && normalizedItemName.includes('salary')) ||
+          (normalizedDesc.includes('payroll') && normalizedItemName.includes('salary')) ||
+          (normalizedDesc.includes('direct deposit') && normalizedItemName.includes('salary'))
         ) {
-          categoryId = incomeCat.id
+          itemId = incomeItem.id
           break
         }
       }
     }
 
-    if (!categoryId) {
-      // Assign to Uncategorized category for manual assignment
-      categoryId = uncategorizedCategoryId
+    if (!itemId) {
+      // Assign to Uncategorized item for manual assignment
+      itemId = uncategorizedItemId
     }
 
-    // Check for duplicate (same date, category, amount, description, card)
+    // Check for duplicate (same date, item, amount, description, card)
     const isDuplicate = existingTransactions.some(
       (existing) =>
         existing.date === tx.date &&
-        existing.categoryId === categoryId &&
+        existing.itemId === itemId &&
         existing.amount === tx.amount &&
         existing.description === tx.description &&
         existing.card === tx.card
@@ -831,7 +1039,7 @@ export function importTransactions(
     const newTx: Transaction = {
       id: uuidv4(),
       budgetMonth: targetMonth || tx.budgetMonth,
-      categoryId,
+      itemId,
       amount: tx.amount,
       description: tx.description,
       date: tx.date,
@@ -873,7 +1081,7 @@ function updateBudgetSpentForMonth(month: string): void {
 
   const updatedAllocations = budget.allocations.map((allocation) => {
     const spent = monthTransactions
-      .filter((t) => t.categoryId === allocation.categoryId)
+      .filter((t) => t.itemId === allocation.itemId)
       .reduce((sum, t) => sum + t.amount, 0)
     return { ...allocation, spent }
   })
@@ -886,25 +1094,25 @@ function updateBudgetSpentForMonth(month: string): void {
   store.set('budgets', budgets)
 }
 
-// Learn category mapping from user correction
-export function learnTransactionCategory(transactionId: string, categoryId: string): void {
+// Learn item mapping from user correction
+export function learnTransactionItem(transactionId: string, itemId: string): void {
   const transactions = store.get('transactions')
   const transaction = transactions.find((t) => t.id === transactionId)
   if (!transaction) return
 
-  const categories = store.get('categories')
-  const category = categories.find((c) => c.id === categoryId)
-  if (!category) return
+  const items = store.get('items')
+  const item = items.find((c) => c.id === itemId)
+  if (!item) return
 
-  // Update the transaction's category
+  // Update the transaction's item
   const updatedTransactions = transactions.map((t) =>
-    t.id === transactionId ? { ...t, categoryId } : t
+    t.id === transactionId ? { ...t, itemId } : t
   )
   store.set('transactions', updatedTransactions)
 
   // Learn the mapping
   let learnedMappings = store.get('learnedMappings')
-  learnedMappings = learnCategoryMapping(transaction.description, categoryId, learnedMappings)
+  learnedMappings = learnItemMapping(transaction.description, itemId, learnedMappings)
   store.set('learnedMappings', learnedMappings)
 
   // Update budget spent amounts for affected months
@@ -1001,4 +1209,55 @@ export function deleteChatSession(sessionId: string): void {
 export function clearAllChatSessions(): void {
   store.set('chatSessions', [])
   store.set('currentSessionId', null)
+}
+
+// ============== CSV Import Profiles ==============
+export function getCsvImportProfiles(): CsvImportProfile[] {
+  return store.get('csvImportProfiles') || []
+}
+
+export function getCsvImportProfile(id: string): CsvImportProfile | null {
+  const profiles = store.get('csvImportProfiles') || []
+  return profiles.find((p) => p.id === id) || null
+}
+
+export function addCsvImportProfile(
+  profile: Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>
+): CsvImportProfile {
+  const profiles = store.get('csvImportProfiles') || []
+  const now = new Date().toISOString()
+  const newProfile: CsvImportProfile = {
+    ...profile,
+    id: uuidv4(),
+    createdAt: now,
+    updatedAt: now
+  }
+  store.set('csvImportProfiles', [...profiles, newProfile])
+  return newProfile
+}
+
+export function updateCsvImportProfile(
+  id: string,
+  updates: Partial<Omit<CsvImportProfile, 'id' | 'createdAt'>>
+): CsvImportProfile | null {
+  const profiles = store.get('csvImportProfiles') || []
+  const index = profiles.findIndex((p) => p.id === id)
+  if (index === -1) return null
+
+  const updated: CsvImportProfile = {
+    ...profiles[index],
+    ...updates,
+    updatedAt: new Date().toISOString()
+  }
+  profiles[index] = updated
+  store.set('csvImportProfiles', profiles)
+  return updated
+}
+
+export function deleteCsvImportProfile(id: string): boolean {
+  const profiles = store.get('csvImportProfiles') || []
+  const filtered = profiles.filter((p) => p.id !== id)
+  if (filtered.length === profiles.length) return false
+  store.set('csvImportProfiles', filtered)
+  return true
 }

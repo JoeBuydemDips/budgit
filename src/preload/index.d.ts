@@ -1,16 +1,21 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
-  Category,
+  BudgetItem,
   BudgetWithComputed,
-  LearnedCategoryMapping,
+  LearnedItemMapping,
   AppSettings,
   Transaction,
   Budget,
-  CategoryAllocation,
+  Allocation,
   IncomeSource,
   ChatMessage,
   ChatSession,
-  AiContextMonths
+  AiContextMonths,
+  ColumnMapping,
+  CsvImportProfile,
+  DateFormatPreset,
+  AmountSignMode,
+  PaymentRowHandling
 } from '../shared/types'
 
 interface BudgetAPI {
@@ -18,15 +23,15 @@ interface BudgetAPI {
   getSettings: () => Promise<AppSettings>
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
 
-  // Categories
-  getCategories: () => Promise<Category[]>
-  getLearnedMappings: () => Promise<LearnedCategoryMapping[]>
-  addCategory: (category: Omit<Category, 'id'>) => Promise<Category>
-  updateCategory: (id: string, updates: Partial<Category>) => Promise<Category | null>
-  deleteCategory: (id: string) => Promise<boolean>
-  removeCategoryFromBudget: (month: string, categoryId: string) => Promise<boolean>
+  // Budget Items
+  getItems: () => Promise<BudgetItem[]>
+  getLearnedMappings: () => Promise<LearnedItemMapping[]>
+  addItem: (item: Omit<BudgetItem, 'id'>) => Promise<BudgetItem>
+  updateItem: (id: string, updates: Partial<BudgetItem>) => Promise<BudgetItem | null>
+  deleteItem: (id: string) => Promise<boolean>
+  removeItemFromBudget: (month: string, itemId: string) => Promise<boolean>
   cleanupOrphanedAllocations: () => Promise<{ cleanedBudgets: number; removedAllocations: number }>
-  reorderCategories: (categoryIds: string[]) => Promise<void>
+  reorderItems: (itemIds: string[]) => Promise<void>
 
   // Budgets
   getBudget: (month: string) => Promise<Budget | null>
@@ -38,7 +43,7 @@ interface BudgetAPI {
     month: string,
     updates: {
       incomeTotal?: number
-      allocations?: CategoryAllocation[]
+      allocations?: Allocation[]
       incomeSources?: IncomeSource[]
     }
   ) => Promise<Budget | null>
@@ -54,6 +59,7 @@ interface BudgetAPI {
     updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>
   ) => Promise<Transaction | null>
   deleteTransaction: (id: string) => Promise<boolean>
+  unassignTransaction: (id: string) => Promise<Transaction | null>
 
   // CSV Import/Export
   exportBudgetsCSV: (options?: { months?: string[] }) => Promise<{
@@ -68,7 +74,7 @@ interface BudgetAPI {
     error?: string
     canceled?: boolean
   }>
-  exportCategoriesCSV: () => Promise<{
+  exportItemsCSV: () => Promise<{
     success: boolean
     filePath?: string
     error?: string
@@ -88,7 +94,7 @@ interface BudgetAPI {
     errors: string[]
     canceled?: boolean
   }>
-  importCategoriesCSV: (options?: { mode?: 'merge' | 'replace' }) => Promise<{
+  importItemsCSV: (options?: { mode?: 'merge' | 'replace' }) => Promise<{
     success: boolean
     imported: number
     updated: number
@@ -97,11 +103,11 @@ interface BudgetAPI {
   }>
   parseTransactionsCSV: (
     csvContent: string,
-    options?: { format?: string; defaultCategoryId?: string }
+    options?: { format?: string; defaultItemId?: string }
   ) => Promise<{
     transactions: Array<{
       budgetMonth: string
-      categoryName: string
+      itemName: string
       amount: number
       description: string
       date: string
@@ -109,6 +115,73 @@ interface BudgetAPI {
     }>
     errors: { row: number; message: string }[]
   }>
+
+  // CSV Import Wizard (Dynamic Column Mapping)
+  selectCsvFile: () => Promise<{
+    success: boolean
+    content?: string
+    fileName?: string
+    canceled?: boolean
+    error?: string
+  }>
+  extractCsvHeaders: (csvContent: string) => Promise<string[]>
+  getCsvPreviewRows: (csvContent: string, maxRows?: number) => Promise<string[][]>
+  autoDetectMapping: (headers: string[]) => Promise<Partial<ColumnMapping>>
+  parseWithMapping: (
+    csvContent: string,
+    mapping: ColumnMapping,
+    options?: {
+      dateFormat?: DateFormatPreset
+      amountSignMode?: AmountSignMode
+      paymentHandling?: PaymentRowHandling
+      paymentKeywords?: string[]
+      defaultItemId?: string
+    }
+  ) => Promise<{
+    transactions: Array<{
+      budgetMonth: string
+      itemName: string
+      amount: number
+      description: string
+      date: string
+      card?: string
+    }>
+    errors: { row: number; field: string; message: string }[]
+    skippedPayments: number
+  }>
+  importWithMapping: (
+    csvContent: string,
+    mapping: ColumnMapping,
+    options?: {
+      dateFormat?: DateFormatPreset
+      amountSignMode?: AmountSignMode
+      paymentHandling?: PaymentRowHandling
+      paymentKeywords?: string[]
+      targetMonth?: string
+    }
+  ) => Promise<{
+    success: boolean
+    imported: number
+    skipped: number
+    errors: string[]
+    skippedPayments?: number
+  }>
+
+  // CSV Import Profiles
+  getCsvProfiles: () => Promise<CsvImportProfile[]>
+  getCsvProfile: (id: string) => Promise<CsvImportProfile | null>
+  addCsvProfile: (
+    profile: Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>
+  ) => Promise<CsvImportProfile>
+  updateCsvProfile: (
+    id: string,
+    updates: Partial<Omit<CsvImportProfile, 'id' | 'createdAt'>>
+  ) => Promise<CsvImportProfile | null>
+  deleteCsvProfile: (id: string) => Promise<boolean>
+  createDefaultProfile: (
+    name: string,
+    headers: string[]
+  ) => Promise<Omit<CsvImportProfile, 'id' | 'createdAt' | 'updatedAt'>>
 
   // AI Chat
   getSessions: () => Promise<ChatSession[]>

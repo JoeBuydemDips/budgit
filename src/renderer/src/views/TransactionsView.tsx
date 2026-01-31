@@ -23,12 +23,12 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
-import { CATEGORY_TYPE_COLORS } from '../../../shared/types'
-import type { Category, Transaction } from '../../../shared/types'
+import { GROUP_COLORS } from '../../../shared/types'
+import type { BudgetItem, Transaction } from '../../../shared/types'
 
 interface TransactionsViewProps {
   transactions: Transaction[]
-  categories: Category[]
+  items: BudgetItem[]
   currentMonth: string
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
   onUpdateTransaction: (
@@ -40,7 +40,7 @@ interface TransactionsViewProps {
 
 export function TransactionsView({
   transactions,
-  categories,
+  items,
   currentMonth,
   onAddTransaction,
   onUpdateTransaction,
@@ -49,13 +49,15 @@ export function TransactionsView({
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [filterItem, setFilterItem] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
   const [showBulkMapDialog, setShowBulkMapDialog] = useState(false)
-  const [bulkMapCategory, setBulkMapCategory] = useState<string>('')
+  const [bulkMapItem, setBulkMapItem] = useState<string>('')
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
-  const uncategorizedCategory = categories.find((c) => c.name === 'Uncategorized')
+  const uncategorizedItem = items.find((item) => item.name === 'Uncategorized')
 
   const handleSelectAll = () => {
     setSelectedTransactions(filteredTransactions.map((t) => t.id))
@@ -72,24 +74,35 @@ export function TransactionsView({
   }
 
   const handleBulkMap = async () => {
-    if (!bulkMapCategory || selectedTransactions.length === 0) return
+    if (!bulkMapItem || selectedTransactions.length === 0) return
     for (const id of selectedTransactions) {
-      await onUpdateTransaction(id, { categoryId: bulkMapCategory })
+      await onUpdateTransaction(id, { itemId: bulkMapItem })
     }
     setSelectedTransactions([])
     setShowBulkMapDialog(false)
-    setBulkMapCategory('')
+    setBulkMapItem('')
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedTransactions.length === 0) return
+    setBulkDeleting(true)
+    for (const id of selectedTransactions) {
+      await onDeleteTransaction(id)
+    }
+    setSelectedTransactions([])
+    setShowBulkDeleteDialog(false)
+    setBulkDeleting(false)
   }
 
   // Filter transactions
   const filteredTransactions = transactions.filter((txn) => {
-    if (filterCategory !== 'all' && txn.categoryId !== filterCategory) return false
+    if (filterItem !== 'all' && txn.itemId !== filterItem) return false
     if (searchQuery) {
-      const category = categories.find((c) => c.id === txn.categoryId)
+      const item = items.find((i) => i.id === txn.itemId)
       const searchLower = searchQuery.toLowerCase()
       return (
         txn.description.toLowerCase().includes(searchLower) ||
-        (category?.name || 'Uncategorized').toLowerCase().includes(searchLower)
+        (item?.name || 'Uncategorized').toLowerCase().includes(searchLower)
       )
     }
     return true
@@ -160,15 +173,15 @@ export function TransactionsView({
                 />
               </div>
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <Select value={filterItem} onValueChange={setFilterItem}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All categories" />
+                <SelectValue placeholder="All items" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
+                <SelectItem value="all">All items</SelectItem>
+                {items.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -177,7 +190,7 @@ export function TransactionsView({
         </CardContent>
       </Card>
 
-      {(selectedTransactions.length > 0 || uncategorizedCategory) && (
+      {(selectedTransactions.length > 0 || uncategorizedItem) && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -195,21 +208,29 @@ export function TransactionsView({
                   <Button
                     size="sm"
                     onClick={() => setShowBulkMapDialog(true)}
-                    disabled={!bulkMapCategory && selectedTransactions.length === 0}
+                    disabled={!bulkMapItem && selectedTransactions.length === 0}
                   >
                     <CheckSquare className="h-4 w-4 mr-2" />
-                    Bulk Map Category
+                    Bulk Assign Item
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setShowBulkDeleteDialog(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected
                   </Button>
                 </>
               )}
-              {uncategorizedCategory && (
+              {uncategorizedItem && (
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setFilterCategory(uncategorizedCategory.id)}
+                  onClick={() => setFilterItem(uncategorizedItem.id)}
                 >
                   Show Uncategorized (
-                  {transactions.filter((t) => t.categoryId === uncategorizedCategory.id).length})
+                  {transactions.filter((t) => t.itemId === uncategorizedItem.id).length})
                 </Button>
               )}
             </div>
@@ -242,12 +263,12 @@ export function TransactionsView({
               <div>
                 <p className="font-medium">No transactions found</p>
                 <p className="text-sm text-muted-foreground">
-                  {searchQuery || filterCategory !== 'all'
+                  {searchQuery || filterItem !== 'all'
                     ? 'Try adjusting your filters'
                     : 'Start tracking your expenses'}
                 </p>
               </div>
-              {!searchQuery && filterCategory === 'all' && (
+              {!searchQuery && filterItem === 'all' && (
                 <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add your first expense
@@ -266,7 +287,7 @@ export function TransactionsView({
               <CardContent className="pt-0">
                 <div className="space-y-0">
                   {group.transactions.map((txn, index) => {
-                    const category = categories.find((c) => c.id === txn.categoryId)
+                    const item = items.find((i) => i.id === txn.itemId)
                     return (
                       <div key={txn.id}>
                         {index > 0 && <Separator className="my-2" />}
@@ -276,7 +297,7 @@ export function TransactionsView({
                             onCheckedChange={() => handleToggleSelect(txn.id)}
                             className="mt-0.5"
                           />
-                          {/* Description & Category */}
+                          {/* Description & Item */}
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{txn.description || 'Expense'}</p>
                             <Badge
@@ -284,16 +305,16 @@ export function TransactionsView({
                               className="mt-1 text-xs font-normal"
                               style={{
                                 backgroundColor:
-                                  category && category.name !== 'Uncategorized'
-                                    ? `${CATEGORY_TYPE_COLORS[category.type]}20`
+                                  item && item.name !== 'Uncategorized'
+                                    ? `${GROUP_COLORS[item.group]}20`
                                     : undefined,
                                 color:
-                                  category && category.name !== 'Uncategorized'
-                                    ? CATEGORY_TYPE_COLORS[category.type]
+                                  item && item.name !== 'Uncategorized'
+                                    ? GROUP_COLORS[item.group]
                                     : undefined
                               }}
                             >
-                              {category?.name || 'Uncategorized'}
+                              {item?.name || 'Uncategorized'}
                             </Badge>
                           </div>
 
@@ -343,25 +364,25 @@ export function TransactionsView({
       <Dialog open={showBulkMapDialog} onOpenChange={setShowBulkMapDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Bulk Map Transactions</DialogTitle>
+            <DialogTitle>Bulk Assign Item</DialogTitle>
             <DialogDescription>
-              Assign a category to {selectedTransactions.length} selected transaction
+              Assign an item to {selectedTransactions.length} selected transaction
               {selectedTransactions.length !== 1 ? 's' : ''}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="bulk-category">Category</Label>
-              <Select value={bulkMapCategory} onValueChange={setBulkMapCategory}>
+              <Label htmlFor="bulk-item">Item</Label>
+              <Select value={bulkMapItem} onValueChange={setBulkMapItem}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select an item" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories
-                    .filter((c) => c.name !== 'Uncategorized')
-                    .map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
+                  {items
+                    .filter((i) => i.name !== 'Uncategorized')
+                    .map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -372,8 +393,28 @@ export function TransactionsView({
             <Button variant="outline" onClick={() => setShowBulkMapDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleBulkMap} disabled={!bulkMapCategory}>
-              Map Category
+            <Button onClick={handleBulkMap} disabled={!bulkMapItem}>
+              Assign Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedTransactions.length} Transaction{selectedTransactions.length !== 1 ? 's' : ''}?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete {selectedTransactions.length} selected transaction{selectedTransactions.length !== 1 ? 's' : ''}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)} disabled={bulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedTransactions.length} Transaction${selectedTransactions.length !== 1 ? 's' : ''}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -383,7 +424,7 @@ export function TransactionsView({
       <TransactionDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        categories={categories}
+        items={items}
         currentMonth={currentMonth}
         onSave={async (data) => {
           await onAddTransaction(data)
@@ -395,7 +436,7 @@ export function TransactionsView({
       <TransactionDialog
         open={!!editingTransaction}
         onOpenChange={(open) => !open && setEditingTransaction(null)}
-        categories={categories}
+        items={items}
         currentMonth={currentMonth}
         transaction={editingTransaction || undefined}
         onSave={async (data) => {
@@ -440,7 +481,7 @@ export function TransactionsView({
 interface TransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  categories: Category[]
+  items: BudgetItem[]
   currentMonth: string
   transaction?: Transaction
   onSave: (data: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
@@ -449,13 +490,13 @@ interface TransactionDialogProps {
 function TransactionDialog({
   open,
   onOpenChange,
-  categories,
+  items,
   currentMonth,
   transaction,
   onSave
 }: TransactionDialogProps) {
   const [amount, setAmount] = useState('')
-  const [categoryId, setCategoryId] = useState('')
+  const [itemId, setItemId] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
@@ -465,12 +506,12 @@ function TransactionDialog({
     if (open) {
       if (transaction) {
         setAmount(transaction.amount.toString())
-        setCategoryId(transaction.categoryId)
+        setItemId(transaction.itemId)
         setDescription(transaction.description)
         setDate(new Date(transaction.date).toISOString().split('T')[0])
       } else {
         setAmount('')
-        setCategoryId('')
+        setItemId('')
         setDescription('')
         setDate(new Date().toISOString().split('T')[0])
       }
@@ -478,12 +519,12 @@ function TransactionDialog({
   }, [open, transaction])
 
   const handleSave = async () => {
-    if (!amount || !categoryId) return
+    if (!amount || !itemId) return
 
     setSaving(true)
     await onSave({
       amount: parseFloat(amount),
-      categoryId,
+      itemId,
       description,
       date: new Date(date).toISOString(),
       budgetMonth: currentMonth
@@ -492,7 +533,7 @@ function TransactionDialog({
 
     // Reset form
     setAmount('')
-    setCategoryId('')
+    setItemId('')
     setDescription('')
     setDate(new Date().toISOString().split('T')[0])
   }
@@ -530,15 +571,15 @@ function TransactionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Label htmlFor="item">Item</Label>
+            <Select value={itemId} onValueChange={setItemId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
+                <SelectValue placeholder="Select an item" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
+                {items.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -566,7 +607,7 @@ function TransactionDialog({
             Cancel
           </Button>
           <Button
-            disabled={!amount || parseFloat(amount) <= 0 || !categoryId || saving}
+            disabled={!amount || parseFloat(amount) <= 0 || !itemId || saving}
             onClick={handleSave}
           >
             {saving ? 'Saving...' : transaction ? 'Update' : 'Add'} Expense

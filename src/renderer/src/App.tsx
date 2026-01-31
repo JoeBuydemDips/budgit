@@ -8,7 +8,7 @@ import { InsightsView } from '@/views/InsightsView'
 import { SettingsView } from '@/views/SettingsView'
 import {
   useCurrentMonth,
-  useCategories,
+  useItems,
   useBudget,
   useTransactions,
   useBudgetIndex,
@@ -23,13 +23,12 @@ function App(): React.JSX.Element {
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
   const {
-    categories,
-    refresh: refreshCategories,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    reorderCategories
-  } = useCategories()
+    items,
+    addItem,
+    updateItem,
+    deleteItem,
+    reorderItems
+  } = useItems()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
@@ -44,7 +43,8 @@ function App(): React.JSX.Element {
     refresh: refreshTransactions,
     addTransaction,
     updateTransaction,
-    deleteTransaction
+    deleteTransaction,
+    unassignTransaction
   } = useTransactions(currentMonth)
 
   // Refresh budget when transactions change
@@ -69,11 +69,23 @@ function App(): React.JSX.Element {
     await refreshBudgets() // Keep insights in sync
   }
 
-  const handleDeleteCategory = async (id: string) => {
-    await deleteCategory(id)
+  const handleUnassignTransaction = async (id: string) => {
+    await unassignTransaction(id)
+    await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    await deleteItem(id)
     await refreshBudget()
     await refreshBudgets() // Keep insights in sync
     await refreshTransactions() // Ensure transactions view updates if needed
+  }
+
+  const handleRemoveItemFromBudget = async (itemId: string) => {
+    await window.api.removeItemFromBudget(currentMonth, itemId)
+    await refreshBudget()
+    await refreshBudgets() // Keep insights in sync
   }
 
   // Wrap budget update functions to also refresh the budgets index for Insights
@@ -84,8 +96,8 @@ function App(): React.JSX.Element {
     await refreshBudgets() // Keep insights in sync
   }
 
-  const handleUpdateAllocation = async (categoryId: string, planned: number) => {
-    await updateAllocation(categoryId, planned)
+  const handleUpdateAllocation = async (itemId: string, planned: number) => {
+    await updateAllocation(itemId, planned)
     await refreshBudgets() // Keep insights in sync
   }
 
@@ -147,25 +159,26 @@ function App(): React.JSX.Element {
               {currentView === 'budget' ? (
                 <BudgetView
                   budget={budget}
-                  categories={categories}
+                  items={items}
                   transactions={transactions}
                   loading={budgetLoading}
                   currentMonth={currentMonth}
                   onCreateBudget={createBudget}
                   onUpdateAllocation={handleUpdateAllocation}
                   onUpdateIncomeSources={handleUpdateIncomeSources}
-                  onAddCategory={addCategory}
-                  onUpdateCategory={updateCategory}
-                  onDeleteCategory={handleDeleteCategory}
-                  onReorderCategories={reorderCategories}
+                  onAddItem={addItem}
+                  onUpdateItem={updateItem}
+                  onDeleteItem={handleDeleteItem}
+                  onRemoveFromBudget={handleRemoveItemFromBudget}
+                  onReorderItems={reorderItems}
                   onAddTransaction={handleAddTransaction}
                   onUpdateTransaction={handleUpdateTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
+                  onDeleteTransaction={handleUnassignTransaction}
                 />
               ) : currentView === 'insights' ? (
                 <InsightsView
                   budgets={budgets}
-                  categories={categories}
+                  items={items}
                   onNavigateToSettings={() => setCurrentView('settings')}
                 />
               ) : (
@@ -173,7 +186,7 @@ function App(): React.JSX.Element {
                   {currentView === 'dashboard' && (
                     <Dashboard
                       budget={budget}
-                      categories={categories}
+                      items={items}
                       transactions={transactions}
                       loading={budgetLoading}
                       currentMonth={currentMonth}
@@ -184,7 +197,7 @@ function App(): React.JSX.Element {
                   {currentView === 'transactions' && (
                     <TransactionsView
                       transactions={transactions}
-                      categories={categories}
+                      items={items}
                       currentMonth={currentMonth}
                       onAddTransaction={handleAddTransaction}
                       onUpdateTransaction={handleUpdateTransaction}
@@ -193,8 +206,6 @@ function App(): React.JSX.Element {
                   )}
                   {currentView === 'settings' && (
                     <SettingsView
-                      categories={categories}
-                      onRefreshCategories={refreshCategories}
                       onRefreshBudgets={refreshBudgets}
                       onRefreshBudget={refreshBudget}
                       onRefreshTransactions={refreshTransactions}

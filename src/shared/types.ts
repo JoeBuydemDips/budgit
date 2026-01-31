@@ -1,8 +1,8 @@
-// Category types for zero-based budgeting
-export type CategoryType = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT' | 'FOOD' | 'MISC'
+// Budget groups for zero-based budgeting (high-level buckets like Giving, Savings, etc.)
+export type Group = 'GIVING' | 'SAVINGS' | 'NEEDS' | 'WANTS' | 'DEBT' | 'FOOD' | 'MISC'
 
-// Color mappings for category types
-export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
+// Color mappings for budget groups
+export const GROUP_COLORS: Record<Group, string> = {
   GIVING: '#10B981', // Emerald/Green
   SAVINGS: '#3B82F6', // Blue
   NEEDS: '#8B5CF6', // Purple
@@ -12,17 +12,19 @@ export const CATEGORY_TYPE_COLORS: Record<CategoryType, string> = {
   MISC: '#6B7280' // Gray
 }
 
-export interface Category {
+// A budget item (e.g., Groceries, Rent, Netflix) belongs to a Group
+export interface BudgetItem {
   id: string
   name: string
-  type: CategoryType
+  group: Group
   rolloverEnabled: boolean
   sortOrder: number
   icon?: string
 }
 
-export interface CategoryAllocation {
-  categoryId: string
+// Allocation for a budget item in a specific month's budget
+export interface Allocation {
+  itemId: string
   planned: number
   spent: number
   carryover: number // Amount carried from previous month
@@ -41,7 +43,7 @@ export interface Budget {
   month: string // Format: YYYY-MM
   incomeTotal: number
   incomeSources: IncomeSource[] // Multiple income sources
-  allocations: CategoryAllocation[]
+  allocations: Allocation[]
   isBalanced: boolean // true when income - total planned = 0
   createdAt: string
   updatedAt: string
@@ -62,7 +64,7 @@ export interface BudgetWithComputed extends Budget {
 export interface Transaction {
   id: string
   budgetMonth: string // Format: YYYY-MM
-  categoryId: string
+  itemId: string // The budget item this transaction belongs to
   amount: number
   description: string
   date: string // ISO date string
@@ -80,58 +82,59 @@ export interface AppSettings {
 
 export type AiContextMonths = 1 | 3 | 6 | 12 | 'all'
 
-export interface LearnedCategoryMapping {
+export interface LearnedItemMapping {
   merchantName: string
-  categoryId: string
+  itemId: string
   confidence: number // 0-1, increases with repeated confirmations
   lastUsed: string // ISO date
 }
 
 export interface StoreSchema {
-  categories: Category[]
+  items: BudgetItem[]
   budgets: Budget[]
   transactions: Transaction[]
   settings: AppSettings
-  learnedMappings: LearnedCategoryMapping[]
+  learnedMappings: LearnedItemMapping[]
   chatSessions: ChatSession[]
   currentSessionId: string | null
+  csvImportProfiles: CsvImportProfile[]
 }
 
-// Default categories following EveryDollar / zero-based budgeting principles
-export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'giving', name: 'Giving', type: 'GIVING', rolloverEnabled: false, sortOrder: 0 },
+// Default budget items following EveryDollar / zero-based budgeting principles
+export const DEFAULT_ITEMS: BudgetItem[] = [
+  { id: 'giving', name: 'Giving', group: 'GIVING', rolloverEnabled: false, sortOrder: 0 },
   {
     id: 'emergency-fund',
     name: 'Emergency Fund',
-    type: 'SAVINGS',
+    group: 'SAVINGS',
     rolloverEnabled: true,
     sortOrder: 1
   },
-  { id: 'savings', name: 'Savings', type: 'SAVINGS', rolloverEnabled: true, sortOrder: 2 },
-  { id: 'housing', name: 'Housing', type: 'NEEDS', rolloverEnabled: false, sortOrder: 3 },
-  { id: 'utilities', name: 'Utilities', type: 'NEEDS', rolloverEnabled: false, sortOrder: 4 },
-  { id: 'groceries', name: 'Groceries', type: 'NEEDS', rolloverEnabled: false, sortOrder: 5 },
+  { id: 'savings', name: 'Savings', group: 'SAVINGS', rolloverEnabled: true, sortOrder: 2 },
+  { id: 'housing', name: 'Housing', group: 'NEEDS', rolloverEnabled: false, sortOrder: 3 },
+  { id: 'utilities', name: 'Utilities', group: 'NEEDS', rolloverEnabled: false, sortOrder: 4 },
+  { id: 'groceries', name: 'Groceries', group: 'NEEDS', rolloverEnabled: false, sortOrder: 5 },
   {
     id: 'transportation',
     name: 'Transportation',
-    type: 'NEEDS',
+    group: 'NEEDS',
     rolloverEnabled: false,
     sortOrder: 6
   },
-  { id: 'insurance', name: 'Insurance', type: 'NEEDS', rolloverEnabled: false, sortOrder: 7 },
-  { id: 'health', name: 'Health', type: 'NEEDS', rolloverEnabled: false, sortOrder: 8 },
-  { id: 'personal', name: 'Personal/Fun', type: 'WANTS', rolloverEnabled: false, sortOrder: 9 },
-  { id: 'dining-out', name: 'Dining Out', type: 'WANTS', rolloverEnabled: false, sortOrder: 10 },
+  { id: 'insurance', name: 'Insurance', group: 'NEEDS', rolloverEnabled: false, sortOrder: 7 },
+  { id: 'health', name: 'Health', group: 'NEEDS', rolloverEnabled: false, sortOrder: 8 },
+  { id: 'personal', name: 'Personal/Fun', group: 'WANTS', rolloverEnabled: false, sortOrder: 9 },
+  { id: 'dining-out', name: 'Dining Out', group: 'WANTS', rolloverEnabled: false, sortOrder: 10 },
   {
     id: 'entertainment',
     name: 'Entertainment',
-    type: 'WANTS',
+    group: 'WANTS',
     rolloverEnabled: false,
     sortOrder: 11
   },
-  { id: 'clothing', name: 'Clothing', type: 'WANTS', rolloverEnabled: true, sortOrder: 12 },
-  { id: 'debt', name: 'Debt Payments', type: 'DEBT', rolloverEnabled: false, sortOrder: 13 },
-  { id: 'misc', name: 'Miscellaneous', type: 'MISC', rolloverEnabled: false, sortOrder: 14 }
+  { id: 'clothing', name: 'Clothing', group: 'WANTS', rolloverEnabled: true, sortOrder: 12 },
+  { id: 'debt', name: 'Debt Payments', group: 'DEBT', rolloverEnabled: false, sortOrder: 13 },
+  { id: 'misc', name: 'Miscellaneous', group: 'MISC', rolloverEnabled: false, sortOrder: 14 }
 ]
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -156,4 +159,66 @@ export interface ChatSession {
   messages: ChatMessage[]
   createdAt: string // ISO date
   lastUpdated: string // ISO date
+}
+
+// ============== CSV Import Profile Types ==============
+
+// Column mapping for flexible CSV imports
+export interface ColumnMapping {
+  date: string // Which CSV column contains the date
+  amount?: string // Single amount column (for formats with one amount field)
+  debitAmount?: string // Debit/expense column (for split format)
+  creditAmount?: string // Credit/income column (for split format)
+  description: string // Description/merchant name column
+  category?: string // Optional category column
+  card?: string // Optional card/account column
+  transactionType?: string // Column that determines credit/debit (e.g., "Transaction Type")
+}
+
+// Date format presets
+export type DateFormatPreset = 'MM/DD/YY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'auto'
+
+// Amount interpretation modes
+export type AmountSignMode =
+  | 'standard' // Positive = expense, negative = income
+  | 'inverted' // Positive = income, negative = expense (some credit cards)
+  | 'absolute-with-type' // Always positive, uses transactionType column
+
+// Payment/Credit row handling
+export type PaymentRowHandling =
+  | 'skip' // Skip payment rows entirely
+  | 'income' // Import as income
+  | 'include' // Include as-is
+
+// Saved import profile for reuse
+export interface CsvImportProfile {
+  id: string
+  name: string // User-friendly name: "Chase Credit Card", "Daily Bread Debit"
+  mapping: ColumnMapping
+  dateFormat: DateFormatPreset
+  amountSignMode: AmountSignMode
+  paymentHandling: PaymentRowHandling
+  paymentKeywords: string[] // Keywords to identify payment rows (e.g., "PAYMENT", "CREDIT")
+  createdAt: string
+  updatedAt: string
+}
+
+// Common column name aliases for auto-detection
+export const COLUMN_ALIASES: Record<keyof ColumnMapping, string[]> = {
+  date: ['date', 'transaction date', 'trans date', 'posted date', 'post date', 'txn date'],
+  amount: ['amount', 'transaction amount', 'trans amount', 'total', 'value'],
+  debitAmount: ['debit', 'debit amount', 'withdrawal', 'expense', 'charge'],
+  creditAmount: ['credit', 'credit amount', 'deposit', 'payment'],
+  description: [
+    'description',
+    'transaction description',
+    'merchant',
+    'memo',
+    'details',
+    'payee',
+    'name'
+  ],
+  category: ['category', 'type', 'expense type', 'classification'],
+  card: ['card', 'card no', 'card no.', 'card number', 'account', 'account number'],
+  transactionType: ['transaction type', 'type', 'trans type', 'dr/cr', 'debit/credit']
 }

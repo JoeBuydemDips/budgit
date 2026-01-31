@@ -38,7 +38,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 import type {
   Budget,
-  Category,
+  BudgetItem,
   ChatMessage,
   ChatSession,
   AiContextMonths
@@ -46,7 +46,7 @@ import type {
 
 interface InsightsViewProps {
   budgets: Budget[]
-  categories: Category[]
+  items: BudgetItem[]
   onNavigateToSettings?: () => void
 }
 
