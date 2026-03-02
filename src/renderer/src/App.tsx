@@ -190,7 +190,8 @@ function App(): React.JSX.Element {
                       transactions={transactions}
                       loading={budgetLoading}
                       currentMonth={currentMonth}
-                      onCreateBudget={createBudget}
+                      hasAnyBudgets={budgets.length > 0}
+                      onNavigateToBudget={() => setCurrentView('budget')}
                       onAddTransaction={handleAddTransaction}
                     />
                   )}
