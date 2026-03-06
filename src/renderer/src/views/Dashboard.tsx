@@ -39,7 +39,7 @@ interface DashboardProps {
   transactions: Transaction[]
   loading: boolean
   currentMonth: string
-  hasAnyBudgets: boolean
+  hasAnyBudgets: boolean | null
   onNavigateToBudget: () => void
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>
 }
@@ -173,7 +173,7 @@ export function Dashboard({
       .slice(0, 5)
   }, [budget, items, transactions])
 
-  if (loading) {
+  if (loading || hasAnyBudgets === null) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
