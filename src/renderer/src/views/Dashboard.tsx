@@ -195,7 +195,7 @@ export function Dashboard({
           </div>
 
           <div className="text-center space-y-3 max-w-lg">
-            <h1 className="text-4xl font-bold tracking-tight">Welcome to Budgit</h1>
+            <h1 className="text-4xl font-semibold tracking-[-0.025em]">Welcome to Budgit</h1>
             <p className="text-lg text-muted-foreground">
               Take control of your finances with zero-based budgeting. Give every dollar a job and
               watch your savings grow.
@@ -248,7 +248,9 @@ export function Dashboard({
                 <Wallet className="h-5 w-5 text-primary" />
               </div>
               <h3 className="font-semibold">Zero-Based</h3>
-              <p className="text-sm text-muted-foreground">Assign every dollar a specific purpose.</p>
+              <p className="text-sm text-muted-foreground">
+                Assign every dollar a specific purpose.
+              </p>
             </div>
           </div>
         </div>
@@ -257,88 +259,45 @@ export function Dashboard({
 
     // Returning user: has budgets, but none for this month
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        {/* Zeroed-out stat cards */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
-              <div className="p-2 bg-green-500/10 rounded-full">
-                <DollarSign className="h-4 w-4 text-green-600" />
+      <div className="mx-auto max-w-4xl space-y-5 pt-8 animate-in fade-in duration-500">
+        <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/10">
+          <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-2xl" />
+          <CardContent className="relative grid gap-8 p-8 sm:p-10 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <Calendar className="h-6 w-6" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl lg:text-2xl font-bold text-muted-foreground/50">{formatCurrency(0)}</div>
-              <span className="text-xs text-muted-foreground">Not set</span>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Budgeted</CardTitle>
-              <div className="p-2 bg-blue-500/10 rounded-full">
-                <PiggyBank className="h-4 w-4 text-blue-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl lg:text-2xl font-bold text-muted-foreground/50">{formatCurrency(0)}</div>
-              <span className="text-xs text-muted-foreground">Not set</span>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Spent</CardTitle>
-              <div className="p-2 bg-red-500/10 rounded-full">
-                <Receipt className="h-4 w-4 text-red-500" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl lg:text-2xl font-bold text-muted-foreground/50">{formatCurrency(0)}</div>
-              <span className="text-xs text-muted-foreground">No data</span>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Remaining</CardTitle>
-              <div className="p-2 bg-emerald-500/10 rounded-full">
-                <Wallet className="h-4 w-4 text-emerald-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl lg:text-2xl font-bold text-muted-foreground/50">{formatCurrency(0)}</div>
-              <span className="text-xs text-muted-foreground">No data</span>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* CTA Card */}
-        <Card className="border-2 border-dashed border-primary/30 bg-primary/5">
-          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Calendar className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">
-                  No budget for {formatMonth(parseMonthKey(currentMonth))}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Set up this month&apos;s budget to start tracking your spending
-                </p>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                A fresh month
+              </p>
+              <h1 className="mt-2 text-[2rem] font-semibold leading-tight tracking-[-0.025em] sm:text-4xl">
+                Plan {formatMonth(parseMonthKey(currentMonth))}
+              </h1>
+              <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground">
+                Start from last month or build a new plan, confirm your income, and give every
+                dollar a purpose.
+              </p>
             </div>
-            <Button size="lg" onClick={onNavigateToBudget} className="shrink-0">
-              Set Up Budget
-              <ArrowRight className="ml-2 h-4 w-4" />
+            <Button size="lg" onClick={onNavigateToBudget} className="h-12 px-6">
+              Set up this budget
+              <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           </CardContent>
         </Card>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ['01', 'Choose a starting point', 'Copy a previous plan or begin from scratch.'],
+            ['02', 'Confirm monthly income', 'Add the money you expect to receive.'],
+            ['03', 'Assign every dollar', 'Build a plan you can follow all month.']
+          ].map(([step, title, description]) => (
+            <div key={step} className="rounded-2xl border bg-card/60 p-5">
+              <span className="text-xs font-bold tracking-widest text-primary">{step}</span>
+              <p className="mt-2 text-sm font-semibold">{title}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -349,6 +308,8 @@ export function Dashboard({
   const leftToBudget = budget.computed.leftToBudget
   const remaining = totalPlanned - totalSpent
   const spentPercentage = totalPlanned > 0 ? (totalSpent / totalPlanned) * 100 : 0
+  const allocatedPercentage =
+    budget.incomeTotal > 0 ? Math.round((totalPlanned / budget.incomeTotal) * 100) : 0
 
   // Budget health indicators
   const isOverBudget = totalSpent > totalPlanned
@@ -367,25 +328,48 @@ export function Dashboard({
   }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            Monthly overview
+          </p>
+          <h1 className="mt-1 text-[2rem] font-semibold leading-tight tracking-[-0.025em]">
+            Your money at a glance
+          </h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            See what is assigned, spent, and still available this month.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onNavigateToBudget}>
+            Review budget
+          </Button>
+          <Button onClick={() => setShowAddTransaction(true)}>
+            <Plus className="h-4 w-4" />
+            Add expense
+          </Button>
+        </div>
+      </div>
+
       {/* Hero Stats Section */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {/* Income Card */}
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Total Income
             </CardTitle>
             <div className="p-2 bg-green-500/10 rounded-full">
               <DollarSign className="h-4 w-4 text-green-600" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl lg:text-2xl font-bold">
+          <CardContent className="px-5 pb-5">
+            <div className="text-2xl font-semibold tracking-[-0.025em] tabular-nums">
               {formatCurrency(budget.incomeTotal)}
             </div>
-            <div className="flex items-center gap-1 mt-1">
+            <div className="mt-2 flex items-center gap-1">
               <ArrowUpRight className="h-3 w-3 text-green-600" />
               <span className="text-xs text-muted-foreground">Monthly income</span>
             </div>
@@ -395,19 +379,21 @@ export function Dashboard({
         {/* Budgeted Card */}
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Total Budgeted
             </CardTitle>
             <div className="p-2 bg-blue-500/10 rounded-full">
               <PiggyBank className="h-4 w-4 text-blue-600" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(totalPlanned)}</div>
-            <div className="flex items-center gap-1 mt-1">
+          <CardContent className="px-5 pb-5">
+            <div className="text-2xl font-semibold tracking-[-0.025em] tabular-nums">
+              {formatCurrency(totalPlanned)}
+            </div>
+            <div className="mt-2 flex items-center gap-1">
               <span className="text-xs text-muted-foreground">
-                {Math.round((totalPlanned / budget.incomeTotal) * 100)}% of income
+                {allocatedPercentage}% of income
               </span>
             </div>
           </CardContent>
@@ -416,15 +402,19 @@ export function Dashboard({
         {/* Spent Card */}
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Spent</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Total Spent
+            </CardTitle>
             <div className="p-2 bg-red-500/10 rounded-full">
               <Receipt className="h-4 w-4 text-red-500" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl lg:text-2xl font-bold">{formatCurrency(totalSpent)}</div>
-            <div className="flex items-center gap-1 mt-1">
+          <CardContent className="px-5 pb-5">
+            <div className="text-2xl font-semibold tracking-[-0.025em] tabular-nums">
+              {formatCurrency(totalSpent)}
+            </div>
+            <div className="mt-2 flex items-center gap-1">
               <ArrowDownRight className="h-3 w-3 text-red-500" />
               <span className="text-xs text-muted-foreground">
                 {Math.round(spentPercentage)}% of budget
@@ -434,43 +424,35 @@ export function Dashboard({
         </Card>
 
         {/* Remaining Card */}
-        <Card className="relative overflow-hidden">
-          <div
-            className={cn(
-              'absolute top-0 right-0 w-20 h-20 rounded-full -translate-y-1/2 translate-x-1/2',
-              remaining >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'
-            )}
-          />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Remaining</CardTitle>
-            <div
-              className={cn(
-                'p-2 rounded-full',
-                remaining >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'
-              )}
-            >
-              <Wallet
-                className={cn('h-4 w-4', remaining >= 0 ? 'text-emerald-600' : 'text-red-500')}
-              />
+        <Card
+          className={cn(
+            'relative col-span-2 overflow-hidden border-0 text-white shadow-xl lg:col-span-1',
+            remaining >= 0
+              ? 'bg-gradient-to-br from-emerald-600 to-emerald-500 shadow-emerald-950/15'
+              : 'bg-gradient-to-br from-rose-600 to-red-500 shadow-rose-950/15'
+          )}
+        >
+          <div className="absolute -right-8 -top-12 h-36 w-36 rounded-full bg-white/10" />
+          <div className="absolute -bottom-16 right-16 h-32 w-32 rounded-full bg-black/5" />
+          <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/75">
+              Available
+            </CardTitle>
+            <div className="rounded-full bg-white/15 p-2">
+              <Wallet className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div
-              className={cn(
-                'text-xl lg:text-2xl font-bold',
-                remaining >= 0 ? 'text-emerald-600' : 'text-red-600'
-              )}
-            >
+          <CardContent className="px-5 pb-5">
+            <div className="text-2xl font-semibold tracking-[-0.025em] text-white tabular-nums">
               {formatCurrency(Math.abs(remaining))}
             </div>
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-xs text-muted-foreground">
-                {remaining >= 0 ? 'Left to spend' : 'Over budget'}
+            <div className="mt-2 flex items-center gap-1">
+              <span className="text-xs text-white/75">
+                {remaining >= 0 ? 'Across your monthly plan' : 'Spending has passed the plan'}
               </span>
             </div>
           </CardContent>
         </Card>
-
       </div>
 
       {/* Budget Health Banner */}
@@ -482,7 +464,7 @@ export function Dashboard({
           isOverBudget && 'border-l-red-500 bg-red-500/5'
         )}
       >
-        <CardContent className="py-4">
+        <CardContent className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             {isOverBudget ? (
               <>
@@ -520,6 +502,15 @@ export function Dashboard({
               </>
             )}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 bg-card/60"
+            onClick={onNavigateToBudget}
+          >
+            Open budget
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </CardContent>
       </Card>
 

@@ -657,7 +657,7 @@ export function registerIpcHandlers(): void {
 
         if (contextMonths !== 'all') {
           const now = new Date()
-          const cutoffDate = new Date(now.getFullYear(), now.getMonth() - contextMonths, 1)
+          const cutoffDate = new Date(now.getFullYear(), now.getMonth() - (contextMonths - 1), 1)
           const cutoffMonth = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}`
 
           filteredBudgets = allBudgets.filter((b) => b.month >= cutoffMonth)
@@ -710,7 +710,6 @@ function buildSystemPrompt(
 
   // Summarize budgets
   const budgetSummaries = budgets
-    .slice(-6) // Last 6 months max
     .map((b) => {
       const totalPlanned = b.allocations.reduce((sum, a) => sum + a.planned, 0)
       const totalSpent = b.allocations.reduce((sum, a) => sum + a.spent, 0)

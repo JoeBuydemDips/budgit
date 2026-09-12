@@ -3,26 +3,26 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 150 20% 97%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 158 64% 52%; /* Emerald 500 */
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 158 71% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 16% 93%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 150 14% 94%;
+    --muted-foreground: 215 16% 45%;
+    --accent: 153 25% 91%;
+    --accent-foreground: 158 71% 24%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 158 64% 52%;
-    --radius: 0.75rem;
+    --border: 150 14% 87%;
+    --input: 150 14% 84%;
+    --ring: 158 71% 38%;
+    --radius: 1rem;
 
     --chart-1: 158 64% 52%;
     --chart-2: 173 58% 39%;
@@ -32,24 +32,24 @@
   }
 
   .dark {
-    --background: 220 20% 10%;
-    --foreground: 220 13% 82%;
-    --card: 220 20% 12%;
-    --card-foreground: 220 13% 82%;
-    --popover: 220 20% 12%;
-    --popover-foreground: 220 13% 82%;
+    --background: 222 36% 8%;
+    --foreground: 210 20% 92%;
+    --card: 222 29% 11%;
+    --card-foreground: 210 20% 92%;
+    --popover: 222 29% 11%;
+    --popover-foreground: 210 20% 92%;
     --primary: 158 64% 52%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 220 18% 18%;
-    --secondary-foreground: 220 13% 82%;
-    --muted: 220 18% 18%;
-    --muted-foreground: 220 13% 55%;
-    --accent: 220 18% 20%;
-    --accent-foreground: 220 13% 82%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 210 20% 92%;
+    --muted: 222 22% 16%;
+    --muted-foreground: 215 15% 61%;
+    --accent: 158 25% 18%;
+    --accent-foreground: 158 64% 66%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 220 13% 90%;
-    --border: 220 18% 20%;
-    --input: 220 18% 20%;
+    --border: 220 20% 19%;
+    --input: 220 18% 23%;
     --ring: 158 64% 52%;
     --chart-1: 158 64% 52%;
     --chart-2: 173 58% 39%;
@@ -65,9 +65,17 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
+    -webkit-font-smoothing: antialiased;
   }
 
   /* Smooth theme transitions */
@@ -98,6 +106,18 @@
   .transition-smooth {
     transition: all 0.2s ease-in-out;
   }
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 78% -10%, hsl(var(--primary) / 0.1), transparent 30rem),
+    hsl(var(--background));
+}
+
+.dark .app-shell {
+  background:
+    radial-gradient(circle at 78% -10%, hsl(var(--primary) / 0.08), transparent 32rem),
+    hsl(var(--background));
 }
 
 @layer utilities {

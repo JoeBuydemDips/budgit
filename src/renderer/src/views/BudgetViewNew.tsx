@@ -7,7 +7,8 @@ import {
   Sparkles,
   RefreshCcw,
   GripVertical,
-  X
+  X,
+  Receipt
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,7 +56,13 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers'
-import type { BudgetWithComputed, BudgetItem, Group, Transaction, IncomeSource } from '../../../shared/types'
+import type {
+  BudgetWithComputed,
+  BudgetItem,
+  Group,
+  Transaction,
+  IncomeSource
+} from '../../../shared/types'
 
 // Import colors directly
 const GROUP_COLORS: Record<Group, string> = {
@@ -100,15 +107,7 @@ const GROUP_LABELS: Record<Group, string> = {
   MISC: 'Miscellaneous'
 }
 
-const GROUP_ORDER: Group[] = [
-  'GIVING',
-  'SAVINGS',
-  'NEEDS',
-  'FOOD',
-  'WANTS',
-  'DEBT',
-  'MISC'
-]
+const GROUP_ORDER: Group[] = ['GIVING', 'SAVINGS', 'NEEDS', 'FOOD', 'WANTS', 'DEBT', 'MISC']
 
 const GROUP_COLOR_CLASS: Record<Group, string> = {
   GIVING: 'bg-emerald-500',
@@ -159,11 +158,7 @@ export function BudgetView({
   const [itemToDelete, setItemToDelete] = useState<BudgetItem | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     INCOME: true,
-    GIVING: true,
-    SAVINGS: true,
-    NEEDS: true,
-    WANTS: true,
-    DEBT: true
+    NEEDS: true
   })
 
   // DnD Kit sensors for drag and drop
@@ -247,7 +242,9 @@ export function BudgetView({
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
               <Sparkles className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold">{formatMonth(parseMonthKey(currentMonth))}</h1>
+            <h1 className="text-[2rem] font-semibold tracking-[-0.025em]">
+              {formatMonth(parseMonthKey(currentMonth))}
+            </h1>
             <p className="text-muted-foreground text-lg">
               No budget set up for this month yet. Let&apos;s create one!
             </p>
@@ -256,7 +253,9 @@ export function BudgetView({
           <Card className="border-2">
             <CardContent className="p-6 space-y-6">
               <div className="space-y-3">
-                <Label htmlFor="empty-copy-from" className="text-base">Copy from</Label>
+                <Label htmlFor="empty-copy-from" className="text-base">
+                  Copy from
+                </Label>
                 <Select
                   value={copyFrom || 'scratch'}
                   onValueChange={(val) => setCopyFrom(val === 'scratch' ? 'scratch' : val)}
@@ -365,6 +364,8 @@ export function BudgetView({
   // Calculate totals
   const totalPlanned = budget.allocations.reduce((sum, a) => sum + a.planned, 0)
   const leftToBudget = budget.incomeTotal - totalPlanned
+  const totalSpent = budget.computed.totalSpentCategorized
+  const availableToSpend = totalPlanned - totalSpent
   const incomeSources = budget.incomeSources || [
     { id: 'default', name: 'Income', planned: budget.incomeTotal, received: 0 }
   ]
@@ -411,7 +412,8 @@ export function BudgetView({
       label: GROUP_LABELS[grp],
       planned: groupData?.planned || 0,
       spent: groupData?.spent || 0,
-      percentage: budget.incomeTotal > 0 ? ((groupData?.planned || 0) / budget.incomeTotal) * 100 : 0
+      percentage:
+        budget.incomeTotal > 0 ? ((groupData?.planned || 0) / budget.incomeTotal) * 100 : 0
     }
   })
 
@@ -456,43 +458,71 @@ export function BudgetView({
   return (
     <div className="flex gap-0 h-full">
       {/* Left Column - Budget Editor */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Sticky Header with Left to Budget */}
-        <div className="sticky top-0 z-10 bg-background border-b px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Always-visible plan summary */}
+        <div className="z-10 border-b bg-background/90 px-4 py-4 backdrop-blur-xl md:px-8">
+          <div className="flex flex-col gap-3 min-[1100px]:flex-row min-[1100px]:items-center min-[1100px]:justify-between">
             <div>
-              <h1 className="text-2xl font-bold">{formatMonth(parseMonthKey(currentMonth))}</h1>
-              <p
-                className={cn(
-                  'text-lg font-semibold',
-                  leftToBudget === 0 && 'text-green-600',
-                  leftToBudget > 0 && 'text-amber-600',
-                  leftToBudget < 0 && 'text-red-600'
-                )}
-              >
-                {formatCurrency(Math.abs(leftToBudget))}{' '}
-                {leftToBudget === 0
-                  ? '- Fully Budgeted!'
-                  : leftToBudget > 0
-                    ? 'left to budget'
-                    : 'over budget'}
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                Monthly plan
               </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-[-0.02em]">
+                {formatMonth(parseMonthKey(currentMonth))}
+              </h1>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNewItemGroup('NEEDS')
+                  setShowAddItemDialog(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Add item
+              </Button>
+              <Button size="sm" onClick={() => setShowQuickAddDialog(true)}>
+                <Receipt className="h-4 w-4" />
+                Add expense
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 min-[1100px]:grid-cols-4">
+            <PlanMetric label="Income" value={budget.incomeTotal} />
+            <PlanMetric label="Assigned" value={totalPlanned} />
+            <PlanMetric label="Spent" value={totalSpent} />
+            <PlanMetric
+              label={
+                leftToBudget === 0
+                  ? 'Available'
+                  : leftToBudget > 0
+                    ? 'Left to assign'
+                    : 'Overassigned'
+              }
+              value={leftToBudget === 0 ? availableToSpend : Math.abs(leftToBudget)}
+              valueClassName={cn(
+                leftToBudget === 0 && availableToSpend >= 0 && 'text-emerald-600',
+                leftToBudget === 0 && availableToSpend < 0 && 'text-red-600',
+                leftToBudget > 0 && 'text-amber-600',
+                leftToBudget < 0 && 'text-red-600'
+              )}
+            />
           </div>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-4 md:pb-8 pt-4 space-y-6">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-4 pt-4 md:px-8 md:pb-8">
           {/* Income Section */}
           <Card>
             <Collapsible open={expandedGroups['INCOME']} onOpenChange={() => toggleGroup('INCOME')}>
               <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+                <CardHeader className="cursor-pointer px-5 py-3.5 transition-colors hover:bg-muted/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-1.5 h-8 rounded-full bg-green-500" />
+                      <div className="h-7 w-1 rounded-full bg-green-500" />
                       <div>
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                           Income for {formatMonth(parseMonthKey(currentMonth)).split(' ')[0]}
                           {expandedGroups['INCOME'] ? (
                             <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -507,13 +537,17 @@ export function BudgetView({
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
                           Planned
                         </p>
-                        <p className="font-semibold">{formatCurrency(budget.incomeTotal)}</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          {formatCurrency(budget.incomeTotal)}
+                        </p>
                       </div>
                       <div className="w-28 text-right">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
                           Received
                         </p>
-                        <p className="font-semibold">{formatCurrency(totalReceived)}</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          {formatCurrency(totalReceived)}
+                        </p>
                       </div>
                       <div className="w-12" />
                     </div>
@@ -575,12 +609,14 @@ export function BudgetView({
                 onOpenChange={() => toggleGroup(group.group)}
               >
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+                  <CardHeader className="cursor-pointer px-5 py-3.5 transition-colors hover:bg-muted/50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={cn('w-1.5 h-8 rounded-full', GROUP_COLOR_CLASS[group.group])} />
+                        <div
+                          className={cn('h-7 w-1 rounded-full', GROUP_COLOR_CLASS[group.group])}
+                        />
                         <div>
-                          <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                             {group.label}
                             {expandedGroups[group.group] ? (
                               <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -595,7 +631,9 @@ export function BudgetView({
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
                             Planned
                           </p>
-                          <p className="font-semibold">{formatCurrency(group.planned)}</p>
+                          <p className="text-sm font-semibold tabular-nums">
+                            {formatCurrency(group.planned)}
+                          </p>
                         </div>
                         <div className="w-28 text-right">
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -603,7 +641,7 @@ export function BudgetView({
                           </p>
                           <p
                             className={cn(
-                              'font-semibold',
+                              'text-sm font-semibold tabular-nums',
                               group.spent > 0 ? 'text-primary' : 'text-green-600'
                             )}
                           >
@@ -682,7 +720,7 @@ export function BudgetView({
       </div>
 
       {/* Right Column - Detail Panel or Summary */}
-      <div className="hidden lg:block w-[380px] border-l bg-muted/30">
+      <div className="hidden w-[380px] border-l bg-muted/30 lg:block">
         {selectedItemData ? (
           <CategoryDetailPanel
             item={selectedItemData}
@@ -727,36 +765,58 @@ export function BudgetView({
 
       {/* Dialogs */}
 
-      <Dialog open={showAddItemDialog} onOpenChange={(open) => {
-        setShowAddItemDialog(open)
-        if (!open) {
-          setNewItemName('')
-        }
-      }}>
+      <Dialog
+        open={showAddItemDialog}
+        onOpenChange={(open) => {
+          setShowAddItemDialog(open)
+          if (!open) {
+            setNewItemName('')
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[340px]">
           <DialogHeader>
-            <DialogTitle>Add {GROUP_LABELS[newItemGroup]} Item</DialogTitle>
+            <DialogTitle>Add budget item</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Item name..."
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter' && newItemName.trim()) {
-                  const createdItem = await onAddItem({
-                    name: newItemName.trim(),
-                    group: newItemGroup,
-                    rolloverEnabled: false,
-                    sortOrder: 0
-                  })
-                  await onUpdateAllocation(createdItem.id, 0)
-                  setShowAddItemDialog(false)
-                  setNewItemName('')
-                }
-              }}
-              autoFocus
-            />
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-item-name">Name</Label>
+              <Input
+                id="new-item-name"
+                placeholder="e.g., Internet, Childcare"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && newItemName.trim()) {
+                    const createdItem = await onAddItem({
+                      name: newItemName.trim(),
+                      group: newItemGroup,
+                      rolloverEnabled: false,
+                      sortOrder: 0
+                    })
+                    await onUpdateAllocation(createdItem.id, 0)
+                    setShowAddItemDialog(false)
+                    setNewItemName('')
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-item-group">Group</Label>
+              <Select value={newItemGroup} onValueChange={(value: Group) => setNewItemGroup(value)}>
+                <SelectTrigger id="new-item-group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GROUP_ORDER.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {GROUP_LABELS[group]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -938,8 +998,8 @@ export function BudgetView({
             <DialogTitle>Delete Item</DialogTitle>
             <DialogDescription>
               Are you sure you want to permanently delete &quot;{itemToDelete?.name}&quot;? This
-              will remove the item and all its allocations from all budgets. This action cannot
-              be undone.
+              will remove the item and all its allocations from all budgets. This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -961,6 +1021,30 @@ export function BudgetView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+interface PlanMetricProps {
+  label: string
+  value: number
+  valueClassName?: string
+}
+
+function PlanMetric({ label, value, valueClassName }: PlanMetricProps): React.JSX.Element {
+  return (
+    <div className="flex min-h-16 flex-col justify-center rounded-xl border bg-card/70 px-3 py-2.5">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={cn(
+          'mt-0.5 text-[15px] font-semibold tracking-[-0.015em] tabular-nums',
+          valueClassName
+        )}
+      >
+        {formatCurrency(value)}
+      </p>
     </div>
   )
 }
@@ -1378,9 +1462,7 @@ function ItemRow({
           )}
         </div>
         <div className="w-28 text-right">
-          <span
-            className={cn('font-medium', item.spent > 0 ? 'text-primary' : 'text-green-600')}
-          >
+          <span className={cn('font-medium', item.spent > 0 ? 'text-primary' : 'text-green-600')}>
             {formatCurrency(item.spent)}
           </span>
         </div>

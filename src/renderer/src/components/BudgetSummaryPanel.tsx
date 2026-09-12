@@ -5,12 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import {
-  GROUP_COLORS,
-  type Group,
-  type BudgetItem,
-  type Transaction
-} from '../../../shared/types'
+import { GROUP_COLORS, type Group, type BudgetItem, type Transaction } from '../../../shared/types'
 
 interface BudgetSummaryPanelProps {
   incomeTotal: number
@@ -58,7 +53,7 @@ export function BudgetSummaryPanel({
   return (
     <Card className="h-full border-l-0 rounded-l-none">
       <Tabs defaultValue="summary" className="h-full flex flex-col">
-        <CardHeader className="pb-2">
+        <CardHeader className="p-5 pb-2">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="summary" className="text-sm">
               Summary
@@ -69,7 +64,7 @@ export function BudgetSummaryPanel({
           </TabsList>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-auto">
+        <CardContent className="flex-1 overflow-auto px-5 pb-5">
           <TabsContent value="summary" className="mt-0 space-y-6">
             {/* Donut Chart */}
             <div className="relative">
@@ -136,16 +131,16 @@ export function BudgetSummaryPanel({
 
             {/* Category Breakdown Table */}
             <div className="space-y-1">
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 text-xs font-medium text-muted-foreground uppercase tracking-wide px-2 pb-2 border-b">
+              <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_2.25rem] gap-2 border-b px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 <span>Category</span>
-                <span className="text-right w-20">Planned</span>
-                <span className="text-right w-20">Spent</span>
-                <span className="text-right w-10">%</span>
+                <span className="text-right">Planned</span>
+                <span className="text-right">Spent</span>
+                <span className="text-right">%</span>
               </div>
               {categoryBreakdown.map((cat) => (
                 <div
                   key={cat.group}
-                  className="grid grid-cols-[1fr_auto_auto_auto] gap-3 text-sm py-2 px-2 hover:bg-muted/50 rounded-md transition-colors"
+                  className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_2.25rem] items-center gap-2 rounded-md px-1 py-2 text-sm transition-colors hover:bg-muted/50"
                 >
                   <span
                     className="font-medium truncate min-w-0"
@@ -154,11 +149,13 @@ export function BudgetSummaryPanel({
                   >
                     {cat.label}
                   </span>
-                  <span className="text-right text-muted-foreground w-20 tabular-nums">
+                  <span className="text-right text-xs text-muted-foreground tabular-nums">
                     {formatCurrency(cat.planned)}
                   </span>
-                  <span className="text-right w-20 tabular-nums">{formatCurrency(cat.spent)}</span>
-                  <span className="text-right text-muted-foreground w-10 tabular-nums">
+                  <span className="text-right text-xs font-medium tabular-nums">
+                    {formatCurrency(cat.spent)}
+                  </span>
+                  <span className="text-right text-xs text-muted-foreground tabular-nums">
                     ({cat.percentage.toFixed(0)}%)
                   </span>
                 </div>
