@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, Trash2, Search, Receipt, CheckSquare } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Receipt,
+  CheckSquare,
+  CalendarRange,
+  RotateCcw
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -22,9 +31,21 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
+import { cn, formatCurrency, formatMonth, parseMonthKey } from '@/lib/utils'
 import { GROUP_COLORS } from '../../../shared/types'
-import type { BudgetItem, Transaction } from '../../../shared/types'
+import type { BudgetItem, Group, Transaction } from '../../../shared/types'
+
+const GROUP_LABELS: Record<Group, string> = {
+  GIVING: 'Giving',
+  SAVINGS: 'Savings',
+  NEEDS: 'Housing & Utilities',
+  WANTS: 'Lifestyle',
+  DEBT: 'Debt',
+  FOOD: 'Food',
+  MISC: 'Miscellaneous'
+}
+
+const GROUP_ORDER = Object.keys(GROUP_LABELS) as Group[]
 
 interface TransactionsViewProps {
   transactions: Transaction[]
@@ -50,6 +71,9 @@ export function TransactionsView({
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [filterItem, setFilterItem] = useState<string>('all')
+  const [filterGroup, setFilterGroup] = useState<Group | 'all'>('all')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
   const [showBulkMapDialog, setShowBulkMapDialog] = useState(false)
@@ -58,6 +82,18 @@ export function TransactionsView({
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const uncategorizedItem = items.find((item) => item.name === 'Uncategorized')
+  const uncategorizedCount = uncategorizedItem
+    ? transactions.filter((transaction) => transaction.itemId === uncategorizedItem.id).length
+    : 0
+
+  useEffect(() => {
+    setFilterItem('all')
+    setFilterGroup('all')
+    setStartDate('')
+    setEndDate('')
+    setSearchQuery('')
+    setSelectedTransactions([])
+  }, [currentMonth])
 
   const handleSelectAll = () => {
     setSelectedTransactions(filteredTransactions.map((t) => t.id))
@@ -96,9 +132,14 @@ export function TransactionsView({
 
   // Filter transactions
   const filteredTransactions = transactions.filter((txn) => {
+    const item = items.find((candidate) => candidate.id === txn.itemId)
+    const transactionDate = txn.date.split('T')[0]
+
     if (filterItem !== 'all' && txn.itemId !== filterItem) return false
+    if (filterGroup !== 'all' && item?.group !== filterGroup) return false
+    if (startDate && transactionDate < startDate) return false
+    if (endDate && transactionDate > endDate) return false
     if (searchQuery) {
-      const item = items.find((i) => i.id === txn.itemId)
       const searchLower = searchQuery.toLowerCase()
       return (
         txn.description.toLowerCase().includes(searchLower) ||
@@ -143,6 +184,20 @@ export function TransactionsView({
   }, [filteredTransactions])
 
   const totalSpent = filteredTransactions.reduce((sum, t) => sum + t.amount, 0)
+  const hasActiveFilters =
+    searchQuery !== '' ||
+    filterItem !== 'all' ||
+    filterGroup !== 'all' ||
+    startDate !== '' ||
+    endDate !== ''
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setFilterItem('all')
+    setFilterGroup('all')
+    setStartDate('')
+    setEndDate('')
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -158,39 +213,116 @@ export function TransactionsView({
         </Button>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search transactions..."
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+      {transactions.length > 0 && (
+        <>
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="sm:col-span-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search transactions..."
+                      className="pl-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <Select
+                  value={filterGroup}
+                  onValueChange={(value) => setFilterGroup(value as Group | 'all')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All groups" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All groups</SelectItem>
+                    {GROUP_ORDER.map((group) => (
+                      <SelectItem key={group} value={group}>
+                        {GROUP_LABELS[group]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterItem} onValueChange={setFilterItem}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All items" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All items</SelectItem>
+                    {items.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="relative">
+                  <CalendarRange className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    aria-label="Transactions from date"
+                    className="pl-10"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(event) => setStartDate(event.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <CalendarRange className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    aria-label="Transactions through date"
+                    className="pl-10"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(event) => setEndDate(event.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-3 sm:col-span-2">
+                  <span className="text-xs text-muted-foreground">
+                    {startDate || endDate ? 'Custom date range active' : 'Any date this month'}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={clearFilters}
+                    disabled={!hasActiveFilters}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Clear filters
+                  </Button>
+                </div>
               </div>
-            </div>
-            <Select value={filterItem} onValueChange={setFilterItem}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All items" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All items</SelectItem>
-                {items.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {(selectedTransactions.length > 0 || uncategorizedItem) && (
+          {/* Summary */}
+          <div className="flex items-center justify-between px-2 sm:px-6">
+            <span className="text-sm text-muted-foreground">
+              {filteredTransactions.length} transaction
+              {filteredTransactions.length !== 1 ? 's' : ''}
+            </span>
+            <span className="text-sm font-medium">
+              Total:{' '}
+              <span
+                className={cn(
+                  'tabular-nums',
+                  totalSpent > 0 && 'text-red-600',
+                  totalSpent < 0 && 'text-green-600'
+                )}
+              >
+                {formatCurrency(totalSpent)}
+              </span>
+            </span>
+          </div>
+        </>
+      )}
+
+      {(selectedTransactions.length > 0 || uncategorizedCount > 0) && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -223,14 +355,13 @@ export function TransactionsView({
                   </Button>
                 </>
               )}
-              {uncategorizedItem && (
+              {uncategorizedItem && uncategorizedCount > 0 && (
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => setFilterItem(uncategorizedItem.id)}
                 >
-                  Show Uncategorized (
-                  {transactions.filter((t) => t.itemId === uncategorizedItem.id).length})
+                  Show Uncategorized ({uncategorizedCount})
                 </Button>
               )}
             </div>
@@ -238,24 +369,10 @@ export function TransactionsView({
         </Card>
       )}
 
-      {/* Summary */}
-      <div className="flex items-center justify-between px-6">
-        <span className="text-sm text-muted-foreground">
-          {filteredTransactions.length} transaction
-          {filteredTransactions.length !== 1 ? 's' : ''}
-        </span>
-        <span className="text-sm font-medium">
-          Total:{' '}
-          <span className={totalSpent >= 0 ? 'text-red-600' : 'text-green-600'}>
-            {formatCurrency(totalSpent)}
-          </span>
-        </span>
-      </div>
-
       {/* Transaction List */}
       {groupedTransactions.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
+        <Card className="border-dashed">
+          <CardContent className="py-20 text-center">
             <div className="flex flex-col items-center gap-3">
               <div className="rounded-full bg-muted p-4">
                 <Receipt className="h-8 w-8 text-muted-foreground" />
@@ -263,13 +380,11 @@ export function TransactionsView({
               <div>
                 <p className="font-medium">No transactions found</p>
                 <p className="text-sm text-muted-foreground">
-                  {searchQuery || filterItem !== 'all'
-                    ? 'Try adjusting your filters'
-                    : 'Start tracking your expenses'}
+                  {hasActiveFilters ? 'Try adjusting your filters' : 'Start tracking your expenses'}
                 </p>
               </div>
-              {!searchQuery && filterItem === 'all' && (
-                <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)}>
+              {!hasActiveFilters && (
+                <Button size="sm" className="mt-2" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add your first expense
                 </Button>
@@ -404,17 +519,28 @@ export function TransactionsView({
       <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {selectedTransactions.length} Transaction{selectedTransactions.length !== 1 ? 's' : ''}?</DialogTitle>
+            <DialogTitle>
+              Delete {selectedTransactions.length} Transaction
+              {selectedTransactions.length !== 1 ? 's' : ''}?
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete {selectedTransactions.length} selected transaction{selectedTransactions.length !== 1 ? 's' : ''}? This action cannot be undone.
+              Are you sure you want to permanently delete {selectedTransactions.length} selected
+              transaction{selectedTransactions.length !== 1 ? 's' : ''}? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)} disabled={bulkDeleting}>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteDialog(false)}
+              disabled={bulkDeleting}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
-              {bulkDeleting ? 'Deleting...' : `Delete ${selectedTransactions.length} Transaction${selectedTransactions.length !== 1 ? 's' : ''}`}
+              {bulkDeleting
+                ? 'Deleting...'
+                : `Delete ${selectedTransactions.length} Transaction${selectedTransactions.length !== 1 ? 's' : ''}`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -17,18 +17,20 @@ import {
 import { BudgetManagerDialog } from '@/components/BudgetManagerDialog'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
+const VIEW_TITLES: Record<ViewType, string> = {
+  dashboard: 'Dashboard',
+  budget: 'Budget plan',
+  transactions: 'Transactions',
+  insights: 'AI Coach',
+  settings: 'Settings'
+}
+
 function App(): React.JSX.Element {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showBudgetManager, setShowBudgetManager] = useState(false)
   const { currentMonth, setCurrentMonth, goToPreviousMonth, goToNextMonth } = useCurrentMonth()
-  const {
-    items,
-    addItem,
-    updateItem,
-    deleteItem,
-    reorderItems
-  } = useItems()
+  const { items, addItem, updateItem, deleteItem, reorderItems } = useItems()
   const { budgets, loading: budgetsLoading, refresh: refreshBudgets } = useBudgetIndex()
   const {
     budget,
@@ -133,7 +135,7 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
+    <div className="app-shell min-h-screen text-foreground selection:bg-primary/20">
       <div className="flex h-screen overflow-hidden">
         <Navigation
           currentView={currentView}
@@ -147,6 +149,7 @@ function App(): React.JSX.Element {
           <div className="flex flex-1 flex-col relative">
             {currentView !== 'insights' && (
               <Header
+                title={VIEW_TITLES[currentView]}
                 currentMonth={currentMonth}
                 onPreviousMonth={goToPreviousMonth}
                 onNextMonth={goToNextMonth}

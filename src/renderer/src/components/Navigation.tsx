@@ -30,7 +30,7 @@ const navItems: {
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'budget', label: 'Budget', icon: PiggyBank },
   { id: 'transactions', label: 'Transactions', icon: Receipt },
-  { id: 'insights', label: 'Budgit', icon: Sparkles },
+  { id: 'insights', label: 'AI Coach', icon: Sparkles },
   { id: 'settings', label: 'Settings', icon: Settings }
 ]
 
@@ -46,26 +46,30 @@ export function Navigation({
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'hidden md:flex md:flex-col h-full border-r bg-muted/10 transition-all duration-300 ease-in-out',
-          collapsed ? 'md:w-20' : 'md:w-64'
+          'hidden md:flex md:flex-col h-full border-r bg-card/75 backdrop-blur-xl shadow-[8px_0_30px_hsl(222_47%_11%/0.025)] transition-all duration-300 ease-in-out',
+          collapsed ? 'md:w-20' : 'md:w-[264px]'
         )}
       >
         <div
           className={cn(
-            'flex items-center px-4 py-6',
+            'flex items-center px-4 pb-5 pt-10',
             collapsed ? 'justify-center' : 'justify-between'
           )}
         >
-          <div
-            className={cn(
-              'flex items-center gap-2 font-bold text-xl tracking-tight text-primary',
-              collapsed && 'sr-only'
-            )}
-          >
-            <Wallet className="h-6 w-6" />
-            Budgit
+          <div className={cn('flex items-center gap-3', collapsed && 'sr-only')}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-tight tracking-tight">Budgit</p>
+              <p className="text-[11px] font-medium text-muted-foreground">Money with a plan</p>
+            </div>
           </div>
-          {collapsed && <Wallet className="h-6 w-6 text-primary" />}
+          {collapsed && (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Wallet className="h-5 w-5" />
+            </div>
+          )}
 
           {!collapsed && (
             <Button
@@ -94,7 +98,12 @@ export function Navigation({
           </div>
         )}
 
-        <nav className="flex-1 space-y-2 px-3">
+        <nav className="flex-1 space-y-1.5 px-3">
+          {!collapsed && (
+            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">
+              Workspace
+            </p>
+          )}
           <TooltipProvider delayDuration={0}>
             {navItems.map(({ id, label, icon: Icon }) => {
               const isActive = currentView === id
@@ -103,14 +112,19 @@ export function Navigation({
                   key={id}
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
-                    'w-full justify-start gap-3 transition-all',
+                    'h-11 w-full justify-start gap-3 px-3 transition-all',
                     collapsed && 'justify-center px-2',
-                    isActive && 'bg-primary/10 text-primary hover:bg-primary/15 font-medium'
+                    isActive &&
+                      'bg-primary text-primary-foreground shadow-md shadow-primary/15 hover:bg-primary/90 hover:text-primary-foreground'
                   )}
                   onClick={() => onViewChange(id)}
+                  aria-current={isActive ? 'page' : undefined}
                 >
                   <Icon
-                    className={cn('h-5 w-5', isActive ? 'text-primary' : 'text-muted-foreground')}
+                    className={cn(
+                      'h-5 w-5',
+                      isActive ? 'text-primary-foreground' : 'text-muted-foreground'
+                    )}
                   />
                   {!collapsed && <span>{label}</span>}
                 </Button>
@@ -130,7 +144,7 @@ export function Navigation({
           </TooltipProvider>
         </nav>
 
-        <div className="p-4 mt-auto">
+        <div className="mt-auto p-4">
           {collapsed ? (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
@@ -143,16 +157,21 @@ export function Navigation({
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <Button variant="outline" className="w-full gap-2" onClick={onOpenBudgets}>
-              <Settings className="h-4 w-4" />
-              Manage Budgets
-            </Button>
+            <div className="rounded-2xl border bg-background/70 p-2">
+              <p className="px-2 pb-2 pt-1 text-xs text-muted-foreground">
+                Switch or create a plan
+              </p>
+              <Button variant="outline" className="w-full gap-2 bg-card" onClick={onOpenBudgets}>
+                <Settings className="h-4 w-4" />
+                Manage Budgets
+              </Button>
+            </div>
           )}
         </div>
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/80 backdrop-blur-lg md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 shadow-[0_-8px_30px_hsl(222_47%_11%/0.06)] backdrop-blur-xl md:hidden">
         <div className="flex h-16 items-center justify-around px-2">
           {navItems.map(({ id, label, icon: Icon }) => {
             const isActive = currentView === id
@@ -161,7 +180,7 @@ export function Navigation({
                 key={id}
                 variant="ghost"
                 className={cn(
-                  'flex flex-col items-center gap-1 h-auto py-2 px-3 rounded-xl transition-colors',
+                  'flex h-auto flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors',
                   isActive
                     ? 'text-primary bg-primary/10'
                     : 'text-muted-foreground hover:text-foreground'

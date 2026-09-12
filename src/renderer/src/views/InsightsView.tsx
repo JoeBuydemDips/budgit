@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -20,7 +20,8 @@ import {
   X,
   Plus,
   ArrowUp,
-  Paperclip
+  Paperclip,
+  Database
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,7 +36,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { cn } from '@/lib/utils'
+import { cn, formatMonth, parseMonthKey } from '@/lib/utils'
 import type {
   Budget,
   BudgetItem,
@@ -152,7 +153,10 @@ function formatExactTime(dateString: string): string {
   })
 }
 
-export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React.JSX.Element {
+export function InsightsView({
+  budgets,
+  onNavigateToSettings
+}: InsightsViewProps): React.JSX.Element {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -476,6 +480,22 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
     }
   }
 
+  const financialContextLabel = useMemo(() => {
+    if (contextMonths === 'all') {
+      return budgets.length === 0
+        ? 'all saved budget and transaction history'
+        : `all ${budgets.length} saved budgets and their transactions`
+    }
+
+    const now = new Date()
+    const cutoffDate = new Date(now.getFullYear(), now.getMonth() - (contextMonths - 1), 1)
+    const cutoffMonth = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}`
+    const includedBudgets = budgets.filter((budget) => budget.month >= cutoffMonth).length
+    const dateLabel = formatMonth(parseMonthKey(cutoffMonth))
+
+    return `${includedBudgets} saved budget${includedBudgets === 1 ? '' : 's'} and transactions since ${dateLabel}`
+  }, [budgets, contextMonths])
+
   // API key not configured state
   if (hasApiKey === false) {
     return (
@@ -542,7 +562,14 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
             </div>
             <div className="hidden sm:block">
               <h1 className="text-sm font-semibold leading-tight">Budgit AI</h1>
-              <p className="text-xs text-muted-foreground">Context: {contextMonths} months</p>
+              <p className="text-xs text-muted-foreground">
+                Context:{' '}
+                {contextMonths === 'all'
+                  ? 'all history'
+                  : contextMonths === 1
+                    ? 'last month'
+                    : `last ${contextMonths} months`}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -611,6 +638,10 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
                       </div>
 
                       {/* Input Box - Centered and prominent */}
+                      <FinancialContextNotice
+                        label={financialContextLabel}
+                        attachedFileName={attachedFile?.name}
+                      />
                       <form onSubmit={handleSubmit}>
                         <div className="relative rounded-2xl border border-muted-foreground/20 bg-card shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
                           <div className="flex items-start gap-3 px-4 pt-4 pb-14">
@@ -759,6 +790,10 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
             {!showStarterQuestions && (
               <div className="border-t bg-card/70 px-4 py-4 md:px-8 lg:px-12">
                 <div className="mx-auto max-w-4xl">
+                  <FinancialContextNotice
+                    label={financialContextLabel}
+                    attachedFileName={attachedFile?.name}
+                  />
                   <form onSubmit={handleSubmit}>
                     <div className="relative rounded-2xl border border-muted-foreground/20 bg-muted/30 shadow-sm focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
                       <textarea
@@ -1000,6 +1035,33 @@ export function InsightsView({ onNavigateToSettings }: InsightsViewProps): React
         </Dialog>
       </div>
     </TooltipProvider>
+  )
+}
+
+interface FinancialContextNoticeProps {
+  label: string
+  attachedFileName?: string
+}
+
+function FinancialContextNotice({
+  label,
+  attachedFileName
+}: FinancialContextNoticeProps): React.JSX.Element {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+      <span className="flex min-w-0 items-center gap-2">
+        <Database className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span>
+          <strong className="font-semibold text-foreground">Financial context:</strong> {label}
+        </span>
+      </span>
+      {attachedFileName && (
+        <span className="ml-auto flex items-center gap-1 text-foreground">
+          <Paperclip className="h-3 w-3" />
+          {attachedFileName}
+        </span>
+      )}
+    </div>
   )
 }
 
